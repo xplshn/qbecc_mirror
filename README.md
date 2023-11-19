@@ -8,4 +8,4 @@ Command qbecc is a C compiler.
 
 # Documentation
 
-    pkg.go.dev/modernc.org/qbecc
+    [pkg.go.dev/modernc.org/qbecc](http://pkg.go.dev/modernc.org/qbecc)
