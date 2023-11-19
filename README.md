@@ -4,7 +4,7 @@ Command qbecc is a C compiler.
 
 # Installation
 
-    $ go install modernc.org/qbecc
+    $ go install modernc.org/qbecc@latest
 
 # Documentation
 
