@@ -14,7 +14,7 @@ clean:
 
 edit:
 	@touch log
-	@if [ -f "Session.vim" ]; then gvim -S & else gvim -p Makefile qbecc.go & fi
+	@if [ -f "Session.vim" ]; then gvim -S & else gvim -p Makefile main.go & fi
 
 editor:
 	gofmt -l -s -w . 2>&1 | tee log-editor

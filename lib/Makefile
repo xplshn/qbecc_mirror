@@ -14,18 +14,15 @@ clean:
 
 edit:
 	@touch log
-	@if [ -f "Session.vim" ]; then gvim -S & else gvim -p Makefile *.go & fi
+	@if [ -f "Session.vim" ]; then gvim -S & else gvim -p Makefile all_test.go qbecc.go & fi
 
 editor:
 	gofmt -l -s -w . 2>&1 | tee log-editor
-	go test -c -o /dev/null 2>&1 | tee -a log-editor
-	go build -v ../... 2>&1 | tee -a log-editor
-	go install -v 2>&1 | tee -a log-editor
-	staticcheck 2>&1 | tee -a log-editor
+	(go test -c -o /dev/null && go install -v .. && staticcheck ) 2>&1 | tee -a log-editor
 
 work:
 	rm -f go.work*
 	go work init
-	go work use .
-	go work use ../cc/v4
-	go work use ../ssa
+	go work use ..
+	go work use ../../cc/v4
+	go work use ../../ssa
