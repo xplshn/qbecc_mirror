@@ -277,17 +277,6 @@ func (t *Task) buildDefs(D, U []string) string {
 	return strings.Join(a, "\n")
 }
 
-func (t *Task) compile(fn string) {
-	ast, err := cc.Translate(t.cfg, t.sourcesFor(fn))
-	if err != nil {
-		t.err(err)
-		return
-	}
-
-	_ = ast
-	trc("%+v", t.cfg)
-}
-
 func (t *Task) sourcesFor(fn string) (r []cc.Source) {
 	r = []cc.Source{
 		{Name: "<predefined>", Value: t.cfg.Predefined},
