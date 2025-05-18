@@ -2,7 +2,9 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// Command qbecc is a C compiler.
+// Command qbecc is a [QBE] based C compiler. (WIP)
+//
+// [QBE]: https://c9x.me/compile/
 package main // import "modernc.org/qbecc"
 
 import (
@@ -14,7 +16,10 @@ import (
 )
 
 func main() {
-	if err := qbecc.NewTask(runtime.GOOS, runtime.GOARCH, os.Args, os.Stdout, os.Stderr, nil).Main(); err != nil {
+	if err := qbecc.NewTask(&qbecc.Options{
+		Stdout: os.Stdout,
+		Stderr: os.Stderr,
+	}, runtime.GOOS, runtime.GOARCH, os.Args...).Main(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}

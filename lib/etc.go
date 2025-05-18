@@ -5,15 +5,11 @@
 package qbecc // import "modernc.org/qbecc/lib"
 
 import (
-	"bytes"
-	"context"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
-	"time"
 )
 
 // origin returns caller's short position, skipping skip frames.
@@ -75,45 +71,3 @@ func trc(s string, args ...interface{}) string {
 	os.Stderr.Sync()
 	return r
 }
-
-// errorf constructs an error value. If extendedErrors is true, the error will
-// contain its origin.
-func errorf(extendedErrors bool, s string, args ...interface{}) error {
-	switch {
-	case s == "":
-		s = fmt.Sprintf(strings.Repeat("%v ", len(args)), args...)
-	default:
-		s = fmt.Sprintf(s, args...)
-	}
-	if dmesgs {
-		dmesg("ERRORF: %s (%v: %v: %v: %v: %v: %v:)", s, origin(7), origin(6), origin(5), origin(4), origin(3), origin(2))
-	}
-	switch {
-	case extendedErrors:
-		return fmt.Errorf("%s (%v: %v: %v: %v: %v: %v:)", s, origin(7), origin(6), origin(5), origin(4), origin(3), origin(2))
-	default:
-		return fmt.Errorf("%s", s)
-	}
-}
-
-func osexec(timeout time.Duration, cmd string, args ...string) (stdout, stderr []byte, err error) {
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
-
-	defer cancel()
-
-	c := exec.CommandContext(ctx, cmd, args...)
-	c.WaitDelay = 5 * time.Second
-	var outBuf, errBuf bytes.Buffer
-	c.Stdout = &outBuf
-	c.Stderr = &errBuf
-	err = c.Run()
-	return outBuf.Bytes(), errBuf.Bytes(), err
-}
-
-// func defaultStr(s, dflt string) string {
-// 	if s != "" {
-// 		return s
-// 	}
-//
-// 	return dflt
-// }

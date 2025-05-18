@@ -1,0 +1,6 @@
+{
+	"autogen": "<none>",
+	"autoupdate": ".",
+	"autotag": ".",
+	"test": "darwin/(amd64|arm64)|freebsd/(amd64|arm64)|linux/(amd64|arm64|riscv64)|windows/(amd64|arm64)"
+}

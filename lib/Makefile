@@ -2,7 +2,7 @@
 # Use of this source code is governed by a BSD-style
 # license that can be found in the LICENSE file.
 
-.PHONY:	all clean edit editor work
+.PHONY:	all clean edit editor work shorttest
 
 all: editor
 	golint
@@ -14,15 +14,18 @@ clean:
 
 edit:
 	@touch log
-	@if [ -f "Session.vim" ]; then gvim -S & else gvim -p Makefile all_test.go qbecc.go & fi
+	@if [ -f "Session.vim" ]; then gvim -S & else gvim -p Makefile ../go.mod builder.json all_test.go qbecc.go & fi
 
 editor:
-	gofmt -l -s -w . 2>&1 | tee log-editor
-	(go test -c -o /dev/null && go install -v .. && staticcheck ) 2>&1 | tee -a log-editor
+	gofmt -l -s -w .
+	go test -c -o /dev/null ./...
+	go install -v  ..
+	staticcheck 2>&1
+
+shorttest:
+	go test -short -v -timeout 24h
 
 work:
 	rm -f go.work*
 	go work init
-	go work use ..
-	go work use ../../cc/v4
-	go work use ../../ssa
+	go work use .
