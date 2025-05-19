@@ -100,19 +100,12 @@ func (t *Task) Main() (err error) {
 func sourcesFor(cfg *cc.Config, fn string, t *Task) (r []cc.Source, err error) {
 	r = []cc.Source{
 		{Name: "<predefined>", Value: cfg.Predefined + `
-#define __extension__
-
-// https://c9x.me/compile/doc/il-v1.2.html#Variadic
-//
-// However, it is possible to conservatively use the maximum size and alignment
-// required by all the targets.
-//
-//	type :valist = align 8 { 24 }  # For amd64_sysv
-//	type :valist = align 8 { 32 }  # For arm64
-//	type :valist = align 8 { 8 }   # For rv64
-
 //TODO(jnml) get rid of this in cc/v4
 int __predefined_declarator;
+
+#ifndef __extension__
+#define __extension__
+#endif
 
 #ifdef __SIZE_TYPE__
 typedef __SIZE_TYPE__ __predefined_size_t;
@@ -135,6 +128,14 @@ typedef __PTRDIFF_TYPE__ __predefined_ptrdiff_t;
 #endif
 `},
 		{Name: "<builtin>", Value: `
+// https://c9x.me/compile/doc/il-v1.2.html#Variadic
+//
+// However, it is possible to conservatively use the maximum size and alignment
+// required by all the targets.
+//
+//	type :valist = align 8 { 24 }  # For amd64_sysv
+//	type :valist = align 8 { 32 }  # For arm64
+//	type :valist = align 8 { 8 }   # For rv64
 #define __GNUC_VA_LIST
 
 #if defined(__amd64__) || defined(__x86_64__) || defined(_M_X64)
