@@ -4,9 +4,6 @@
 
 package qbecc // import "modernc.org/qbecc/lib"
 
-// ~/src/modernc.org/ccorpus2/assets/
-// all_test.go:197:testExec2: TRC run 0789 ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/compile/991229-3.c
-
 import (
 	"context"
 	"fmt"
@@ -26,6 +23,7 @@ import (
 )
 
 const (
+	assets   = "~/src/modernc.org/ccorpus2/assets"
 	gccBinTO = 10 * time.Second
 	gccTO    = 10 * time.Second
 )
@@ -64,6 +62,7 @@ type parallel struct {
 
 	failed   atomic.Int32
 	gccFails atomic.Int32
+	passed   atomic.Int32
 	tested   atomic.Int32
 }
 
@@ -164,8 +163,8 @@ func testExec(t *testing.T, id *int, destDir, suite string) {
 	for _, v := range p.wait() {
 		t.Error(v)
 	}
-	t.Logf("%s: gcc fails=%v files=%v failed=%v",
-		suite, p.gccFails.Load(), p.tested.Load(), p.failed.Load())
+	t.Logf("%s: gcc fails=%v files=%v failed=%v passed=%v",
+		suite, p.gccFails.Load(), p.tested.Load(), p.failed.Load(), p.passed.Load())
 }
 
 func shell(to time.Duration, cmd string, args ...string) (out []byte, err error) {
@@ -212,9 +211,10 @@ func testExec2(t *testing.T, p *parallel, suite, testNm, fn, sid string) (err er
 	_, err = cc.Translate(ccCfg, srcs)
 	if err != nil {
 		p.failed.Add(1)
-		return fmt.Errorf("%s: %v", fn, err)
+		return fmt.Errorf("%s/%s/%s: %v", assets, suite, testNm, err)
 	}
 
 	_ = gccBinOut
+	p.passed.Add(1)
 	return nil
 }
