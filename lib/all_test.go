@@ -31,10 +31,8 @@ const (
 )
 
 var (
-	gcc    string
-	ccCfg  *cc.Config
-	goos   = runtime.GOOS
-	goarch = runtime.GOARCH
+	gcc   string
+	ccCfg *cc.Config
 )
 
 func TestMain(m *testing.M) {
@@ -64,8 +62,9 @@ type parallel struct {
 	limit chan struct{}
 	wg    sync.WaitGroup
 
-	tested   atomic.Int32
+	failed   atomic.Int32
 	gccFails atomic.Int32
+	tested   atomic.Int32
 }
 
 func newParalel() (r *parallel) {
@@ -165,8 +164,8 @@ func testExec(t *testing.T, id *int, destDir, suite string) {
 	for _, v := range p.wait() {
 		t.Error(v)
 	}
-	t.Logf("%s: gcc fails=%v files=%v",
-		suite, p.gccFails.Load(), p.tested.Load())
+	t.Logf("%s: gcc fails=%v files=%v failed=%v",
+		suite, p.gccFails.Load(), p.tested.Load(), p.failed.Load())
 }
 
 func shell(to time.Duration, cmd string, args ...string) (out []byte, err error) {
@@ -203,6 +202,19 @@ func testExec2(t *testing.T, p *parallel, suite, testNm, fn, sid string) (err er
 	}
 
 	p.tested.Add(1)
+	task := NewTask(nil, gcc, fn)
+	srcs, err := sourcesFor(ccCfg, fn, task)
+	if err != nil {
+		p.failed.Add(1)
+		return fmt.Errorf("%s: %v", fn, err)
+	}
+
+	_, err = cc.Translate(ccCfg, srcs)
+	if err != nil {
+		p.failed.Add(1)
+		return fmt.Errorf("%s: %v", fn, err)
+	}
+
 	_ = gccBinOut
 	return nil
 }

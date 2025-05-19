@@ -10,7 +10,6 @@ package main // import "modernc.org/qbecc"
 import (
 	"fmt"
 	"os"
-	"runtime"
 
 	"modernc.org/qbecc/lib"
 )
@@ -19,7 +18,7 @@ func main() {
 	if err := qbecc.NewTask(&qbecc.Options{
 		Stdout: os.Stdout,
 		Stderr: os.Stderr,
-	}, runtime.GOOS, runtime.GOARCH, os.Args...).Main(); err != nil {
+	}, os.Args...).Main(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
