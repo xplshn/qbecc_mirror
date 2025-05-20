@@ -18,6 +18,6 @@ func (t *Task) sourcesFor(cfg *cc.Config, fn string) (r []cc.Source, err error) 
 }
 
 // fn is .c or .h
-func (t *Task) compile() error {
+func (t *Task) compile(fn string) error {
 	panic(todo(""))
 }

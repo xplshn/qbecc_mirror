@@ -10,11 +10,13 @@ package qbecc // import "modernc.org/qbecc/lib"
 import (
 	_ "embed"
 	"fmt"
+	"go/token"
 	"io"
 	"os"
 	"os/exec"
 	"runtime"
 	"strings"
+	"sync"
 
 	"modernc.org/opt"
 )
@@ -116,4 +118,23 @@ func (t *Task) Main() (err error) {
 	}
 
 	return nil
+}
+
+type posErr struct {
+	token.Position
+	Err error
+}
+
+type errList struct {
+	sync.Mutex
+	errs []*posErr
+}
+
+func (e *errList) err(pos token.Position, s string, args ...any) {
+	err := &posErr{pos, fmt.Errorf(s, args...)}
+	e.Lock()
+
+	defer e.Unlock()
+
+	e.errs = append(e.errs, err)
 }

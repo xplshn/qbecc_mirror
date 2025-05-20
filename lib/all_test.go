@@ -8,6 +8,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -203,7 +204,11 @@ func testExec2(t *testing.T, p *parallel, suite, testNm, fn, sid string) (err er
 	}
 
 	p.tested.Add(1)
-	task := NewTask(nil, os.Args[0], fn)
+	task := NewTask(&Options{
+		Stdout:     io.Discard,
+		Stderr:     io.Discard,
+		GOMAXPROCS: 1, // Test is already parallel
+	}, os.Args[0], fn)
 	srcs, err := task.sourcesFor(ccCfg, fn)
 	if err != nil {
 		p.failed.Add(1)
