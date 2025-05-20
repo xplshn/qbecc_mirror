@@ -103,6 +103,9 @@ func sourcesFor(cfg *cc.Config, fn string, t *Task) (r []cc.Source, err error) {
 //TODO(jnml) get rid of this in cc/v4
 int __predefined_declarator;
 
+#undef __SIZEOF_INT128__
+#undef __SIZEOF_UINT128__
+
 #ifndef __extension__
 #define __extension__
 #endif
