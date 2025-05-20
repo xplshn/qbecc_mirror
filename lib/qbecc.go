@@ -45,24 +45,28 @@ func init() {
 //
 // No options are currently defined.
 type Options struct {
-	Stderr io.Writer // Can be nil
-	Stdout io.Writer // Can be nil
-	GoArch string    // can be blank
-	GoOs   string    // can be blank
+	Stderr     io.Writer // Can be nil, defaults to os.Stderr
+	Stdout     io.Writer // Can be nil, defaults to os.Stdout
+	GoArch     string    // can be blank, defaults to runtime.GOARCH
+	GoOs       string    // can be blank, defaults to runtime.GOOS
+	GOMAXPROCS int       // can be zero, defaults to runtime.NumCPU
 }
 
 func (o *Options) setDefaults() *Options {
 	if o.Stdout == nil {
-		o.Stdout = io.Discard
+		o.Stdout = os.Stdout
 	}
 	if o.Stderr == nil {
-		o.Stderr = io.Discard
+		o.Stderr = os.Stderr
 	}
 	if o.GoOs == "" {
-		o.GoOs = goos
+		o.GoOs = runtime.GOOS
 	}
 	if o.GoArch == "" {
-		o.GoArch = goarch
+		o.GoArch = runtime.GOARCH
+	}
+	if o.GOMAXPROCS == 0 {
+		o.GOMAXPROCS = runtime.NumCPU()
 	}
 	return o
 }
