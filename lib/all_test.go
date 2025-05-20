@@ -1,10 +1,11 @@
-// Copyright 2023 The qbecc Authors. All rights reserved.
+// Copyright 2025 The qbecc Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
 package qbecc // import "modernc.org/qbecc/lib"
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"os"
@@ -29,17 +30,10 @@ const (
 )
 
 var (
-	gcc   string
 	ccCfg *cc.Config
 )
 
 func TestMain(m *testing.M) {
-	for _, s := range []string{os.Getenv("CC"), "cc", "gcc", "clang"} {
-		if s, err := exec.LookPath(s); err == nil {
-			gcc = s
-			break
-		}
-	}
 	if gcc == "" {
 		panic(todo("host C compiler not found"))
 	}
@@ -63,6 +57,7 @@ type parallel struct {
 	failed   atomic.Int32
 	gccFails atomic.Int32
 	passed   atomic.Int32
+	skipped  atomic.Int32
 	tested   atomic.Int32
 }
 
@@ -130,6 +125,8 @@ func TestExec(t *testing.T) {
 	}
 }
 
+var bad = []byte("require-effective-target int128")
+
 func testExec(t *testing.T, id *int, destDir, suite string) {
 	srcDir := "assets/" + suite
 	files, err := ccorpus2.FS.ReadDir(srcDir)
@@ -149,6 +146,11 @@ func testExec(t *testing.T, id *int, destDir, suite string) {
 			t.Fatal(err)
 		}
 
+		if bytes.Contains(b[:min(len(b), 1000)], bad) {
+			p.skipped.Add(1)
+			continue
+		}
+
 		sid := fmt.Sprintf("%04d", *id)
 		(*id)++
 		p.exec(func() error {
@@ -163,8 +165,8 @@ func testExec(t *testing.T, id *int, destDir, suite string) {
 	for _, v := range p.wait() {
 		t.Error(v)
 	}
-	t.Logf("%s: gcc fails=%v files=%v failed=%v passed=%v",
-		suite, p.gccFails.Load(), p.tested.Load(), p.failed.Load(), p.passed.Load())
+	t.Logf("%s: gcc fails=%v files=%v skipped=%v failed=%v passed=%v",
+		suite, p.gccFails.Load(), p.tested.Load(), p.failed.Load(), p.skipped.Load(), p.passed.Load())
 }
 
 func shell(to time.Duration, cmd string, args ...string) (out []byte, err error) {
@@ -201,8 +203,8 @@ func testExec2(t *testing.T, p *parallel, suite, testNm, fn, sid string) (err er
 	}
 
 	p.tested.Add(1)
-	task := NewTask(nil, gcc, fn)
-	srcs, err := sourcesFor(ccCfg, fn, task)
+	task := NewTask(nil, os.Args[0], fn)
+	srcs, err := task.sourcesFor(ccCfg, fn)
 	if err != nil {
 		p.failed.Add(1)
 		return fmt.Errorf("%s: %v", fn, err)

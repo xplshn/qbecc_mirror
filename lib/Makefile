@@ -1,4 +1,4 @@
-# Copyright 2023 The qbecc Authors. All rights reserved.
+# Copyright 2025 The qbecc Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style
 # license that can be found in the LICENSE file.
 
@@ -14,7 +14,7 @@ clean:
 
 edit:
 	@touch log
-	@if [ -f "Session.vim" ]; then gvim -S & else gvim -p Makefile ../go.mod builder.json all_test.go qbecc.go & fi
+	@if [ -f "Session.vim" ]; then gvim -S & else gvim -p Makefile ../go.mod builder.json *.h *.go & fi
 
 editor:
 	gofmt -l -s -w .
