@@ -10,7 +10,6 @@ package qbecc // import "modernc.org/qbecc/lib"
 import (
 	_ "embed"
 	"fmt"
-	"go/token"
 	"io"
 	"os"
 	"os/exec"
@@ -112,12 +111,8 @@ func NewTask(options *Options, args ...string) (r *Task, err error) {
 	}, nil
 }
 
-func (t *Task) err0(s string, args ...any) {
-	t.errs.err0(s, args...)
-}
-
-func (t *Task) err(pos token.Position, s string, args ...any) {
-	t.errs.err(pos, s, args...)
+func (t *Task) err(n cc.Node, s string, args ...any) {
+	t.errs.err(n, s, args...)
 }
 
 func (t *Task) Main() (err error) {

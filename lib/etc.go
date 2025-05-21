@@ -7,21 +7,19 @@ package qbecc // import "modernc.org/qbecc/lib"
 import (
 	"bytes"
 	"fmt"
-	"go/token"
 	"os"
 	"path/filepath"
 	"runtime"
 	"runtime/debug"
 	"strings"
 	"sync"
+
+	"modernc.org/cc/v4"
+	"modernc.org/token"
 )
 
 const (
 	errLimit = 10
-)
-
-var (
-	noPos token.Position
 )
 
 // origin returns caller's short position, skipping skip frames.
@@ -134,11 +132,11 @@ func (e *errList) Err() error {
 	return e
 }
 
-func (e *errList) err0(s string, args ...any) {
-	e.err(noPos, s, args...)
-}
-
-func (e *errList) err(pos token.Position, s string, args ...any) {
+func (e *errList) err(n cc.Node, s string, args ...any) {
+	var pos token.Position
+	if n != nil {
+		pos = n.Position()
+	}
 	err := &posErr{pos, fmt.Errorf(s, args...)}
 	e.Lock()
 
@@ -217,6 +215,6 @@ func (t *Task) recover() {
 	defer t.errs.Unlock()
 
 	if len(t.errs.errs) < errLimit {
-		t.errs.errs = append(t.errs.errs, &posErr{noPos, err})
+		t.errs.errs = append(t.errs.errs, &posErr{token.Position{}, err})
 	}
 }

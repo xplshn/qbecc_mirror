@@ -5,15 +5,15 @@
 package qbecc // import "modernc.org/qbecc/lib"
 
 import (
+	"fmt"
+
 	"modernc.org/cc/v4"
 )
 
 func (c *ctx) externalDeclaration(n *cc.ExternalDeclaration) {
-	return //TODO-
 	switch n.Case {
 	case cc.ExternalDeclarationFuncDef: // FunctionDefinition
-		c.w("# %v: %s\n", n.Position(), n.FunctionDefinition.Declarator.Name())
-		//TODO panic(todo("%v: %s %s", n.Position(), n.Case, cc.NodeSource(n)))
+		c.functionDefinition(n.FunctionDefinition)
 	case cc.ExternalDeclarationDecl: // Declaration
 		c.declaration(n.Declaration)
 	case cc.ExternalDeclarationAsmStmt: // AsmStatement
@@ -38,9 +38,9 @@ func (c *ctx) declaration(n *cc.Declaration) {
 				continue
 			}
 
-			c.w("# %v:\n", n.Position())
+			c.pos(n)
 			if d.Linkage() == cc.External {
-				c.w("external ")
+				c.w("export ")
 			}
 			c.w("$%s = align %d ", d.Name(), d.Type().Align())
 			switch l.InitDeclarator.Case {
@@ -58,4 +58,71 @@ func (c *ctx) declaration(n *cc.Declaration) {
 	default:
 		panic(todo("%v: %s %s", n.Position(), n.Case, cc.NodeSource(n)))
 	}
+}
+
+// FunctionDefinition:
+//	DeclarationSpecifiers Declarator DeclarationList CompoundStatement
+
+func (c *ctx) functionDefinition(n *cc.FunctionDefinition) {
+	if n.DeclarationList != nil {
+		c.err(n.DeclarationList, "unsupported declaration list style")
+		return
+	}
+
+	c.fn = &fnCtx{}
+
+	defer func() {
+		c.fn = nil
+	}()
+
+	c.pos(n)
+	d := n.Declarator
+	if d.Linkage() == cc.External {
+		c.w("export ")
+	}
+	c.w("function ")
+	ft := d.Type().(*cc.FunctionType)
+	if rt := ft.Result(); rt.Kind() != cc.Void {
+		c.w("%s ", c.typ(d, rt))
+	}
+	c.w("$%s", d.Name())
+	c.signature(ft.Parameters())
+	c.w(" {\n")
+	c.w("@start.0\n")
+	c.compoundStatement(n.CompoundStatement)
+	c.w("}\n")
+}
+
+func (c *ctx) signature(l []*cc.Parameter) {
+	c.w("(")
+	for _, v := range l {
+		c.w("%s ", c.typ(v, v.Type()))
+		c.w("TODO, ")
+	}
+	c.w(")")
+}
+
+type local struct {
+	renamed string
+
+	isValue bool
+}
+
+type fnCtx struct {
+	locals map[*cc.Declarator]*local
+	static []*cc.InitDeclarator
+}
+
+func (f *fnCtx) registerLocal(d *cc.Declarator) (r *local) {
+	if f.locals == nil {
+		f.locals = map[*cc.Declarator]*local{}
+	}
+	if r = f.locals[d]; r == nil {
+		r = &local{
+			isValue: !d.AddressTaken(),
+			renamed: fmt.Sprintf("%%%s.%d", d.Name(), len(f.locals)),
+		}
+		f.locals[d] = r
+	}
+	return r
 }

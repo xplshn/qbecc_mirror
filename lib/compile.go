@@ -30,7 +30,7 @@ func (t *Task) compile() {
 				ctxs = append(ctxs, t.compileOne(v))
 			})
 		default:
-			t.err0("unexpected file type: %s", v)
+			t.err(nil, "unexpected file type: %s", v)
 			return
 		}
 	}
@@ -41,19 +41,20 @@ func (t *Task) compile() {
 func (t *Task) compileOne(fn string) (r *ctx) {
 	srcs, err := t.sourcesFor(fn)
 	if err != nil {
-		t.err(noPos, "%v", err)
+		t.err(nil, "%v", err)
 		return
 	}
 
 	ast, err := cc.Translate(t.cfg, srcs)
 	if err != nil {
-		t.err(noPos, "%v", err)
+		t.err(nil, "%v", err)
 		return
 	}
 
 	r = t.newCtx(ast)
 	r.w(t.options.SSAHeader)
 	r.translationUnit(ast.TranslationUnit)
+	//trc("\n%s", r.b.Bytes())
 	return r
 }
 
@@ -61,7 +62,8 @@ func (t *Task) compileOne(fn string) (r *ctx) {
 type ctx struct {
 	ast *cc.AST
 	buf
-	t *Task
+	fn *fnCtx
+	t  *Task
 }
 
 func (t *Task) newCtx(ast *cc.AST) *ctx {
@@ -71,8 +73,19 @@ func (t *Task) newCtx(ast *cc.AST) *ctx {
 	}
 }
 
+func (c *ctx) err(n cc.Node, s string, args ...any) {
+	c.t.err(n, s, args...)
+}
+
 func (c *ctx) translationUnit(n *cc.TranslationUnit) {
+	return //TODO-
 	for ; n != nil; n = n.TranslationUnit {
 		c.externalDeclaration(n.ExternalDeclaration)
+	}
+}
+
+func (c *ctx) pos(n cc.Node) {
+	if n != nil {
+		c.w("# %v:\n", n.Position())
 	}
 }

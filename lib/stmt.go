@@ -3,3 +3,96 @@
 // license that can be found in the LICENSE file.
 
 package qbecc // import "modernc.org/qbecc/lib"
+
+import (
+	"modernc.org/cc/v4"
+)
+
+// CompoundStatement:
+//	'{' BlockItemList '}'
+
+func (c *ctx) compoundStatement(n *cc.CompoundStatement) {
+	c.pos(n.Token)
+	for l := n.BlockItemList; l != nil; l = l.BlockItemList {
+		c.blockItem(l.BlockItem)
+	}
+	c.pos(n.Token2)
+}
+
+func (c *ctx) blockItem(n *cc.BlockItem) {
+	switch n.Case {
+	case cc.BlockItemDecl: // Declaration
+		for l := n.Declaration.InitDeclaratorList; l != nil; l = l.InitDeclaratorList {
+			switch d := l.InitDeclarator.Declarator; d.StorageDuration() {
+			case cc.Static:
+				c.fn.static = append(c.fn.static, l.InitDeclarator)
+			case cc.Automatic:
+				local := c.fn.registerLocal(d)
+				switch {
+				case d.AddressTaken():
+					panic(todo("%v: %v %v", n.Position(), n.Case, cc.NodeSource(n)))
+				default:
+					switch {
+					case cc.IsScalarType(d.Type()):
+						var v int64
+						if l.InitDeclarator.Initializer != nil {
+							switch x := l.InitDeclarator.Initializer.Value().(type) {
+							case cc.Int64Value:
+								v = int64(x)
+							default:
+								panic(todo("%v: %T %v", n.Position(), x, cc.NodeSource(n)))
+							}
+						}
+						switch d.Type().Size() {
+						case 4:
+							c.w("\t%s =%s copy %v\n", local.renamed, c.typ(d, d.Type()), v)
+						default:
+							panic(todo("%v: %v %v", n.Position(), n.Case, cc.NodeSource(n)))
+						}
+					default:
+						panic(todo("%v: %v %v", n.Position(), n.Case, cc.NodeSource(n)))
+					}
+				}
+			default:
+				panic(todo("%v: %v %v", n.Position(), n.Case, cc.NodeSource(n)))
+			}
+		}
+	case cc.BlockItemLabel: // LabelDeclaration
+		panic(todo("%v: %v %v", n.Position(), n.Case, cc.NodeSource(n)))
+	case cc.BlockItemStmt: // Statement
+		c.statement(n.Statement)
+	case cc.BlockItemFuncDef: // DeclarationSpecifiers Declarator CompoundStatement
+		// c.err(n.Declarator, "nested functions not supported")
+		panic(todo("%v: %v %v", n.Position(), n.Case, cc.NodeSource(n)))
+	default:
+		panic(todo("%v: %s %s", n.Position(), n.Case, cc.NodeSource(n)))
+	}
+}
+
+func (c *ctx) statement(n *cc.Statement) {
+	switch n.Case {
+	case cc.StatementLabeled: // LabeledStatement
+		panic(todo("%v: %v %v", n.Position(), n.Case, cc.NodeSource(n)))
+	case cc.StatementCompound: // CompoundStatement
+		panic(todo("%v: %v %v", n.Position(), n.Case, cc.NodeSource(n)))
+	case cc.StatementExpr: // ExpressionStatement
+		c.expressionStatement(n.ExpressionStatement)
+	case cc.StatementSelection: // SelectionStatement
+		panic(todo("%v: %v %v", n.Position(), n.Case, cc.NodeSource(n)))
+	case cc.StatementIteration: // IterationStatement
+		panic(todo("%v: %v %v", n.Position(), n.Case, cc.NodeSource(n)))
+	case cc.StatementJump: // JumpStatement
+		panic(todo("%v: %v %v", n.Position(), n.Case, cc.NodeSource(n)))
+	case cc.StatementAsm: // AsmStatement
+		panic(todo("%v: %v %v", n.Position(), n.Case, cc.NodeSource(n)))
+	default:
+		panic(todo("%v: %s %s", n.Position(), n.Case, cc.NodeSource(n)))
+	}
+}
+
+// ExpressionStatement:
+//	ExpressionList ';'
+
+func (c *ctx) expressionStatement(n *cc.ExpressionStatement) {
+	c.expr(n.ExpressionList, void, nil)
+}
