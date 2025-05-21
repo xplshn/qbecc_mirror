@@ -2,7 +2,7 @@
 # Use of this source code is governed by a BSD-style
 # license that can be found in the LICENSE file.
 
-.PHONY:	all clean edit editor work shorttest
+.PHONY:	all clean edit editor work shorttest x
 
 all: editor
 	golint
@@ -29,3 +29,6 @@ work:
 	rm -f go.work*
 	go work init
 	go work use .
+
+x:
+	go test -v -run TestExec/tcc -re 00_

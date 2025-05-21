@@ -16,8 +16,8 @@ import (
 	"os/exec"
 	"runtime"
 	"strings"
-	"sync"
 
+	"modernc.org/cc/v4"
 	"modernc.org/opt"
 )
 
@@ -47,14 +47,19 @@ func init() {
 //
 // No options are currently defined.
 type Options struct {
-	Stderr     io.Writer // Can be nil, defaults to os.Stderr
-	Stdout     io.Writer // Can be nil, defaults to os.Stdout
-	GoArch     string    // can be blank, defaults to runtime.GOARCH
-	GoOs       string    // can be blank, defaults to runtime.GOOS
-	GOMAXPROCS int       // can be zero, defaults to runtime.NumCPU
+	SSAHeader  string     // Will be emited unchanged
+	Config     *cc.Config // Can be nil, defaults to cc.NewConfig(GoOs, GoArch)
+	Stderr     io.Writer  // Can be nil, defaults to os.Stderr
+	Stdout     io.Writer  // Can be nil, defaults to os.Stdout
+	GoArch     string     // can be blank, defaults to runtime.GOARCH
+	GoOs       string     // can be blank, defaults to runtime.GOOS
+	GOMAXPROCS int        // can be zero, defaults to runtime.NumCPU
 }
 
-func (o *Options) setDefaults() *Options {
+func (o *Options) setDefaults() (r *Options, err error) {
+	if o == nil {
+		o = &Options{}
+	}
 	if o.Stdout == nil {
 		o.Stdout = os.Stdout
 	}
@@ -70,14 +75,23 @@ func (o *Options) setDefaults() *Options {
 	if o.GOMAXPROCS == 0 {
 		o.GOMAXPROCS = runtime.NumCPU()
 	}
-	return o
+	if o.Config == nil {
+		if o.Config, err = cc.NewConfig(o.GoOs, o.GoArch); err != nil {
+			return nil, err
+		}
+	}
+
+	return o, nil
 }
 
 // Task represents a compilation job.
 type Task struct {
 	args       []string // from NewTask
+	cfg        *cc.Config
+	errs       errList
 	inputFiles []string
 	options    *Options // from NewTask
+	parallel   *parallel
 }
 
 // NewTask returns a newly created Task. args[0] is the command name. For example
@@ -85,19 +99,30 @@ type Task struct {
 //	t := NewTask(nil, "linux", "amd64", "qbecc", "main.c")
 //
 // It's ok to pass nil 'opts'.
-func NewTask(options *Options, args ...string) (r *Task) {
-	if options == nil {
-		options = &Options{}
+func NewTask(options *Options, args ...string) (r *Task, err error) {
+	if options, err = options.setDefaults(); err != nil {
+		return nil, err
 	}
-	r = &Task{
-		args:    args,
-		options: options.setDefaults(),
-	}
-	return r
+
+	return &Task{
+		args:     args,
+		cfg:      options.Config,
+		options:  options,
+		parallel: newParallel(options.GOMAXPROCS),
+	}, nil
+}
+
+func (t *Task) err0(s string, args ...any) {
+	t.errs.err0(s, args...)
+}
+
+func (t *Task) err(pos token.Position, s string, args ...any) {
+	t.errs.err(pos, s, args...)
 }
 
 func (t *Task) Main() (err error) {
 	set := opt.NewSet()
+	set.Opt("-extended-errors", func(string) error { t.errs.extendedErrors = true; return nil })
 	if err := set.Parse(t.args[1:], func(arg string) error {
 		if strings.HasPrefix(arg, "-") {
 			return fmt.Errorf("unexpected/unsupported option: %s", arg)
@@ -117,24 +142,6 @@ func (t *Task) Main() (err error) {
 		}
 	}
 
-	return nil
-}
-
-type posErr struct {
-	token.Position
-	Err error
-}
-
-type errList struct {
-	sync.Mutex
-	errs []*posErr
-}
-
-func (e *errList) err(pos token.Position, s string, args ...any) {
-	err := &posErr{pos, fmt.Errorf(s, args...)}
-	e.Lock()
-
-	defer e.Unlock()
-
-	e.errs = append(e.errs, err)
+	t.compile()
+	return t.errs.Err()
 }

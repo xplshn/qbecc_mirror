@@ -7,14 +7,15 @@ package qbecc // import "modernc.org/qbecc/lib"
 import (
 	"bytes"
 	"context"
+	"flag"
 	"fmt"
 	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"sort"
-	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -25,13 +26,14 @@ import (
 )
 
 const (
-	assets   = "~/src/modernc.org/ccorpus2/assets"
+	assets   = "~/src/modernc.org/ccorpus2"
 	gccBinTO = 10 * time.Second
 	gccTO    = 10 * time.Second
 )
 
 var (
 	ccCfg *cc.Config
+	re    *regexp.Regexp
 )
 
 func TestMain(m *testing.M) {
@@ -44,11 +46,16 @@ func TestMain(m *testing.M) {
 		panic(todo("cannot acquire host C compiler configuration"))
 	}
 
+	oRE := flag.String("re", "", "")
+	flag.Parse()
+	if s := *oRE; s != "" {
+		re = regexp.MustCompile(s)
+	}
 	rc := m.Run()
 	os.Exit(rc)
 }
 
-type parallel struct {
+type parallelTest struct {
 	sync.Mutex
 
 	errs  []error
@@ -62,13 +69,13 @@ type parallel struct {
 	tested   atomic.Int32
 }
 
-func newParalel() (r *parallel) {
-	return &parallel{
+func newParalelTest() (r *parallelTest) {
+	return &parallelTest{
 		limit: make(chan struct{}, runtime.GOMAXPROCS(0)),
 	}
 }
 
-func (p *parallel) exec(run func() error) {
+func (p *parallelTest) exec(run func() error) {
 	p.limit <- struct{}{}
 	p.wg.Add(1)
 
@@ -82,24 +89,19 @@ func (p *parallel) exec(run func() error) {
 	}()
 }
 
-func (p *parallel) wait() (errs []error) {
+func (p *parallelTest) wait() (errs []error) {
 	p.wg.Wait()
 	sort.Slice(p.errs, func(i, j int) bool { return p.errs[i].Error() < p.errs[j].Error() })
 	return p.errs
 }
 
-func (p *parallel) err(err error) {
+func (p *parallelTest) err(err error) {
 	if err == nil {
 		return
 	}
 
-	s := strings.TrimSpace(err.Error())
-	a := strings.Split(s, "\n")
-	if len(a) == 0 {
-		a = append(a, "<empty error>")
-	}
 	p.Lock()
-	p.errs = append(p.errs, fmt.Errorf("%s", a[0]))
+	p.errs = append(p.errs, err)
 	p.Unlock()
 }
 
@@ -135,14 +137,19 @@ func testExec(t *testing.T, id *int, destDir, suite string) {
 		t.Fatal(err)
 	}
 
-	p := newParalel()
+	p := newParalelTest()
 	for _, v := range files {
 		nm := v.Name()
 		if filepath.Ext(nm) != ".c" {
 			continue
 		}
 
-		b, err := ccorpus2.FS.ReadFile(srcDir + "/" + nm)
+		if re != nil && !re.MatchString(nm) {
+			continue
+		}
+
+		fsName := srcDir + "/" + nm
+		b, err := ccorpus2.FS.ReadFile(fsName)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -160,7 +167,7 @@ func testExec(t *testing.T, id *int, destDir, suite string) {
 				return fmt.Errorf("%s: %s: %v", sid, nm, err)
 			}
 
-			return testExec2(t, p, suite, nm, fn, sid)
+			return testExec2(t, p, suite, nm, fn, sid, assets+"/"+fsName)
 		})
 	}
 	for _, v := range p.wait() {
@@ -177,7 +184,7 @@ func shell(to time.Duration, cmd string, args ...string) (out []byte, err error)
 	return exec.CommandContext(ctx, cmd, args...).CombinedOutput()
 }
 
-func testExec2(t *testing.T, p *parallel, suite, testNm, fn, sid string) (err error) {
+func testExec2(t *testing.T, p *parallelTest, suite, testNm, fn, sid, fsName string) (err error) {
 	gccBin := fmt.Sprintf("%s.cc.out", fn)
 	if goos == "windows" {
 		gccBin += ".exe"
@@ -204,24 +211,21 @@ func testExec2(t *testing.T, p *parallel, suite, testNm, fn, sid string) (err er
 	}
 
 	p.tested.Add(1)
-	task := NewTask(&Options{
+	task, err := NewTask(&Options{
+		SSAHeader:  fmt.Sprintf("# %s\n\n", fsName),
 		Stdout:     io.Discard,
 		Stderr:     io.Discard,
 		GOMAXPROCS: 1, // Test is already parallel
-	}, os.Args[0], fn)
-	srcs, err := task.sourcesFor(ccCfg, fn)
+	}, os.Args[0], "--extended-errors", fn)
 	if err != nil {
-		p.failed.Add(1)
-		return fmt.Errorf("%s: %v", fn, err)
+		return err
 	}
 
-	_, err = cc.Translate(ccCfg, srcs)
-	if err != nil {
+	if err = task.Main(); err != nil {
 		p.failed.Add(1)
-		return fmt.Errorf("%s/%s/%s: %v", assets, suite, testNm, err)
 	}
 
-	_ = gccBinOut
 	p.passed.Add(1)
+	_ = gccBinOut //TODO-
 	return nil
 }

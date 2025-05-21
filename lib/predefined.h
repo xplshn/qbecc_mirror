@@ -1,5 +1,5 @@
-//TODO(jnml) get rid of this in cc/v4
-int __predefined_declarator;
+// cc/v4 specific
+typedef int __predefined_declarator;
 
 #undef __SIZEOF_INT128__
 #undef __SIZEOF_UINT128__

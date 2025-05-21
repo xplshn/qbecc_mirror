@@ -5,11 +5,23 @@
 package qbecc // import "modernc.org/qbecc/lib"
 
 import (
+	"bytes"
 	"fmt"
+	"go/token"
 	"os"
 	"path/filepath"
 	"runtime"
+	"runtime/debug"
 	"strings"
+	"sync"
+)
+
+const (
+	errLimit = 10
+)
+
+var (
+	noPos token.Position
 )
 
 // origin returns caller's short position, skipping skip frames.
@@ -50,9 +62,7 @@ func todo(s string, args ...interface{}) string {
 	default:
 		s = fmt.Sprintf(s, args...)
 	}
-	r := fmt.Sprintf("%s\n\tTODO %s", origin(2), s)
-	// fmt.Fprintf(os.Stderr, "%s\n", r)
-	// os.Stdout.Sync()
+	r := fmt.Sprintf("%s TODO %s", origin(2), s)
 	return r
 }
 
@@ -70,4 +80,143 @@ func trc(s string, args ...interface{}) string {
 	fmt.Fprintf(os.Stderr, "%s\n", r)
 	os.Stderr.Sync()
 	return r
+}
+
+type tooManyErrors struct{}
+
+func (tooManyErrors) Error() string {
+	return "too many errors"
+}
+
+type posErr struct {
+	token.Position
+	Err error
+}
+
+func (e *posErr) Error() string {
+	return fmt.Sprintf("%v: %v", e.Position, e.Err)
+}
+
+type errList struct {
+	sync.Mutex
+	errs []*posErr
+
+	extendedErrors bool
+}
+
+func (e *errList) Error() string {
+	e.Lock()
+
+	defer e.Unlock()
+
+	var a []string
+	for _, v := range e.errs {
+		switch {
+		case e.extendedErrors:
+			a = append(a, v.Error())
+		default:
+			b := strings.Split(v.Error(), "\n")
+			a = append(a, b[0])
+		}
+	}
+	return strings.Join(a, "\n")
+}
+
+func (e *errList) Err() error {
+	e.Lock()
+
+	defer e.Unlock()
+
+	if len(e.errs) == 0 {
+		return nil
+	}
+
+	return e
+}
+
+func (e *errList) err0(s string, args ...any) {
+	e.err(noPos, s, args...)
+}
+
+func (e *errList) err(pos token.Position, s string, args ...any) {
+	err := &posErr{pos, fmt.Errorf(s, args...)}
+	e.Lock()
+
+	defer e.Unlock()
+
+	if len(e.errs) > errLimit {
+		return
+	}
+
+	e.errs = append(e.errs, err)
+	if len(e.errs) == errLimit {
+		panic(tooManyErrors{})
+	}
+}
+
+type parallel struct {
+	sync.Mutex
+
+	limit chan struct{}
+	wg    sync.WaitGroup
+}
+
+func newParallel(limit int) (r *parallel) {
+	return &parallel{
+		limit: make(chan struct{}, limit),
+	}
+}
+
+func (p *parallel) exec(run func()) {
+	p.limit <- struct{}{}
+	p.wg.Add(1)
+
+	go func() {
+		defer func() {
+			p.wg.Done()
+			<-p.limit
+		}()
+
+		run()
+	}()
+}
+
+func (p *parallel) wait() {
+	p.wg.Wait()
+}
+
+type buf struct {
+	b bytes.Buffer
+}
+
+func (b *buf) w(s string, args ...any) (r []byte) {
+	n := b.b.Len()
+	fmt.Fprintf(&b.b, s, args...)
+	return b.b.Bytes()[n:b.b.Len()]
+}
+
+func (t *Task) recover() {
+	var err error
+	switch x := recover().(type) {
+	case nil, tooManyErrors:
+		// ok
+		return
+	case error:
+		err = x
+	default:
+		err = fmt.Errorf("%v", x)
+	}
+	switch {
+	case t.errs.extendedErrors:
+		err = fmt.Errorf("PANIC: %v\n%s", err, debug.Stack())
+	default:
+		err = fmt.Errorf("PANIC: %v", err)
+	}
+	t.errs.Lock()
+
+	defer t.errs.Unlock()
+
+	if len(t.errs.errs) < errLimit {
+		t.errs.errs = append(t.errs.errs, &posErr{noPos, err})
+	}
 }

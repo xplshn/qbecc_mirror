@@ -15,10 +15,16 @@ import (
 )
 
 func main() {
-	if err := qbecc.NewTask(&qbecc.Options{
+	t, err := qbecc.NewTask(&qbecc.Options{
 		Stdout: os.Stdout,
 		Stderr: os.Stderr,
-	}, os.Args...).Main(); err != nil {
+	}, os.Args...)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+
+	if err = t.Main(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
