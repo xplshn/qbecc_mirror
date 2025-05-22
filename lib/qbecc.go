@@ -42,17 +42,23 @@ func init() {
 	}
 }
 
+const (
+	_ = iota
+	posBase
+	posFull
+)
+
 // Options amend NewTask.
 //
 // No options are currently defined.
 type Options struct {
-	SSAHeader  string     // Will be emited unchanged
+	SSAHeader  string     // Will be emited unchanged //TODO flag?
 	Config     *cc.Config // Can be nil, defaults to cc.NewConfig(GoOs, GoArch)
 	Stderr     io.Writer  // Can be nil, defaults to os.Stderr
 	Stdout     io.Writer  // Can be nil, defaults to os.Stdout
-	GoArch     string     // can be blank, defaults to runtime.GOARCH
-	GoOs       string     // can be blank, defaults to runtime.GOOS
-	GOMAXPROCS int        // can be zero, defaults to runtime.NumCPU
+	GoArch     string     // can be blank, defaults to runtime.GOARCH //TODO flag?
+	GoOs       string     // can be blank, defaults to runtime.GOOS //TODO flag?
+	GOMAXPROCS int        // can be zero, defaults to runtime.NumCPU //TODO flag?
 }
 
 func (o *Options) setDefaults() (r *Options, err error) {
@@ -91,6 +97,8 @@ type Task struct {
 	inputFiles []string
 	options    *Options // from NewTask
 	parallel   *parallel
+
+	positions int // --positions={base,full}
 }
 
 // NewTask returns a newly created Task. args[0] is the command name. For example
@@ -117,6 +125,15 @@ func (t *Task) err(n cc.Node, s string, args ...any) {
 
 func (t *Task) Main() (err error) {
 	set := opt.NewSet()
+	set.Arg("-positions", false, func(opt, arg string) error {
+		switch arg {
+		case "base":
+			t.positions = posBase
+		case "full":
+			t.positions = posFull
+		}
+		return nil
+	})
 	set.Opt("-extended-errors", func(string) error { t.errs.extendedErrors = true; return nil })
 	if err := set.Parse(t.args[1:], func(arg string) error {
 		if strings.HasPrefix(arg, "-") {

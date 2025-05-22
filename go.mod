@@ -6,6 +6,7 @@ require (
 	modernc.org/cc/v4 v4.26.1
 	modernc.org/ccorpus2 v1.5.2
 	modernc.org/opt v0.1.4
+	modernc.org/token v1.1.0
 )
 
 require (
@@ -13,5 +14,4 @@ require (
 	modernc.org/mathutil v1.7.1 // indirect
 	modernc.org/sortutil v1.2.1 // indirect
 	modernc.org/strutil v1.2.1 // indirect
-	modernc.org/token v1.1.0 // indirect
 )

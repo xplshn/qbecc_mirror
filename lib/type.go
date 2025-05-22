@@ -17,6 +17,13 @@ func (c *ctx) typ(n cc.Node, t cc.Type) string {
 		default:
 			panic(todo("%v: %s %v", n.Position(), t, t.Kind()))
 		}
+	case cc.Ptr:
+		switch t.Size() {
+		case 8:
+			return "l"
+		default:
+			panic(todo("%v: %s %v", n.Position(), t, t.Kind()))
+		}
 	default:
 		panic(todo("%v: %s %v", n.Position(), t, t.Kind()))
 	}
