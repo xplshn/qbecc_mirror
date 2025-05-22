@@ -5,12 +5,15 @@
 package qbecc // import "modernc.org/qbecc/lib"
 
 import (
+	"bytes"
 	"fmt"
+	"os"
 	"path/filepath"
 	"sort"
 	"strconv"
 
 	"modernc.org/cc/v4"
+	"modernc.org/libqbe"
 )
 
 type local struct {
@@ -42,11 +45,13 @@ func (f *fnCtx) registerLocal(d *cc.Declarator) (r *local) {
 
 // Translation unit compile context
 type ctx struct {
-	ast *cc.AST
-	buf
+	asm     string // foo/bar.s
+	ast     *cc.AST
+	buf     // QBE SSA
 	fn      *fnCtx
+	in      string // foo/bar.c
 	nextID  int
-	object  string            // foo/bar.o
+	obj     string            // foo/bar.o
 	strings map[string]string // value: name
 	t       *Task
 
@@ -65,12 +70,12 @@ func (c *ctx) err(n cc.Node, s string, args ...any) {
 	c.t.err(n, s, args...)
 }
 
-func (c *ctx) translationUnit(n *cc.TranslationUnit) {
+func (c *ctx) translationUnit(n *cc.TranslationUnit) (ok bool) {
 	for ; n != nil; n = n.TranslationUnit {
 		c.externalDeclaration(n.ExternalDeclaration)
 	}
 	if c.failed {
-		return
+		return false
 	}
 
 	var a []string
@@ -82,6 +87,7 @@ func (c *ctx) translationUnit(n *cc.TranslationUnit) {
 	for _, k := range a {
 		c.w("data %s = { b %s }\n", c.strings[k], strconv.QuoteToASCII(k))
 	}
+	return true
 }
 
 func (c *ctx) pos(n cc.Node) {
@@ -123,6 +129,23 @@ func (t *Task) sourcesFor(fn string) (r []cc.Source, err error) {
 	return append(r, cc.Source{Name: fn}), nil
 }
 
+func (t *Task) asmFile(in string, c *ctx) (err error) {
+	strippedNm := stripExtCH(in)
+	fn := strippedNm + ".ssa"
+	var asm bytes.Buffer
+	if err := libqbe.Main(t.target, fn, &c.b, &asm, nil); err != nil {
+		return err
+	}
+
+	fn = strippedNm + ".s"
+	if err = os.WriteFile(fn, asm.Bytes(), 0660); err != nil {
+		return err
+	}
+
+	c.asm = fn
+	return nil
+}
+
 // fn is .c or .h
 func (t *Task) compileOne(fn string) (r *ctx) {
 	srcs, err := t.sourcesFor(fn)
@@ -137,30 +160,47 @@ func (t *Task) compileOne(fn string) (r *ctx) {
 		return
 	}
 
+	defer func() {
+		r.ast = nil
+	}()
+
 	r = t.newCtx(ast)
-	r.w(t.options.SSAHeader)
-	r.translationUnit(ast.TranslationUnit)
-	if r.failed {
+	r.in = fn
+	r.w(t.ssaHeader)
+	if !r.translationUnit(ast.TranslationUnit) {
+		return nil
+	}
+
+	if err = t.asmFile(fn, r); err != nil {
+		t.err(nil, "%v", err)
 		return nil
 	}
 
 	return r
 }
 
-func (t *Task) compile() {
-	defer t.recover()
+func (t *Task) compile() (ok bool) {
+	defer t.recover(&ok)
+
+	ok = true
 
 	ctxs := make([]*ctx, len(t.inputFiles))
 	for i, v := range t.inputFiles {
 		switch filepath.Ext(v) {
 		case ".c", ".h":
 			t.parallel.exec(func() {
+				defer t.recover(&ok)
 				ctxs[i] = t.compileOne(v)
+				if ctxs[i].failed {
+					ok = false
+				}
 			})
 		default:
 			t.err(nil, "unexpected file type: %s", v)
-			return
+			return false
 		}
 	}
 	t.parallel.wait()
+	t.compiled = ctxs
+	return ok
 }

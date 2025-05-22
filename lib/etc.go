@@ -6,13 +6,16 @@ package qbecc // import "modernc.org/qbecc/lib"
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"runtime/debug"
 	"strings"
 	"sync"
+	"time"
 
 	"modernc.org/cc/v4"
 	"modernc.org/token"
@@ -193,7 +196,7 @@ func (b *buf) w(s string, args ...any) (r []byte) {
 	return b.b.Bytes()[n:b.b.Len()]
 }
 
-func (t *Task) recover() {
+func (t *Task) recover(ok *bool) {
 	var err error
 	switch x := recover().(type) {
 	case nil, tooManyErrors:
@@ -203,6 +206,9 @@ func (t *Task) recover() {
 		err = x
 	default:
 		err = fmt.Errorf("%v", x)
+	}
+	if ok != nil {
+		*ok = false
 	}
 	switch {
 	case t.errs.extendedErrors:
@@ -217,4 +223,29 @@ func (t *Task) recover() {
 	if len(t.errs.errs) < errLimit {
 		t.errs.errs = append(t.errs.errs, &posErr{token.Position{}, err})
 	}
+}
+
+func stripExtCH(s string) (r string) {
+	switch ext := filepath.Ext(s); ext {
+	case ".c", ".h":
+		return s[:len(s)-len(ext)]
+	}
+
+	return s
+}
+
+func stripExtS(s string) (r string) {
+	switch ext := filepath.Ext(s); ext {
+	case ".s":
+		return s[:len(s)-len(ext)]
+	}
+
+	return s
+}
+
+func shell(timeout time.Duration, cmd string, args ...string) (out []byte, err error) {
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	return exec.CommandContext(ctx, cmd, args...).CombinedOutput()
 }

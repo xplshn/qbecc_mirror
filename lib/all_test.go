@@ -6,12 +6,10 @@ package qbecc // import "modernc.org/qbecc/lib"
 
 import (
 	"bytes"
-	"context"
 	"flag"
 	"fmt"
 	"io"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"regexp"
 	"runtime"
@@ -21,7 +19,6 @@ import (
 	"testing"
 	"time"
 
-	"modernc.org/cc/v4"
 	"modernc.org/ccorpus2"
 )
 
@@ -32,8 +29,10 @@ const (
 )
 
 var (
-	ccCfg *cc.Config
-	re    *regexp.Regexp
+	extendedErrors bool
+	keep           bool
+	re             *regexp.Regexp
+	xtrc            bool
 )
 
 func TestMain(m *testing.M) {
@@ -41,12 +40,10 @@ func TestMain(m *testing.M) {
 		panic(todo("host C compiler not found"))
 	}
 
-	var err error
-	if ccCfg, err = cc.NewConfig(goos, goarch); err != nil {
-		panic(todo("cannot acquire host C compiler configuration"))
-	}
-
 	oRE := flag.String("re", "", "")
+	flag.BoolVar(&keep, "keep", false, "")
+	flag.BoolVar(&extendedErrors, "extended-errors", false, "")
+	flag.BoolVar(&xtrc, "trc", false, "")
 	flag.Parse()
 	if s := *oRE; s != "" {
 		re = regexp.MustCompile(s)
@@ -105,7 +102,7 @@ func (p *parallelTest) err(err error) {
 	p.Unlock()
 }
 
-func TestExec(t *testing.T) {
+func TestPOC(t *testing.T) {
 	t.Logf("using C compiler at %s", gcc)
 	const destDir = "tmp"
 	os.RemoveAll(destDir)
@@ -113,24 +110,55 @@ func TestExec(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	defer os.RemoveAll(destDir)
+	if !keep {
+		defer os.RemoveAll(destDir)
+	}
 
 	id := 0
 	for _, v := range []string{
-		"CompCert-3.6/test/c",
-		"gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute",
-		"github.com/AbsInt/CompCert/test/c",
 		"tcc-0.9.27/tests/tests2",
 	} {
 		t.Run(v, func(t *testing.T) {
-			testExec(t, &id, destDir, v)
+			testExec(t, &id, destDir, v, regexp.MustCompile("00_"))
 		})
 	}
 }
 
+// 2025-05-22
+//	all_test.go:193: tcc-0.9.27/tests/tests2: gcc fails=0 files=1 skipped=0 failed=0 passed=1
+//	all_test.go:193: CompCert-3.6/test/c: gcc fails=8 files=16 skipped=16 failed=0 passed=0
+//	all_test.go:193: gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute: gcc fails=26 files=1479 skipped=1479 failed=1 passed=0
+//	all_test.go:193: github.com/AbsInt/CompCert/test/c: gcc fails=8 files=16 skipped=16 failed=0 passed=0
+//	all_test.go:193: tcc-0.9.27/tests/tests2: gcc fails=8 files=80 skipped=76 failed=0 passed=4
+
+// func TestExec(t *testing.T) {
+// 	t.Logf("using C compiler at %s", gcc)
+// 	const destDir = "tmp"
+// 	os.RemoveAll(destDir)
+// 	if err := os.Mkdir(destDir, 0770); err != nil {
+// 		t.Fatal(err)
+// 	}
+// 
+// 	if !keep {
+// 		defer os.RemoveAll(destDir)
+// 	}
+// 
+// 	id := 0
+// 	for _, v := range []string{
+// 		"CompCert-3.6/test/c",
+// 		"gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute",
+// 		"github.com/AbsInt/CompCert/test/c",
+// 		"tcc-0.9.27/tests/tests2",
+// 	} {
+// 		t.Run(v, func(t *testing.T) {
+// 			testExec(t, &id, destDir, v, re)
+// 		})
+// 	}
+// }
+
 var bad = []byte("require-effective-target int128")
 
-func testExec(t *testing.T, id *int, destDir, suite string) {
+func testExec(t *testing.T, id *int, destDir, suite string, re *regexp.Regexp) {
 	srcDir := "assets/" + suite
 	files, err := ccorpus2.FS.ReadDir(srcDir)
 	if err != nil {
@@ -177,58 +205,78 @@ func testExec(t *testing.T, id *int, destDir, suite string) {
 		suite, p.gccFails.Load(), p.tested.Load(), p.failed.Load(), p.skipped.Load(), p.passed.Load())
 }
 
-func shell(to time.Duration, cmd string, args ...string) (out []byte, err error) {
-	ctx, cancel := context.WithTimeout(context.Background(), to)
-	defer cancel()
-
-	return exec.CommandContext(ctx, cmd, args...).CombinedOutput()
+func binPath(s string) string {
+	switch goos {
+	case "windows":
+		return s + ".exe"
+	default:
+		return "./" + s
+	}
 }
 
 func testExec2(t *testing.T, p *parallelTest, suite, testNm, fn, sid, fsName string) (err error) {
-	gccBin := fmt.Sprintf("%s.cc.out", fn)
-	if goos == "windows" {
-		gccBin += ".exe"
-	}
+	gccBin := binPath(fmt.Sprintf("%s.cc.out", fn))
 	args := []string{gcc, fn, "-o", gccBin}
 
-	gccOut, err := shell(gccTO, args[0], args[1:]...)
-	if err != nil {
-		// t.Logf("%s: host C compiler fails err=%v out=%s", testNm, err, gccOut)
-		_ = gccOut
+	if _, err = shell(gccTO, args[0], args[1:]...); err != nil {
 		p.gccFails.Add(1)
 		return nil
-	}
-
-	if goos != "windows" {
-		gccBin = "./" + gccBin
 	}
 
 	gccBinOut, err := shell(gccBinTO, gccBin)
 	if err != nil {
-		// t.Logf("%s: host C compiled binary fails err=%v out=%s", testNm, err, gccBinOut)
 		p.gccFails.Add(1)
 		return nil
 	}
 
+	if goos == "windows" {
+		t.Skip("windows targets are not supported")
+	}
+
 	p.tested.Add(1)
-	hdr := fmt.Sprintf("# %s\n\n", fsName)
+	if xtrc {
+		trc("%s %s/%s", sid, assets, fsName)
+	}
+	ccBin := binPath(fmt.Sprintf("%s.out", fn))
+	args = []string{
+		os.Args[0],
+		"-o", ccBin,
+		"--ssa-header", fmt.Sprintf("# %s\n\n", fsName),
+		fn,
+	}
+	if extendedErrors {
+		args = append(args, "--extended-errors")
+	}
 	task, err := NewTask(&Options{
-		SSAHeader:  hdr,
 		Stdout:     io.Discard,
 		Stderr:     io.Discard,
 		GOMAXPROCS: 1, // Test is already parallel
-	}, os.Args[0], "--extended-errors", fn)
+	}, args...)
 	if err != nil {
+		t.Logf("COMPILE FAIL: %s", fsName)
 		p.failed.Add(1)
 		return err
 	}
 
-	//TODO if err = task.Main(); err != nil {
-	//TODO 	p.failed.Add(1)
-	//TODO }
+	if err = task.Main(); err != nil {
+		t.Logf("COMPILE FAIL: %s", fsName)
+		p.failed.Add(1)
+		return err
+	}
+
+	ccBinOut, err := shell(gccBinTO, ccBin)
+	if err != nil {
+		t.Logf("EXEC FAIL: %s", fsName)
+		p.failed.Add(1)
+		return err
+	}
+
+	if !bytes.Equal(gccBinOut, ccBinOut) {
+		t.Logf("EQUAL FAIL: %s", fsName)
+		p.failed.Add(1)
+		return fmt.Errorf("output differs")
+	}
 
 	p.passed.Add(1)
-	_ = gccBinOut //TODO-
-	_ = task      //TODO-
 	return nil
 }
