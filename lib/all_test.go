@@ -32,7 +32,7 @@ var (
 	extendedErrors bool
 	keep           bool
 	re             *regexp.Regexp
-	xtrc            bool
+	xtrc           bool
 )
 
 func TestMain(m *testing.M) {
@@ -138,11 +138,11 @@ func TestPOC(t *testing.T) {
 // 	if err := os.Mkdir(destDir, 0770); err != nil {
 // 		t.Fatal(err)
 // 	}
-// 
+//
 // 	if !keep {
 // 		defer os.RemoveAll(destDir)
 // 	}
-// 
+//
 // 	id := 0
 // 	for _, v := range []string{
 // 		"CompCert-3.6/test/c",

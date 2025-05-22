@@ -7,9 +7,15 @@
 // Note: QBECC uses the host C compiler for finding system include files and
 // for linking executables.
 //
+// # Supported targets
+//
+//	linux/amd64
+//	linux/arm64
+//	linux/riscv64
+//
 // # Status
 //
-// QBECC can now compile the first [TCC] test - and almost nothing else. But
+// QBECC can now compile the first [TCC] test - and basically nothing else. But
 // it's a working POC. Example session on linux/amd64.
 //
 //	jnml@e5-1650:~/tmp/qbecc$ ls -la
@@ -55,9 +61,35 @@
 //	jnml@e5-1650:~/tmp/qbecc$ qbecc -S 00_assignment.c
 //	jnml@e5-1650:~/tmp/qbecc$ ls -l
 //	total 8
-//	-rw-r--r-- 1 jnml jnml 231 May 22 13:05 00_assignment.c
-//	-rw-r----- 1 jnml jnml 532 May 22 15:50 00_assignment.s
+//	-rw-r--r-- 1 jnml jnml  231 May 22 13:05 00_assignment.c
+//	-rw-r----- 1 jnml jnml 1234 May 22 17:40 00_assignment.s
 //	jnml@e5-1650:~/tmp/qbecc$ cat 00_assignment.s
+//	.section .qbecc_ssa, "", @progbits
+//	.global .qbecc_ssa_start
+//	.global .qbecc_ssa_end
+//	.global .qbecc_ssa_size
+//
+//	qbecc_ssa_start:
+//		.ascii "export function w $main() {\n"
+//		.ascii "@start.0\n"
+//		.ascii "\t%a.0 =w copy 0\n"
+//		.ascii "\t%a.0 =w copy 42\n"
+//		.ascii "\tcall $printf(l $.0,...,w %a.0,)\n"
+//		.ascii "\t%b.1 =w copy 64\n"
+//		.ascii "\tcall $printf(l $.0,...,w %b.1,)\n"
+//		.ascii "\t%c.2 =w copy 12\n"
+//		.ascii "\t%d.3 =w copy 34\n"
+//		.ascii "\tcall $printf(l $.1,...,w %c.2,w %d.3,)\n"
+//		.ascii "\tret 0\n"
+//		.ascii "}\n"
+//		.ascii "\n"
+//		.ascii "data $.0 = { b \"%d\\n\\x00\" }\n"
+//		.ascii "data $.1 = { b \"%d, %d\\n\\x00\" }\n"
+//		.ascii "\n"
+//	qbecc_ssa_end:
+//
+//	.set qbecc_ssa_size, qbecc_ssa_end - qbecc_ssa_start
+//
 //	.text
 //	.balign 16
 //	.globl main
@@ -104,9 +136,21 @@
 //
 //	jnml@e5-1650:~/src/modernc.org/qbecc/lib$ sloc $(ls *.go | grep -v *_test.go)
 //	  Language  Files  Code  Comment  Blank  Total
-//	     Total      8  1019      230    169   1333
-//	        Go      8  1019      230    169   1333
+//	     Total      8  1029      257    174   1375
+//	        Go      8  1029      257    174   1375
 //	jnml@e5-1650:~/src/modernc.org/qbecc/lib$
+//
+// # Flags
+//
+//	-S, stop after the stage of compilation proper; do not assemble.
+//	-c, compile or assemble the source files, but do not link.
+//	-o=<file>, Place the primary output in file <file>.
+//	--cc=<string>, C compiler to use for linking.
+//	--goarch=<string>, target GOARCH
+//	--goos=<string>, target GOOS
+//	--positions={base,full}, annotate SSA with source position info
+//	--ssa-header=<string>, injected into SSA
+//	--target=<string>, QBE target string, like amd64_sysv.
 //
 // [QBE]: https://c9x.me/compile/
 // [TCC]: https://bellard.org/tcc/
@@ -205,7 +249,7 @@ type Task struct {
 	goos      string // --goos=<string>, target GOOS
 	positions int    // --positions={base,full}, annotate SSA with source position info
 	ssaHeader string // --ssa-header=<string>, injected into SSA
-	target    string // --target=<qbe target string>, QBE target string, like amd64_sysv, ...
+	target    string // --target=<string>, QBE target string, like amd64_sysv.
 }
 
 // NewTask returns a newly created Task. args[0] is the command name. For example

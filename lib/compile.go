@@ -5,12 +5,12 @@
 package qbecc // import "modernc.org/qbecc/lib"
 
 import (
-	"bytes"
 	"fmt"
 	"os"
 	"path/filepath"
 	"sort"
 	"strconv"
+	"strings"
 
 	"modernc.org/cc/v4"
 	"modernc.org/libqbe"
@@ -132,13 +132,23 @@ func (t *Task) sourcesFor(fn string) (r []cc.Source, err error) {
 func (t *Task) asmFile(in string, c *ctx) (err error) {
 	strippedNm := stripExtCH(in)
 	fn := strippedNm + ".ssa"
-	var asm bytes.Buffer
-	if err := libqbe.Main(t.target, fn, &c.b, &asm, nil); err != nil {
+	var asm buf
+	asm.w(".section .qbecc_ssa, \"\", @progbits\n")
+	asm.w(".global .qbecc_ssa_start\n")
+	asm.w(".global .qbecc_ssa_end\n")
+	asm.w(".global .qbecc_ssa_size\n\n")
+	asm.w("qbecc_ssa_start:\n")
+	for _, v := range strings.Split(c.b.String(), "\n") {
+		asm.w("\t.ascii %s\n", strconv.QuoteToASCII(v+"\n"))
+	}
+	asm.w("qbecc_ssa_end:\n")
+	asm.w("\n.set qbecc_ssa_size, qbecc_ssa_end - qbecc_ssa_start\n\n")
+	if err := libqbe.Main(t.target, fn, &c.b, &asm.b, nil); err != nil {
 		return err
 	}
 
 	fn = strippedNm + ".s"
-	if err = os.WriteFile(fn, asm.Bytes(), 0660); err != nil {
+	if err = os.WriteFile(fn, asm.b.Bytes(), 0660); err != nil {
 		return err
 	}
 
