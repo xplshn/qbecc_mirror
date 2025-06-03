@@ -16,7 +16,7 @@ import (
 //
 // If any of these options is used, then the linker is not run.
 func (t *Task) link() {
-	if t.S || t.E {
+	if t.optS || t.optE {
 		return
 	}
 

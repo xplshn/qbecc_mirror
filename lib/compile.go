@@ -114,7 +114,7 @@ func (c *ctx) addString(s string) (r string) {
 		c.strings = map[string]string{}
 	}
 	if r = c.strings[s]; r == "" {
-		r = fmt.Sprintf("$.%d", c.id())
+		r = fmt.Sprintf("$.ts.%d", c.id())
 		c.strings[s] = r
 	}
 	return r
