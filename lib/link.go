@@ -5,9 +5,11 @@
 package qbecc // import "modernc.org/qbecc/lib"
 
 import (
+	"bytes"
 	"os"
-	"path/filepath"
 	"time"
+
+	"modernc.org/libqbe"
 )
 
 // -c
@@ -22,52 +24,87 @@ func (t *Task) link() {
 
 	defer t.recover(nil)
 
-	if t.c {
-		for _, v := range t.compiled {
-			if v.obj != "" || v.asm == "" {
-				continue
-			}
+	switch {
+	case t.abi0:
+		t.linkABI0()
+	default:
+		if t.c {
+			for _, v := range t.inputFiles {
+				if v.outType != fileASM {
+					continue
+				}
 
-			fn := t.o
-			if fn == "" {
-				fn = stripExtS(v.asm) + ".o"
+				asm := v.out.(string)
+				fn := t.o
+				if fn == "" {
+					fn = stripExtS(asm) + ".o"
+				}
+				out, err := shell(time.Minute, t.cc, "-o", fn, "-c", asm)
+				if err != nil {
+					t.err(nil, "%v %s", err, out)
+					return
+				}
 			}
-			out, err := shell(time.Minute, t.cc, "-o", fn, "-c", v.asm)
-			if err != nil {
-				t.err(nil, "%v %s", err, out)
-				return
+			return
+		}
+
+		fn := t.o
+		if fn == "" {
+			fn = "a.out"
+		}
+		args := []string{"-o", fn}
+		var asm []string
+		for _, v := range t.inputFiles {
+			switch v.outType {
+			case fileASM:
+				fn := v.out.(string)
+				args = append(args, fn)
+				asm = append(asm, fn)
+			default:
+				panic(todo("%+v", v))
 			}
 		}
-		return
+
+		defer func() {
+			for _, v := range asm {
+				os.Remove(v)
+			}
+		}()
+
+		out, err := shell(time.Minute, t.cc, args...)
+		if err != nil {
+			t.err(nil, "%v %s", err, out)
+		}
+	}
+}
+
+func (t *Task) linkABI0() {
+	if t.goos != "linux" || t.goarch != "amd64" {
+		panic(todo(""))
 	}
 
 	fn := t.o
 	if fn == "" {
-		fn = "a.out"
+		fn = "a.s"
 	}
-	args := []string{"-o", fn}
-	var asm []string
-	compiled := t.compiled
+	var ssa []byte
 	for _, v := range t.inputFiles {
-		switch filepath.Ext(v) {
-		case ".c":
-			ctx := compiled[0]
-			compiled = compiled[1:]
-			args = append(args, ctx.asm)
-			asm = append(asm, ctx.asm)
+		switch x := v.out.(type) {
+		case []byte:
+			ssa = append(ssa, x...)
+			ssa = append(ssa, '\n')
 		default:
-			panic(todo("", v))
+			panic(todo("%T", x))
 		}
 	}
 
-	defer func() {
-		for _, v := range asm {
-			os.Remove(v)
-		}
-	}()
+	var w bytes.Buffer
+	if err := libqbe.Main("amd64_goabi0", fn, bytes.NewReader(ssa), &w, nil); err != nil {
+		t.err(fileNode(fn), "producing Go ABI0 assember: %v", err)
+		return
+	}
 
-	out, err := shell(time.Minute, t.cc, args...)
-	if err != nil {
-		t.err(nil, "%v %s", err, out)
+	if err := os.WriteFile(fn, w.Bytes(), 0660); err != nil {
+		t.err(fileNode(fn), "saving assembler: %v", err)
 	}
 }

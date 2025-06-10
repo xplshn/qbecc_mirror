@@ -15,6 +15,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"strings"
 
@@ -23,6 +24,10 @@ import (
 )
 
 //  [0]: http://www.open-std.org/jtc1/sc22/wg14/www/docs/n1256.pdf
+
+const (
+	ssaSection = ".qbecc_ssa"
+)
 
 var (
 	gcc    string
@@ -83,13 +88,30 @@ func (o *Options) setDefaults() (r *Options, err error) {
 	return o, nil
 }
 
+const (
+	fileZero = iota
+	fileC
+	fileH
+	fileELF
+	fileASM
+	fileSSA
+)
+
+type file struct {
+	inType  int    // file*
+	in      []byte // nil: read from disk
+	name    string
+	out     any // string: disk file name
+	outType int // file*
+}
+
 // Task represents a compilation job.
 type Task struct {
 	args       []string // from NewTask
 	cfg        *cc.Config
 	compiled   []*ctx
 	errs       errList
-	inputFiles []string
+	inputFiles []*file
 	options    *Options // from NewTask
 	parallel   *parallel
 
@@ -97,6 +119,7 @@ type Task struct {
 	optS      bool   // -S, stop after the stage of compilation proper; do not assemble.
 	c         bool   // -c, compile or assemble the source files, but do not link.
 	o         string // -o=<file>, Place the primary output in file <file>.
+	abi0      bool   // --abi0, produce Go asm file.
 	cc        string // --cc=<string>, C compiler to use for linking.
 	goarch    string // --goarch=<string>, target GOARCH
 	goos      string // --goos=<string>, target GOOS
@@ -145,6 +168,7 @@ func (t *Task) Main() (err error) {
 	})
 	set.Arg("-ssa-header", false, func(opt, arg string) error { t.ssaHeader = arg; return nil })
 	set.Arg("-target", false, func(opt, arg string) error { t.target = arg; return nil })
+	set.Opt("-abi0", func(string) error { t.abi0 = true; return nil })
 	set.Opt("-extended-errors", func(string) error { t.errs.extendedErrors = true; return nil })
 	set.Opt("S", func(string) error { t.optS = true; return nil })
 	set.Opt("c", func(string) error { t.c = true; return nil })
@@ -153,9 +177,14 @@ func (t *Task) Main() (err error) {
 			return fmt.Errorf("unexpected/unsupported option: %s", arg)
 		}
 
-		switch {
-		case strings.HasSuffix(arg, ".c"):
-			t.inputFiles = append(t.inputFiles, arg)
+		switch filepath.Ext(arg) {
+		case ".c":
+			t.inputFiles = append(t.inputFiles, &file{name: arg, inType: fileC})
+			return nil
+		case "":
+			fallthrough
+		default:
+			t.inputFiles = append(t.inputFiles, &file{name: arg, inType: fileELF})
 			return nil
 		}
 

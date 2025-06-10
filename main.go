@@ -20,38 +20,40 @@
 //
 //	jnml@e5-1650:~/tmp/qbecc$ ls -la
 //	total 12
-//	drwxr-xr-x  2 jnml jnml 4096 May 22 15:44 .
-//	drwxr-xr-x 25 jnml jnml 4096 May 22 10:29 ..
+//	drwxr-xr-x  2 jnml jnml 4096 Jun 10 11:58 .
+//	drwxr-xr-x 26 jnml jnml 4096 Jun  2 11:25 ..
 //	-rw-r--r--  1 jnml jnml  231 May 22 13:05 00_assignment.c
 //	jnml@e5-1650:~/tmp/qbecc$ cat 00_assignment.c
 //	#include <stdio.h>
-//
-//	int main()
+//	
+//	int main() 
 //	{
 //	   int a;
 //	   a = 42;
 //	   printf("%d\n", a);
-//
+//	
 //	   int b = 64;
 //	   printf("%d\n", b);
-//
+//	
 //	   int c = 12, d = 34;
 //	   printf("%d, %d\n", c, d);
-//
+//	
 //	   return 0;
 //	}
-//
+//	
 //	// vim: set expandtab ts=4 sw=3 sts=3 tw=80 :
 //	jnml@e5-1650:~/tmp/qbecc$ qbecc 00_assignment.c
-//	jnml@e5-1650:~/tmp/qbecc$ ll
-//	total 20
-//	-rw-r--r-- 1 jnml jnml   231 May 22 13:05 00_assignment.c
-//	-rwxr-xr-x 1 jnml jnml 16024 May 22 15:44 a.out*
-//	jnml@e5-1650:~/tmp/qbecc$ ./a.out
+//	jnml@e5-1650:~/tmp/qbecc$ ls -la
+//	total 32
+//	drwxr-xr-x  2 jnml jnml  4096 Jun 10 11:58 .
+//	drwxr-xr-x 26 jnml jnml  4096 Jun  2 11:25 ..
+//	-rw-r--r--  1 jnml jnml   231 May 22 13:05 00_assignment.c
+//	-rwxr-xr-x  1 jnml jnml 16416 Jun 10 11:58 a.out
+//	jnml@e5-1650:~/tmp/qbecc$ ./a.out 
 //	42
 //	64
 //	12, 34
-//	jnml@e5-1650:~/tmp/qbecc$
+//	jnml@e5-1650:~/tmp/qbecc$ 
 //
 // Producing the assembler file:
 //
@@ -62,34 +64,30 @@
 //	jnml@e5-1650:~/tmp/qbecc$ ls -l
 //	total 8
 //	-rw-r--r-- 1 jnml jnml  231 May 22 13:05 00_assignment.c
-//	-rw-r----- 1 jnml jnml 1234 May 22 17:40 00_assignment.s
+//	-rw-r----- 1 jnml jnml 1900 Jun 10 12:00 00_assignment.s
 //	jnml@e5-1650:~/tmp/qbecc$ cat 00_assignment.s
 //	.section .qbecc_ssa, "", @progbits
 //	.global .qbecc_ssa_start
 //	.global .qbecc_ssa_end
 //	.global .qbecc_ssa_size
-//
+//	
 //	qbecc_ssa_start:
-//		.ascii "export function w $main() {\n"
-//		.ascii "@start.0\n"
-//		.ascii "\t%a.0 =w copy 0\n"
-//		.ascii "\t%a.0 =w copy 42\n"
-//		.ascii "\tcall $printf(l $.0,...,w %a.0,)\n"
-//		.ascii "\t%b.1 =w copy 64\n"
-//		.ascii "\tcall $printf(l $.0,...,w %b.1,)\n"
-//		.ascii "\t%c.2 =w copy 12\n"
-//		.ascii "\t%d.3 =w copy 34\n"
-//		.ascii "\tcall $printf(l $.1,...,w %c.2,w %d.3,)\n"
-//		.ascii "\tret 0\n"
-//		.ascii "}\n"
-//		.ascii "\n"
-//		.ascii "data $.0 = { b \"%d\\n\\x00\" }\n"
-//		.ascii "data $.1 = { b \"%d, %d\\n\\x00\" }\n"
-//		.ascii "\n"
+//		.byte 0x65, 0x78, 0x70, 0x6f, 0x72, 0x74, 0x20, 0x66, 0x75, 0x6e, 0x63, 0x74, 0x69, 0x6f, 0x6e, 0x20
+//		.byte 0x77, 0x20, 0x24, 0x6d, 0x61, 0x69, 0x6e, 0x28, 0x29, 0x20, 0x7b, 0x0a, 0x40, 0x73, 0x74, 0x61
+//		.byte 0x90, 0xb8, 0xc0, 0x28, 0x24, 0x95, 0x87, 0xd1, 0x01, 0xee, 0x0c, 0x6d, 0xee, 0x0f, 0x24, 0x1c
+//		.byte 0xb9, 0xf4, 0xeb, 0xdb, 0xbf, 0x83, 0x43, 0x2d, 0x4c, 0x6c, 0x2d, 0x8d, 0x94, 0xdc, 0x1c, 0xaa
+//		.byte 0xba, 0x33, 0x14, 0x7c, 0x17, 0x3a, 0x39, 0xe1, 0x2c, 0x2e, 0x2e, 0x2e, 0x2c, 0xa1, 0x97, 0xe0
+//		.byte 0xa7, 0x19, 0x2b, 0x11, 0x71, 0x8e, 0xde, 0xe1, 0xb1, 0xa6, 0xee, 0xf6, 0xff, 0x07, 0x0f, 0x17
+//		.byte 0x1f, 0x27, 0x2f, 0x37, 0x3d, 0x0e, 0xce, 0xd2, 0xce, 0x72, 0x56, 0x32, 0xe3, 0x2e, 0x83, 0x1c
+//		.byte 0x62, 0x56, 0x42, 0xe3, 0x3e, 0x13, 0x3e, 0x2e, 0x3e, 0x4e, 0x5c, 0xad, 0x8c, 0xbc, 0xbc, 0xee
+//		.byte 0xce, 0xec, 0xef, 0x3f, 0x5e, 0xa7, 0x26, 0x58, 0x5a, 0x27, 0xd0, 0xa0, 0xa6, 0x46, 0x19, 0xe9
+//		.byte 0x1c, 0x6c, 0x8a, 0x89, 0x92, 0x06, 0x22, 0x02, 0x2e, 0xc2, 0xe3, 0x72, 0xe3, 0xc1, 0x81, 0x81
+//		.byte 0x11, 0x07, 0xa3, 0xd5, 0xeb, 0xc6, 0x73, 0xd6, 0xf5, 0xfb, 0x3d, 0xbc, 0x62, 0xc2, 0x0f, 0x5f
+//		.byte 0xb3, 0xdb, 0xee, 0x20, 0x7d
 //	qbecc_ssa_end:
-//
+//	
 //	.set qbecc_ssa_size, qbecc_ssa_end - qbecc_ssa_start
-//
+//	
 //	.text
 //	.balign 16
 //	.globl main
@@ -98,16 +96,16 @@
 //		pushq %rbp
 //		movq %rsp, %rbp
 //		movl $42, %esi
-//		leaq .0(%rip), %rdi
+//		leaq .ts.0(%rip), %rdi
 //		movl $0, %eax
 //		callq printf
 //		movl $64, %esi
-//		leaq .0(%rip), %rdi
+//		leaq .ts.0(%rip), %rdi
 //		movl $0, %eax
 //		callq printf
 //		movl $34, %edx
 //		movl $12, %esi
-//		leaq .1(%rip), %rdi
+//		leaq .ts.1(%rip), %rdi
 //		movl $0, %eax
 //		callq printf
 //		movl $0, %eax
@@ -116,42 +114,82 @@
 //	.type main, @function
 //	.size main, .-main
 //	/* end function main */
-//
+//	
 //	.data
 //	.balign 8
-//	.0:
+//	.ts.0:
 //		.ascii "%d\n\x00"
 //	/* end data */
-//
+//	
 //	.data
 //	.balign 8
-//	.1:
+//	.ts.1:
 //		.ascii "%d, %d\n\x00"
 //	/* end data */
-//
+//	
 //	.section .note.GNU-stack,"",@progbits
-//	jnml@e5-1650:~/tmp/qbecc$
+//	jnml@e5-1650:~/tmp/qbecc$ 
 //
 // QBECC is not much code yet:
 //
 //	jnml@e5-1650:~/src/modernc.org/qbecc/lib$ sloc $(ls *.go | grep -v *_test.go)
 //	  Language  Files  Code  Comment  Blank  Total
-//	     Total      8  1029      257    174   1375
-//	        Go      8  1029      257    174   1375
+//	     Total      8  1044      142    155   1256
+//	        Go      8  1044      142    155   12
 //	jnml@e5-1650:~/src/modernc.org/qbecc/lib$
 //
-// # Flags
+// # ==== CC compatible flags supported
 //
-//	-S, stop after the stage of compilation proper; do not assemble.
-//	-c, compile or assemble the source files, but do not link.
-//	-o=<file>, Place the primary output in file <file>.
-//	--cc=<string>, C compiler to use for linking.
-//	--goarch=<string>, target GOARCH
-//	--goos=<string>, target GOOS
-//	--positions={base,full}, annotate SSA with source position info
-//	--ssa-header=<string>, injected into SSA
-//	--target=<string>, QBE target string, like amd64_sysv.
+// # -S: Produce/keep assembler code
 //
+// Stop after the stage of compilation proper; do not assemble.
+//
+// # -c: Do not link
+//
+// Compile or assemble the source files, but do not link. Ignored with --abi0.
+//
+// # -o=<file>: Name the output file
+//
+// Place the primary output in file <file>.
+//
+// # ==== QBECC specific flags
+//
+// # --abi0: Target Go assembler
+//
+// Produce Go [ABI0] assembler code.
+//
+// # --cc=<string>: Select host C compiler
+//
+// Name the C compiler to use for system headers discovery and linking.
+//
+// # --extended-errors: Turn on multi line errors
+//
+// Without this flag only the first line of errors are reported.
+//
+// # --goarch=<string>: target GOARCH
+//
+// Select Go target architecture for cross compiling when/where supported.
+//
+// # --goos=<string>: target GOOS
+//
+// Select Go target OS for cross compiling when/where supported.
+//
+// # --positions={base,full}: Line number info
+//
+// Annotate SSA with source positions.
+//
+// # --ssa-header=<string>: Set SSA header
+//
+// The string is injected into the SSA verbatim.
+//
+// # --target=<string>, QBE target
+//
+// The argument must be a valid QBE target for cross compiling when/where
+// supported. For example
+//
+//	--target=amd64_sysv.
+//
+// [ABI0]: https://tip.golang.org/doc/asm
 // [QBE]: https://c9x.me/compile/
 // [TCC]: https://bellard.org/tcc/
 package main // import "modernc.org/qbecc"

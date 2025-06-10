@@ -15,6 +15,7 @@ import (
 	"runtime/debug"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"modernc.org/cc/v4"
@@ -155,6 +156,13 @@ func (e *errList) err(n cc.Node, s string, args ...any) {
 	}
 }
 
+type fileNode string
+
+func (n fileNode) Position() (r token.Position) {
+	r.Filename = string(n)
+	return r
+}
+
 type parallel struct {
 	sync.Mutex
 
@@ -196,7 +204,7 @@ func (b *buf) w(s string, args ...any) (r []byte) {
 	return b.b.Bytes()[n:b.b.Len()]
 }
 
-func (t *Task) recover(ok *bool) {
+func (t *Task) recover(fail *atomic.Bool) {
 	var err error
 	switch x := recover().(type) {
 	case nil, tooManyErrors:
@@ -207,8 +215,8 @@ func (t *Task) recover(ok *bool) {
 	default:
 		err = fmt.Errorf("%v", x)
 	}
-	if ok != nil {
-		*ok = false
+	if fail != nil {
+		fail.Store(true)
 	}
 	switch {
 	case t.errs.extendedErrors:

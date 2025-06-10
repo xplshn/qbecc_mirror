@@ -237,10 +237,10 @@ func testExec2(t *testing.T, p *parallelTest, suite, testNm, fn, sid, fsName str
 	if xtrc {
 		trc("%s %s/%s", sid, assets, fsName)
 	}
-	ccBin := binPath(fmt.Sprintf("%s.out", fn))
+	qbeccBin := binPath(fmt.Sprintf("%s.out", fn))
 	args = []string{
 		os.Args[0],
-		"-o", ccBin,
+		"-o", qbeccBin,
 		"--ssa-header", fmt.Sprintf("# %s\n\n", fsName),
 		fn,
 	}
@@ -264,14 +264,14 @@ func testExec2(t *testing.T, p *parallelTest, suite, testNm, fn, sid, fsName str
 		return err
 	}
 
-	ccBinOut, err := shell(gccBinTO, ccBin)
+	qbeccBinOut, err := shell(gccBinTO, qbeccBin)
 	if err != nil {
 		t.Logf("EXEC FAIL: %s", fsName)
 		p.failed.Add(1)
 		return err
 	}
 
-	if !bytes.Equal(gccBinOut, ccBinOut) {
+	if !bytes.Equal(gccBinOut, qbeccBinOut) {
 		t.Logf("EQUAL FAIL: %s", fsName)
 		p.failed.Add(1)
 		return fmt.Errorf("output differs")
