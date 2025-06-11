@@ -20,6 +20,15 @@ import (
 	"modernc.org/libqbe"
 )
 
+// Compiler input.
+type compilerFile struct {
+	inType  fileType
+	in      []byte // nil: read from disk
+	name    string
+	out     any // string: disk file name
+	outType fileType
+}
+
 type local struct {
 	renamed string
 
@@ -51,7 +60,7 @@ func (f *fnCtx) registerLocal(d *cc.Declarator) (r *local) {
 type ctx struct {
 	ast     *cc.AST
 	buf     // QBE SSA
-	file    *file
+	file    *compilerFile
 	fn      *fnCtx
 	nextID  int
 	strings map[string]string // value: name
@@ -60,7 +69,7 @@ type ctx struct {
 	failed bool
 }
 
-func (t *Task) newCtx(ast *cc.AST, file *file) *ctx {
+func (t *Task) newCtx(ast *cc.AST, file *compilerFile) *ctx {
 	return &ctx{
 		ast:  ast,
 		file: file,
@@ -124,7 +133,7 @@ func (c *ctx) addString(s string) (r string) {
 }
 
 // inputTypeC, inputTypeH
-func (t *Task) sourcesFor(file *file) (r []cc.Source, err error) {
+func (t *Task) sourcesFor(file *compilerFile) (r []cc.Source, err error) {
 	r = []cc.Source{
 		{Name: "<predefined>", Value: t.cfg.Predefined + predefined},
 		{Name: "<builtin>", Value: builtin},
@@ -177,12 +186,12 @@ func (t *Task) asmFile(in string, c *ctx) (err error) {
 	}
 
 	c.file.out = fn
-	c.file.outType = fileASM
+	c.file.outType = fileTypeHostAsm
 	return nil
 }
 
 // inputTypeC, inputTypeH
-func (t *Task) compileOne(in *file) (r *ctx) {
+func (t *Task) compileOne(in *compilerFile) (r *ctx) {
 	srcs, err := t.sourcesFor(in)
 	if err != nil {
 		t.err(fileNode(in.name), "%v", err)
@@ -195,19 +204,15 @@ func (t *Task) compileOne(in *file) (r *ctx) {
 		return
 	}
 
-	defer func() {
-		r.ast = nil
-	}()
-
 	r = t.newCtx(ast, in)
 	r.w(t.ssaHeader)
 	if !r.translationUnit(ast.TranslationUnit) {
-		return nil
+		return
 	}
 
 	if err = t.asmFile(in.name, r); err != nil {
 		t.err(fileNode(in.name), "%v", err)
-		return nil
+		return
 	}
 
 	return r
@@ -218,42 +223,42 @@ func (t *Task) compile() (ok bool) {
 
 	defer t.recover(&fail)
 
-	ctxs := make([]*ctx, len(t.inputFiles))
-	for i, v := range t.inputFiles {
+	for _, v := range t.compilerFiles {
 		if fail.Load() {
 			break
 		}
 
+		t.linkerObjects = append(t.linkerObjects, newLinkerObject(v))
 		switch v.inType {
-		case fileC, fileH:
+		case fileTypeC, fileTypeH:
 			t.parallel.exec(func() {
 				defer t.recover(&fail)
-				ctxs[i] = t.compileOne(v)
-				if ctxs[i].failed {
+				if t.compileOne(v).failed {
 					fail.Store(true)
 				}
 			})
-		case fileELF:
-			ssa, err := t.ssaFromELF(v.name)
-			if err != nil {
-				t.err(fileNode(v.name), err.Error())
-				fail.Store(true)
-				break
-			}
+		case fileTypeELF:
+			t.parallel.exec(func() {
+				ssa, err := t.ssaFromELF(v.name)
+				if err != nil {
+					t.err(fileNode(v.name), err.Error())
+					fail.Store(true)
+					return
+				}
 
-			var a []byte
-			for _, w := range ssa {
-				a = append(a, w...)
-			}
-			v.out = a
-			v.outType = fileSSA
+				var a []byte
+				for _, w := range ssa {
+					a = append(a, w...)
+				}
+				v.out = a
+				v.outType = fileTypeQbeSSA
+			})
 		default:
 			t.err(fileNode(v.name), "unexpected file type")
 			fail.Store(true)
 		}
 	}
 	t.parallel.wait()
-	t.compiled = ctxs
 	return !fail.Load()
 }
 

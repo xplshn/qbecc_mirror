@@ -154,10 +154,6 @@
 //
 // # ==== QBECC specific flags
 //
-// # --abi0: Target Go assembler
-//
-// Produce Go [ABI0] assembler code.
-//
 // # --cc=<string>: Select host C compiler
 //
 // Name the C compiler to use for system headers discovery and linking.
@@ -165,6 +161,10 @@
 // # --extended-errors: Turn on multi line errors
 //
 // Without this flag only the first line of errors are reported.
+//
+// # --goabi0: Target Go assembler
+//
+// Produce Go [ABI0] assembler code.
 //
 // # --goarch=<string>: target GOARCH
 //

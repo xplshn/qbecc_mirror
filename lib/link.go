@@ -12,6 +12,15 @@ import (
 	"modernc.org/libqbe"
 )
 
+// Linker input.
+type linkerObject struct {
+	compilerFile *compilerFile
+}
+
+func newLinkerObject(f *compilerFile) (r *linkerObject) {
+	return &linkerObject{compilerFile: f}
+}
+
 // -c
 // -S
 // -E
@@ -25,16 +34,20 @@ func (t *Task) link() {
 	defer t.recover(nil)
 
 	switch {
-	case t.abi0:
-		t.linkABI0()
+	case t.goabi0:
+		t.linkGoABI0()
 	default:
 		if t.c {
-			for _, v := range t.inputFiles {
-				if v.outType != fileASM {
-					continue
+			for _, lo := range t.linkerObjects {
+				cf := lo.compilerFile
+				switch cf.outType {
+				case fileTypeHostAsm:
+					// ok
+				default:
+					panic(todo("", cf.outType))
 				}
 
-				asm := v.out.(string)
+				asm := cf.out.(string)
 				fn := t.o
 				if fn == "" {
 					fn = stripExtS(asm) + ".o"
@@ -54,14 +67,15 @@ func (t *Task) link() {
 		}
 		args := []string{"-o", fn}
 		var asm []string
-		for _, v := range t.inputFiles {
-			switch v.outType {
-			case fileASM:
-				fn := v.out.(string)
+		for _, lo := range t.linkerObjects {
+			cf := lo.compilerFile
+			switch cf.outType {
+			case fileTypeHostAsm:
+				fn := cf.out.(string)
 				args = append(args, fn)
 				asm = append(asm, fn)
 			default:
-				panic(todo("%+v", v))
+				panic(todo("", cf.outType))
 			}
 		}
 
@@ -78,7 +92,7 @@ func (t *Task) link() {
 	}
 }
 
-func (t *Task) linkABI0() {
+func (t *Task) linkGoABI0() {
 	if t.goos != "linux" || t.goarch != "amd64" {
 		panic(todo(""))
 	}
@@ -88,13 +102,14 @@ func (t *Task) linkABI0() {
 		fn = "a.s"
 	}
 	var ssa []byte
-	for _, v := range t.inputFiles {
-		switch x := v.out.(type) {
-		case []byte:
-			ssa = append(ssa, x...)
+	for _, lo := range t.linkerObjects {
+		cf := lo.compilerFile
+		switch cf.outType {
+		case fileTypeQbeSSA:
+			ssa = append(ssa, cf.out.([]byte)...)
 			ssa = append(ssa, '\n')
 		default:
-			panic(todo("%T", x))
+			panic(todo("", cf.outType))
 		}
 	}
 
