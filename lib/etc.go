@@ -213,6 +213,7 @@ func (t *Task) recover(fail *atomic.Bool) {
 	case error:
 		err = x
 	default:
+		trc("\n%s", debug.Stack())
 		err = fmt.Errorf("%v", x)
 	}
 	if fail != nil {

@@ -186,7 +186,7 @@ func (t *Task) asmFile(in string, c *ctx) (err error) {
 	}
 
 	c.file.out = fn
-	c.file.outType = fileTypeHostAsm
+	c.file.outType = fileHostAsm
 	return nil
 }
 
@@ -228,16 +228,16 @@ func (t *Task) compile() (ok bool) {
 			break
 		}
 
-		t.linkerObjects = append(t.linkerObjects, newLinkerObject(v))
+		t.linkerObjects = append(t.linkerObjects, t.newLinkerObject(v))
 		switch v.inType {
-		case fileTypeC, fileTypeH:
+		case fileC, fileH:
 			t.parallel.exec(func() {
 				defer t.recover(&fail)
 				if t.compileOne(v).failed {
 					fail.Store(true)
 				}
 			})
-		case fileTypeELF:
+		case fileELF:
 			t.parallel.exec(func() {
 				ssa, err := t.ssaFromELF(v.name)
 				if err != nil {
@@ -251,7 +251,7 @@ func (t *Task) compile() (ok bool) {
 					a = append(a, w...)
 				}
 				v.out = a
-				v.outType = fileTypeQbeSSA
+				v.outType = fileQbeSSA
 			})
 		default:
 			t.err(fileNode(v.name), "unexpected file type")

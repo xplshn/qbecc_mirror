@@ -26,6 +26,7 @@ const (
 	assets   = "~/src/modernc.org/ccorpus2"
 	gccBinTO = 10 * time.Second
 	gccTO    = 10 * time.Second
+	goTO     = 10 * time.Second
 )
 
 var (
@@ -272,6 +273,73 @@ func testExec2(t *testing.T, p *parallelTest, suite, testNm, fn, sid, fsName str
 	}
 
 	if !bytes.Equal(gccBinOut, qbeccBinOut) {
+		t.Logf("EQUAL FAIL: %s", fsName)
+		p.failed.Add(1)
+		return fmt.Errorf("output differs")
+	}
+
+	dir := fmt.Sprintf("%s.dir", fn)
+	if err = os.Mkdir(dir, 0770); err != nil {
+		t.Logf("COMPILE FAIL: %s err=%v", fsName, err)
+		p.failed.Add(1)
+		return err
+	}
+
+	if !keep {
+		defer os.RemoveAll(dir)
+	}
+
+	qbeccAsm := filepath.Join(dir, fmt.Sprintf("%s.s", filepath.Base(fn)))
+	args = []string{
+		os.Args[0],
+		"-o", qbeccAsm,
+		"--goabi0",
+		qbeccBin,
+	}
+	if extendedErrors {
+		args = append(args, "--extended-errors")
+	}
+	if task, err = NewTask(&Options{
+		Stdout:     io.Discard,
+		Stderr:     io.Discard,
+		GOMAXPROCS: 1, // Test is already parallel
+	}, args...); err != nil {
+		t.Logf("COMPILE FAIL: %s", fsName)
+		p.failed.Add(1)
+		return err
+	}
+	if err = task.Main(); err != nil {
+		t.Logf("COMPILE FAIL: %s", fsName)
+		p.failed.Add(1)
+		return err
+	}
+
+	mainGo := filepath.Join(dir, fmt.Sprintf("%s.go", filepath.Base(fn)))
+	if err = os.WriteFile(mainGo, []byte(`package main
+
+import (
+	"modernc.org/libc"
+)
+
+func __qbe_main(*libc.TLS, int32, uintptr) int32
+
+func main() {
+	libc.Start(__qbe_main)
+}
+`), 0660); err != nil {
+		t.Logf("COMPILE FAIL: %s", fsName)
+		p.failed.Add(1)
+		return err
+	}
+
+	goOut, err := shell(goTO, "go", "run", "./"+dir)
+	if err != nil {
+		t.Logf("EXEC FAIL: %s", fsName)
+		p.failed.Add(1)
+		return err
+	}
+
+	if !bytes.Equal(gccBinOut, goOut) {
 		t.Logf("EQUAL FAIL: %s", fsName)
 		p.failed.Add(1)
 		return fmt.Errorf("output differs")

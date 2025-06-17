@@ -28,12 +28,12 @@ import (
 type fileType int
 
 const (
-	fileTypeInvalid fileType = iota
-	fileTypeC
-	fileTypeH
-	fileTypeELF
-	fileTypeHostAsm
-	fileTypeQbeSSA
+	fileInvalid fileType = iota
+	fileC
+	fileH
+	fileELF
+	fileHostAsm
+	fileQbeSSA
 )
 
 const (
@@ -173,12 +173,12 @@ func (t *Task) Main() (err error) {
 
 		switch filepath.Ext(arg) {
 		case ".c":
-			t.compilerFiles = append(t.compilerFiles, &compilerFile{name: arg, inType: fileTypeC})
+			t.compilerFiles = append(t.compilerFiles, &compilerFile{name: arg, inType: fileC})
 			return nil
 		case "":
 			fallthrough
 		default:
-			t.compilerFiles = append(t.compilerFiles, &compilerFile{name: arg, inType: fileTypeELF})
+			t.compilerFiles = append(t.compilerFiles, &compilerFile{name: arg, inType: fileELF})
 			return nil
 		}
 

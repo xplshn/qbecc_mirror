@@ -5,20 +5,130 @@
 package qbecc // import "modernc.org/qbecc/lib"
 
 import (
-	"bytes"
+	"bufio"
+	"fmt"
+	"io"
 	"os"
+	"strings"
 	"time"
 
 	"modernc.org/libqbe"
+	"modernc.org/qbecc/lib/internal/parser"
+)
+
+type symbolType int
+
+const (
+	symbolInvalid symbolType = iota
+	symbolFunction
+	symbolExportedFunction
+	symbolData
+	symbolExportedData
 )
 
 // Linker input.
 type linkerObject struct {
 	compilerFile *compilerFile
+	defines      map[string]symbolType // export function $foo() { ... }, export data $bar = { ... }
+	references   map[string]struct{}   // call $printf, store $foo, load $bar
+	task         *Task
 }
 
-func newLinkerObject(f *compilerFile) (r *linkerObject) {
-	return &linkerObject{compilerFile: f}
+func (t *Task) newLinkerObject(f *compilerFile) (r *linkerObject) {
+	return &linkerObject{
+		compilerFile: f,
+		defines:      map[string]symbolType{},
+		references:   map[string]struct{}{},
+		task:         t,
+	}
+}
+
+func (l *linkerObject) inspectSSA(ssa []byte, nm string) (ok bool) {
+	ast, err := parser.Parse(ssa, nm, false)
+	if err != nil {
+		l.task.err(fileNode(nm), "%v", err)
+		return false
+	}
+
+	for _, v := range ast.Defs {
+		switch x := v.(type) {
+		case *parser.FuncDefNode:
+			st := symbolFunction
+			if x.Export.IsValid() {
+				st = symbolExportedFunction
+			}
+			l.defines[string(x.Global.Src())] = st
+			for _, v := range x.Blocks {
+				for _, w := range v.Insts {
+					var ref parser.Node
+					switch x := w.(type) {
+					case *parser.CallNode:
+						ref = x.Val
+					case *parser.LoadNode:
+						ref = x.Val
+					case *parser.StoreNode:
+						ref = x.Dst
+					default:
+						continue
+					}
+
+					switch x := ref.(type) {
+					case *parser.Tok:
+						l.references[string(x.Src())] = struct{}{}
+					default:
+						panic(todo("%T", x))
+					}
+				}
+			}
+		case *parser.DataDefNode:
+			st := symbolData
+			if x.Linkage.IsValid() {
+				switch ln := string(x.Linkage.Src()); {
+				default:
+					panic(todo("%q", ln))
+				}
+			}
+			l.defines[string(x.Global.Src())] = st
+			for _, v := range x.Items {
+				switch y := v.(type) {
+				case *parser.Global:
+					l.references[string(y.Name.Src())] = struct{}{}
+				}
+			}
+		default:
+			panic(todo("%T", x))
+		}
+	}
+	return true
+}
+
+func (l *linkerObject) goabi0(w io.Writer, ssa []byte, nm string, externs map[string]string) (ok bool) {
+	ast, err := parser.Parse(ssa, nm, false)
+	if err != nil {
+		l.task.err(fileNode(nm), "%v", err)
+		return false
+	}
+
+	rewritten := parser.RewriteSource(func(nm string) (r string) {
+		if !strings.HasPrefix(nm, "$") {
+			return nm
+		}
+
+		if _, ok := l.defines[nm]; ok {
+			return nm
+		}
+
+		new := fmt.Sprintf("$\"%s.Y%s\"", externs[nm], nm[1:])
+		new = strings.ReplaceAll(new, ".", "·")
+		return strings.ReplaceAll(new, "/", "\u2215")
+	}, ast.Defs...)
+	// trc("\n%s", rewritten)
+	if err := libqbe.Main("amd64_goabi0", nm, strings.NewReader(rewritten), w, nil); err != nil {
+		l.task.err(fileNode(nm), "producing Go ABI0 assember: %v", err)
+		return false
+	}
+
+	return true
 }
 
 // -c
@@ -41,7 +151,7 @@ func (t *Task) link() {
 			for _, lo := range t.linkerObjects {
 				cf := lo.compilerFile
 				switch cf.outType {
-				case fileTypeHostAsm:
+				case fileHostAsm:
 					// ok
 				default:
 					panic(todo("", cf.outType))
@@ -70,7 +180,7 @@ func (t *Task) link() {
 		for _, lo := range t.linkerObjects {
 			cf := lo.compilerFile
 			switch cf.outType {
-			case fileTypeHostAsm:
+			case fileHostAsm:
 				fn := cf.out.(string)
 				args = append(args, fn)
 				asm = append(asm, fn)
@@ -101,25 +211,67 @@ func (t *Task) linkGoABI0() {
 	if fn == "" {
 		fn = "a.s"
 	}
-	var ssa []byte
+	exported := map[string]*linkerObject{} // $what: where
+	undefined := map[string]string{}       // $what: "example.com/foo", ie. rewrite $what to "$example.com/foo.Ywhat"
 	for _, lo := range t.linkerObjects {
 		cf := lo.compilerFile
 		switch cf.outType {
-		case fileTypeQbeSSA:
-			ssa = append(ssa, cf.out.([]byte)...)
-			ssa = append(ssa, '\n')
+		case fileQbeSSA:
+			if !lo.inspectSSA(cf.out.([]byte), cf.name) {
+				return
+			}
+
+			for k, v := range lo.defines {
+				switch v {
+				case symbolExportedData, symbolExportedFunction:
+					if _, ok := exported[k]; !ok {
+						exported[k] = lo
+					}
+				}
+			}
+			for k := range lo.references {
+				undefined[k] = ""
+			}
 		default:
 			panic(todo("", cf.outType))
 		}
 	}
 
-	var w bytes.Buffer
-	if err := libqbe.Main("amd64_goabi0", fn, bytes.NewReader(ssa), &w, nil); err != nil {
-		t.err(fileNode(fn), "producing Go ABI0 assember: %v", err)
+	for k := range exported {
+		delete(undefined, k)
+	}
+	for k := range undefined {
+		undefined[k] = "modernc.org/libc" //TODO support linking above libc
+	}
+	f, err := os.Create(fn)
+	if err != nil {
+		t.err(fileNode(fn), "%v", err)
 		return
 	}
 
-	if err := os.WriteFile(fn, w.Bytes(), 0660); err != nil {
-		t.err(fileNode(fn), "saving assembler: %v", err)
+	defer func() {
+		if err := f.Close(); err != nil {
+			t.err(fileNode(fn), "%v", err)
+		}
+	}()
+
+	w := bufio.NewWriter(f)
+
+	defer func() {
+		if err := w.Flush(); err != nil {
+			t.err(fileNode(fn), "%v", err)
+		}
+	}()
+
+	for _, lo := range t.linkerObjects {
+		cf := lo.compilerFile
+		switch cf.outType {
+		case fileQbeSSA:
+			if !lo.goabi0(w, cf.out.([]byte), cf.name, undefined) {
+				return
+			}
+		default:
+			panic(todo("", cf.outType))
+		}
 	}
 }

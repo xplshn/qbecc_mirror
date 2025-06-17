@@ -1315,10 +1315,25 @@ func (p *parser) abiTypeOpt() Tok {
 	return Tok{}
 }
 
-// NodeSource returns the source form of s.
-func NodeSource(s ...Node) string {
+// RweriteSource returns the source form of nodes using a rewriter.
+func RewriteSource(rewriter func(s string) string, nodes ...Node) string {
 	var a []tokener
-	for _, n := range s {
+	for _, n := range nodes {
+		nodeSource(n, &a)
+	}
+	sort.Slice(a, func(i, j int) bool { return a[i].Off() < a[j].Off() })
+	var b strings.Builder
+	for _, t := range a {
+		b.Write(t.Sep())
+		b.WriteString(rewriter(string(t.Src())))
+	}
+	return b.String()
+}
+
+// NodeSource returns the source form of nodes.
+func NodeSource(nodes ...Node) string {
+	var a []tokener
+	for _, n := range nodes {
 		nodeSource(n, &a)
 	}
 	sort.Slice(a, func(i, j int) bool { return a[i].Off() < a[j].Off() })
