@@ -210,6 +210,7 @@ func (t *Task) compileOne(in *compilerFile) (r *ctx) {
 		return
 	}
 
+	// trc("====\n%s", r.buf.b.Bytes())
 	if err = t.asmFile(in.name, r); err != nil {
 		t.err(fileNode(in.name), "%v", err)
 		return

@@ -789,6 +789,7 @@ const (
 	LOCAL                              // local name
 	LONG_DOUBLE_LIT                    // long double literal
 	MUL                                // mul
+	NEG                                // neg
 	OR                                 // or
 	P                                  // p
 	PHI                                // phi
@@ -908,6 +909,7 @@ var Keywords = map[string]Ch{
 	"loaduw":   LOADUW,
 	"loadw":    LOADW,
 	"mul":      MUL,
+	"neg":      NEG,
 	"or":       OR,
 	"p":        P,
 	"phi":      PHI,

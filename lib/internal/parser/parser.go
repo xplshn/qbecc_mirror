@@ -1001,6 +1001,8 @@ func (p *parser) op(pre InstPreambleNode) Node {
 		return &LoadNode{pre, p.val()}
 	case MUL:
 		return &MulNode{pre, p.binary()}
+	case NEG:
+		return &NegNode{pre, p.val()}
 	case OR:
 		return &OrNode{pre, p.binary()}
 	case PHI:
@@ -1042,6 +1044,12 @@ func (p *parser) op(pre InstPreambleNode) Node {
 		p.consume()
 		return nil
 	}
+}
+
+// NegNode is a CST node for the neg instruction.
+type NegNode struct {
+	InstPreambleNode
+	Val Node
 }
 
 // CallNode is a CST node for the call instruction.

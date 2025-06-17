@@ -5,6 +5,8 @@
 package qbecc // import "modernc.org/qbecc/lib"
 
 import (
+	"fmt"
+
 	"modernc.org/cc/v4"
 )
 
@@ -51,7 +53,7 @@ func (c *ctx) statement(n *cc.Statement) {
 	case cc.StatementSelection: // SelectionStatement
 		panic(todo("%v: %v %v", n.Position(), n.Case, cc.NodeSource(n)))
 	case cc.StatementIteration: // IterationStatement
-		panic(todo("%v: %v %v", n.Position(), n.Case, cc.NodeSource(n)))
+		c.iterationStatement(n.IterationStatement)
 	case cc.StatementJump: // JumpStatement
 		c.jumpStatement(n.JumpStatement)
 	case cc.StatementAsm: // AsmStatement
@@ -59,6 +61,49 @@ func (c *ctx) statement(n *cc.Statement) {
 	default:
 		panic(todo("%v: %s %s", n.Position(), n.Case, cc.NodeSource(n)))
 	}
+}
+
+func (c *ctx) iterationStatement(n *cc.IterationStatement) {
+	switch n.Case {
+	case cc.IterationStatementWhile: // "while" '(' ExpressionList ')' Statement
+		panic(todo("%v: %v %v", n.Position(), n.Case, cc.NodeSource(n)))
+	case cc.IterationStatementDo: // "do" Statement "while" '(' ExpressionList ')' ';'
+		panic(todo("%v: %v %v", n.Position(), n.Case, cc.NodeSource(n)))
+	case cc.IterationStatementFor: // "for" '(' ExpressionList ';' ExpressionList ';' ExpressionList ')' Statement
+		c.iterationStatementFor(n)
+	case cc.IterationStatementForDecl: // "for" '(' Declaration ExpressionList ';' ExpressionList ')' Statement
+		panic(todo("%v: %v %v", n.Position(), n.Case, cc.NodeSource(n)))
+	default:
+		panic(todo("%v: %s %s", n.Position(), n.Case, cc.NodeSource(n)))
+	}
+}
+
+// "for" '(' ExpressionList ';' ExpressionList ';' ExpressionList ')' Statement
+func (c *ctx) iterationStatementFor(n *cc.IterationStatement) {
+	//	expr1
+	// @a
+	//	jnz expr2 @b, @z
+	// @b
+	//	stmt
+	//	expr3
+	//	goto @a
+	// @z
+	a := c.label()
+	b := c.label()
+	z := c.label()
+	c.expr(n.ExpressionList, void, nil)
+	c.w("%s\n", a)
+	e2 := c.expr(n.ExpressionList2, rvalue, n.ExpressionList2.Type())
+	c.w("\tjnz %v, %s, %s\n", e2, b, z)
+	c.w("%s\n", b)
+	c.statement(n.Statement)
+	c.expr(n.ExpressionList3, void, nil)
+	c.w("\tjmp %s\n", a)
+	c.w("%s\n", z)
+}
+
+func (c *ctx) label() string {
+	return fmt.Sprintf("@.%v", c.id())
 }
 
 func (c *ctx) blockItemDeclAutomatic(n *cc.BlockItem, id *cc.InitDeclarator) {

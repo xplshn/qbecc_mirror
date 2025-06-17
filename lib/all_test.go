@@ -132,32 +132,125 @@ func TestPOC(t *testing.T) {
 //	all_test.go:193: github.com/AbsInt/CompCert/test/c: gcc fails=8 files=16 skipped=16 failed=0 passed=0
 //	all_test.go:193: tcc-0.9.27/tests/tests2: gcc fails=8 files=80 skipped=76 failed=0 passed=4
 
-// func TestExec(t *testing.T) {
-// 	t.Logf("using C compiler at %s", gcc)
-// 	const destDir = "tmp"
-// 	os.RemoveAll(destDir)
-// 	if err := os.Mkdir(destDir, 0770); err != nil {
-// 		t.Fatal(err)
-// 	}
-//
-// 	if !keep {
-// 		defer os.RemoveAll(destDir)
-// 	}
-//
-// 	id := 0
-// 	for _, v := range []string{
-// 		"CompCert-3.6/test/c",
-// 		"gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute",
-// 		"github.com/AbsInt/CompCert/test/c",
-// 		"tcc-0.9.27/tests/tests2",
-// 	} {
-// 		t.Run(v, func(t *testing.T) {
-// 			testExec(t, &id, destDir, v, re)
-// 		})
-// 	}
-// }
+// 2025-06-17 incl. --goabi0
+//	all_test.go:205: tcc-0.9.27/tests/tests2: gcc fails=0 files=1 skipped=0 failed=0 passed=1
+//	all_test.go:205: CompCert-3.6/test/c: gcc fails=8 files=16 skipped=16 failed=0 passed=0
+//	all_test.go:205: gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute: gcc fails=26 files=1479 skipped=1479 failed=1 passed=0
+//	all_test.go:205: github.com/AbsInt/CompCert/test/c: gcc fails=8 files=16 skipped=16 failed=0 passed=0
+//	all_test.go:205: tcc-0.9.27/tests/tests2: gcc fails=8 files=80 skipped=76 failed=0 passed=4
 
-var bad = []byte("require-effective-target int128")
+func TestExec(t *testing.T) {
+	t.Logf("using C compiler at %s", gcc)
+	const destDir = "tmp"
+	os.RemoveAll(destDir)
+	if err := os.Mkdir(destDir, 0770); err != nil {
+		t.Fatal(err)
+	}
+
+	if !keep {
+		defer os.RemoveAll(destDir)
+	}
+
+	id := 0
+	for _, v := range []string{
+		// "CompCert-3.6/test/c",
+		// "gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute",
+		// "github.com/AbsInt/CompCert/test/c",
+		"tcc-0.9.27/tests/tests2",
+	} {
+		t.Run(v, func(t *testing.T) {
+			testExec(t, &id, destDir, v, re)
+		})
+	}
+}
+
+var (
+	bad       = []byte("require-effective-target int128")
+	blacklist = map[string]struct{}{
+		"03_struct.c":                  {},
+		"04_for.c":                     {},
+		"05_array.c":                   {},
+		"06_case.c":                    {},
+		"07_function.c":                {},
+		"08_while.c":                   {},
+		"09_do_while.c":                {},
+		"10_pointer.c":                 {},
+		"11_precedence.c":              {},
+		"12_hashdefine.c":              {},
+		"14_if.c":                      {},
+		"15_recursion.c":               {},
+		"16_nesting.c":                 {},
+		"17_enum.c":                    {},
+		"18_include.c":                 {},
+		"19_pointer_arithmetic.c":      {},
+		"20_pointer_comparison.c":      {},
+		"21_char_array.c":              {},
+		"22_floating_point.c":          {},
+		"23_type_coercion.c":           {},
+		"24_math_library.c":            {},
+		"25_quicksort.c":               {},
+		"27_sizeof.c":                  {},
+		"28_strings.c":                 {},
+		"29_array_address.c":           {},
+		"30_hanoi.c":                   {},
+		"31_args.c":                    {},
+		"32_led.c":                     {},
+		"33_ternary_op.c":              {},
+		"34_array_assignment.c":        {},
+		"35_sizeof.c":                  {},
+		"36_array_initialisers.c":      {},
+		"37_sprintf.c":                 {},
+		"38_multiple_array_index.c":    {},
+		"39_typedef.c":                 {},
+		"40_stdio.c":                   {},
+		"42_function_pointer.c":        {},
+		"43_void_param.c":              {},
+		"44_scoped_declarations.c":     {},
+		"45_empty_for.c":               {},
+		"46_grep.c":                    {},
+		"47_switch_return.c":           {},
+		"48_nested_break.c":            {},
+		"49_bracket_evaluation.c":      {},
+		"50_logical_second_arg.c":      {},
+		"51_static.c":                  {},
+		"52_unnamed_enum.c":            {},
+		"54_goto.c":                    {},
+		"55_lshift_type.c":             {},
+		"60_errors_and_warnings.c":     {},
+		"64_macro_nesting.c":           {},
+		"67_macro_concat.c":            {},
+		"70_floating_point_literals.c": {},
+		"71_macro_empty_arg.c":         {},
+		"72_long_long_constant.c":      {},
+		"73_arm64.c":                   {},
+		"75_array_in_struct_init.c":    {},
+		"76_dollars_in_identifiers.c":  {},
+		"77_push_pop_macro.c":          {},
+		"78_vla_label.c":               {},
+		"79_vla_continue.c":            {},
+		"80_flexarray.c":               {},
+		"81_types.c":                   {},
+		"82_attribs_position.c":        {},
+		"83_utf8_in_identifiers.c":     {},
+		"84_hex-float.c":               {},
+		"85_asm-outside-function.c":    {},
+		"86_memory-model.c":            {},
+		"87_dead_code.c":               {},
+		"88_codeopt.c":                 {},
+		"89_nocode_wanted.c":           {},
+		"90_struct-init.c":             {},
+		"91_ptr_longlong_arith32.c":    {},
+		"92_enum_bitfield.c":           {},
+		"93_integer_promotion.c":       {},
+		"94_generic.c":                 {},
+		"95_bitfields.c":               {},
+		"95_bitfields_ms.c":            {},
+		"96_nodata_wanted.c":           {},
+		"97_utf8_string_literal.c":     {},
+		"98_al_ax_extend.c":            {},
+		"99_fastcall.c":                {},
+	}
+)
 
 func testExec(t *testing.T, id *int, destDir, suite string, re *regexp.Regexp) {
 	srcDir := "assets/" + suite
@@ -174,6 +267,11 @@ func testExec(t *testing.T, id *int, destDir, suite string, re *regexp.Regexp) {
 		}
 
 		if re != nil && !re.MatchString(nm) {
+			continue
+		}
+
+		if _, ok := blacklist[filepath.Base(nm)]; ok {
+			p.skipped.Add(1)
 			continue
 		}
 
@@ -203,7 +301,7 @@ func testExec(t *testing.T, id *int, destDir, suite string, re *regexp.Regexp) {
 		t.Error(v)
 	}
 	t.Logf("%s: gcc fails=%v files=%v skipped=%v failed=%v passed=%v",
-		suite, p.gccFails.Load(), p.tested.Load(), p.failed.Load(), p.skipped.Load(), p.passed.Load())
+		suite, p.gccFails.Load(), p.tested.Load(), p.skipped.Load(), p.failed.Load(), p.passed.Load())
 }
 
 func binPath(s string) string {
@@ -328,6 +426,7 @@ func main() {
 }
 `), 0660); err != nil {
 		t.Logf("COMPILE FAIL: %s", fsName)
+		trc("%q", testNm)
 		p.failed.Add(1)
 		return err
 	}
@@ -335,12 +434,14 @@ func main() {
 	goOut, err := shell(goTO, "go", "run", "./"+dir)
 	if err != nil {
 		t.Logf("EXEC FAIL: %s", fsName)
+		trc("%q", testNm)
 		p.failed.Add(1)
 		return err
 	}
 
 	if !bytes.Equal(gccBinOut, goOut) {
 		t.Logf("EQUAL FAIL: %s", fsName)
+		trc("%q", testNm)
 		p.failed.Add(1)
 		return fmt.Errorf("output differs")
 	}
