@@ -4,6 +4,8 @@
 
 package qbecc // import "modernc.org/qbecc/lib"
 
+//TODO expr* last 't' paramater ignored
+
 import (
 	"fmt"
 
@@ -517,18 +519,59 @@ func (c *ctx) relationalExpressionLEQ(n *cc.RelationalExpression, mode mode, t c
 	return r
 }
 
+func (c *ctx) relationalExpressionLT(n *cc.RelationalExpression, mode mode, t cc.Type) (r string) {
+	ct := c.usualArithmeticConversions(n.RelationalExpression.Type(), n.ShiftExpression.Type())
+	lhs := c.expr(n.RelationalExpression, rvalue, ct)
+	rhs := c.expr(n.ShiftExpression, rvalue, ct)
+	r = c.temp()
+	switch {
+	case cc.IsSignedInteger(ct):
+		c.w("\t%s =w cslt%s %s, %s\n", r, c.typ(n, ct), lhs, rhs)
+	default:
+		panic(todo("%v: %s %s", n.Position(), n.Type(), cc.NodeSource(n)))
+	}
+	return r
+}
+
 func (c *ctx) relationalExpression(n *cc.RelationalExpression, mode mode, t cc.Type) (r string) {
 	switch n.Case {
 	case cc.RelationalExpressionShift: //  ShiftExpression
 		panic(todo("%v: %v %v", n.Position(), n.Case, cc.NodeSource(n)))
 	case cc.RelationalExpressionLt: // RelationalExpression '<' ShiftExpression
-		panic(todo("%v: %v %v", n.Position(), n.Case, cc.NodeSource(n)))
+		return c.relationalExpressionLT(n, mode, t)
 	case cc.RelationalExpressionGt: // RelationalExpression '>' ShiftExpression
 		panic(todo("%v: %v %v", n.Position(), n.Case, cc.NodeSource(n)))
 	case cc.RelationalExpressionLeq: // RelationalExpression "<=" ShiftExpression
 		return c.relationalExpressionLEQ(n, mode, t)
 	case cc.RelationalExpressionGeq: // RelationalExpression ">=" ShiftExpression
 		panic(todo("%v: %v %v", n.Position(), n.Case, cc.NodeSource(n)))
+	default:
+		panic(todo("%v: %s %s", n.Position(), n.Case, cc.NodeSource(n)))
+	}
+}
+
+func (c *ctx) additiveExpressionAdd(n *cc.AdditiveExpression, mode mode, t cc.Type) (r string) {
+	switch {
+	case cc.IsArithmeticType(n.Type()):
+		ct := c.usualArithmeticConversions(n.AdditiveExpression.Type(), n.MultiplicativeExpression.Type())
+		lhs := c.expr(n.AdditiveExpression, rvalue, ct)
+		rhs := c.expr(n.MultiplicativeExpression, rvalue, ct)
+		r = c.temp()
+		c.w("\t%s =%s add %s, %s\n", r, c.typ(n, ct), lhs, rhs)
+		return r
+	default:
+		panic(todo("%v: %s %s", n.Position(), n.Type(), cc.NodeSource(n)))
+	}
+}
+
+func (c *ctx) additiveExpression(n *cc.AdditiveExpression, mode mode, t cc.Type) (r string) {
+	switch n.Case {
+	case cc.AdditiveExpressionMul: // MultiplicativeExpression
+		panic(todo("%v: %s %s", n.Position(), n.Case, cc.NodeSource(n)))
+	case cc.AdditiveExpressionAdd: // AdditiveExpression '+' MultiplicativeExpression
+		return c.additiveExpressionAdd(n, mode, t)
+	case cc.AdditiveExpressionSub: // AdditiveExpression '-' MultiplicativeExpression
+		panic(todo("%v: %s %s", n.Position(), n.Case, cc.NodeSource(n)))
 	default:
 		panic(todo("%v: %s %s", n.Position(), n.Case, cc.NodeSource(n)))
 	}
@@ -546,6 +589,8 @@ func (c *ctx) expr(n cc.ExpressionNode, mode mode, t cc.Type) (r string) {
 		return c.unaryExpression(x, mode, t)
 	case *cc.RelationalExpression:
 		return c.relationalExpression(x, mode, t)
+	case *cc.AdditiveExpression:
+		return c.additiveExpression(x, mode, t)
 	default:
 		panic(todo("%v: %T %s", n.Position(), x, cc.NodeSource(n)))
 	}

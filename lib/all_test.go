@@ -103,28 +103,6 @@ func (p *parallelTest) err(err error) {
 	p.Unlock()
 }
 
-func TestPOC(t *testing.T) {
-	t.Logf("using C compiler at %s", gcc)
-	const destDir = "tmp"
-	os.RemoveAll(destDir)
-	if err := os.Mkdir(destDir, 0770); err != nil {
-		t.Fatal(err)
-	}
-
-	if !keep {
-		defer os.RemoveAll(destDir)
-	}
-
-	id := 0
-	for _, v := range []string{
-		"tcc-0.9.27/tests/tests2",
-	} {
-		t.Run(v, func(t *testing.T) {
-			testExec(t, &id, destDir, v, regexp.MustCompile("00_"))
-		})
-	}
-}
-
 // 2025-05-22
 //	all_test.go:193: tcc-0.9.27/tests/tests2: gcc fails=0 files=1 skipped=0 failed=0 passed=1
 //	all_test.go:193: CompCert-3.6/test/c: gcc fails=8 files=16 skipped=16 failed=0 passed=0
@@ -133,11 +111,7 @@ func TestPOC(t *testing.T) {
 //	all_test.go:193: tcc-0.9.27/tests/tests2: gcc fails=8 files=80 skipped=76 failed=0 passed=4
 
 // 2025-06-17 incl. --goabi0
-//	all_test.go:205: tcc-0.9.27/tests/tests2: gcc fails=0 files=1 skipped=0 failed=0 passed=1
-//	all_test.go:205: CompCert-3.6/test/c: gcc fails=8 files=16 skipped=16 failed=0 passed=0
-//	all_test.go:205: gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute: gcc fails=26 files=1479 skipped=1479 failed=1 passed=0
-//	all_test.go:205: github.com/AbsInt/CompCert/test/c: gcc fails=8 files=16 skipped=16 failed=0 passed=0
-//	all_test.go:205: tcc-0.9.27/tests/tests2: gcc fails=8 files=80 skipped=76 failed=0 passed=4
+//	all_test.go:283: tcc-0.9.27/tests/tests2: gcc fails=0 files=7 skipped=81 failed=0 passed=7
 
 func TestExec(t *testing.T) {
 	t.Logf("using C compiler at %s", gcc)
@@ -168,7 +142,6 @@ var (
 	bad       = []byte("require-effective-target int128")
 	blacklist = map[string]struct{}{
 		"03_struct.c":                  {},
-		"04_for.c":                     {},
 		"05_array.c":                   {},
 		"06_case.c":                    {},
 		"07_function.c":                {},
@@ -266,13 +239,16 @@ func testExec(t *testing.T, id *int, destDir, suite string, re *regexp.Regexp) {
 			continue
 		}
 
-		if re != nil && !re.MatchString(nm) {
-			continue
-		}
-
-		if _, ok := blacklist[filepath.Base(nm)]; ok {
-			p.skipped.Add(1)
-			continue
+		switch {
+		case re != nil:
+			if !re.MatchString(nm) {
+				continue
+			}
+		default:
+			if _, ok := blacklist[filepath.Base(nm)]; ok {
+				p.skipped.Add(1)
+				continue
+			}
 		}
 
 		fsName := srcDir + "/" + nm
@@ -334,7 +310,7 @@ func testExec2(t *testing.T, p *parallelTest, suite, testNm, fn, sid, fsName str
 
 	p.tested.Add(1)
 	if xtrc {
-		trc("%s %s/%s", sid, assets, fsName)
+		trc("%s %s", sid, fsName)
 	}
 	qbeccBin := binPath(fmt.Sprintf("%s.out", fn))
 	args = []string{

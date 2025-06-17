@@ -47,7 +47,7 @@ func (c *ctx) statement(n *cc.Statement) {
 	case cc.StatementLabeled: // LabeledStatement
 		panic(todo("%v: %v %v", n.Position(), n.Case, cc.NodeSource(n)))
 	case cc.StatementCompound: // CompoundStatement
-		panic(todo("%v: %v %v", n.Position(), n.Case, cc.NodeSource(n)))
+		c.compoundStatement(n.CompoundStatement)
 	case cc.StatementExpr: // ExpressionStatement
 		c.expressionStatement(n.ExpressionStatement)
 	case cc.StatementSelection: // SelectionStatement
@@ -66,7 +66,7 @@ func (c *ctx) statement(n *cc.Statement) {
 func (c *ctx) iterationStatement(n *cc.IterationStatement) {
 	switch n.Case {
 	case cc.IterationStatementWhile: // "while" '(' ExpressionList ')' Statement
-		panic(todo("%v: %v %v", n.Position(), n.Case, cc.NodeSource(n)))
+		c.iterationStatementWhile(n)
 	case cc.IterationStatementDo: // "do" Statement "while" '(' ExpressionList ')' ';'
 		panic(todo("%v: %v %v", n.Position(), n.Case, cc.NodeSource(n)))
 	case cc.IterationStatementFor: // "for" '(' ExpressionList ';' ExpressionList ';' ExpressionList ')' Statement
@@ -78,6 +78,26 @@ func (c *ctx) iterationStatement(n *cc.IterationStatement) {
 	}
 }
 
+// "while" '(' ExpressionList ')' Statement
+func (c *ctx) iterationStatementWhile(n *cc.IterationStatement) {
+	// @a
+	//	jnz expr @b, @z
+	// @b
+	//	stmt
+	//	jmp @a
+	// @z
+	a := c.label()
+	b := c.label()
+	z := c.label()
+	c.w("%s\n", a)
+	e := c.expr(n.ExpressionList, rvalue, n.ExpressionList.Type())
+	c.w("\tjnz %v, %s, %s\n", e, b, z)
+	c.w("%s\n", b)
+	c.statement(n.Statement)
+	c.w("\tjmp %s\n", a)
+	c.w("%s\n", z)
+}
+
 // "for" '(' ExpressionList ';' ExpressionList ';' ExpressionList ')' Statement
 func (c *ctx) iterationStatementFor(n *cc.IterationStatement) {
 	//	expr1
@@ -86,7 +106,7 @@ func (c *ctx) iterationStatementFor(n *cc.IterationStatement) {
 	// @b
 	//	stmt
 	//	expr3
-	//	goto @a
+	//	jmp @a
 	// @z
 	a := c.label()
 	b := c.label()
