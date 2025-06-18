@@ -29,33 +29,6 @@ type compilerFile struct {
 	outType fileType
 }
 
-type local struct {
-	renamed string
-
-	isValue bool
-}
-
-// Function compile context
-type fnCtx struct {
-	locals  map[*cc.Declarator]*local
-	returns cc.Type
-	static  []*cc.InitDeclarator
-}
-
-func (f *fnCtx) registerLocal(d *cc.Declarator) (r *local) {
-	if f.locals == nil {
-		f.locals = map[*cc.Declarator]*local{}
-	}
-	if r = f.locals[d]; r == nil {
-		r = &local{
-			isValue: !d.AddressTaken(),
-			renamed: fmt.Sprintf("%%%s.%d", d.Name(), len(f.locals)),
-		}
-		f.locals[d] = r
-	}
-	return r
-}
-
 // Translation unit compile context
 type ctx struct {
 	ast     *cc.AST
@@ -210,7 +183,9 @@ func (t *Task) compileOne(in *compilerFile) (r *ctx) {
 		return
 	}
 
-	// trc("====\n%s", r.buf.b.Bytes())
+	if trcSSA {
+		fmt.Fprintf(os.Stderr, "==== SSA\n%s", r.buf.b.Bytes())
+	}
 	if err = t.asmFile(in.name, r); err != nil {
 		t.err(fileNode(in.name), "%v", err)
 		return

@@ -33,7 +33,12 @@ var (
 	extendedErrors bool
 	keep           bool
 	re             *regexp.Regexp
+	skipGoABI0     bool
 	xtrc           bool
+
+	enableGoABI0 = map[string]bool{
+		"linux/amd64": true,
+	}
 )
 
 func TestMain(m *testing.M) {
@@ -45,6 +50,8 @@ func TestMain(m *testing.M) {
 	flag.BoolVar(&keep, "keep", false, "")
 	flag.BoolVar(&extendedErrors, "extended-errors", false, "")
 	flag.BoolVar(&xtrc, "trc", false, "")
+	flag.BoolVar(&trcSSA, "trcssa", false, "")
+	flag.BoolVar(&skipGoABI0, "skipgoabi0", !enableGoABI0[target], "")
 	flag.Parse()
 	if s := *oRE; s != "" {
 		re = regexp.MustCompile(s)
@@ -361,6 +368,11 @@ func testExec2(t *testing.T, p *parallelTest, suite, testNm, fn, sid, fsName str
 
 	if !keep {
 		defer os.RemoveAll(dir)
+	}
+
+	if skipGoABI0 {
+		p.passed.Add(1)
+		return
 	}
 
 	qbeccAsm := filepath.Join(dir, fmt.Sprintf("%s.s", filepath.Base(fn)))

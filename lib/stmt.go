@@ -128,11 +128,7 @@ func (c *ctx) label() string {
 
 func (c *ctx) blockItemDeclAutomatic(n *cc.BlockItem, id *cc.InitDeclarator) {
 	d := id.Declarator
-	local := c.fn.registerLocal(d)
-	switch {
-	case d.AddressTaken():
-		panic(todo("%v: %v %v", n.Position(), n.Case, cc.NodeSource(n)))
-	default:
+	if local := c.fn.local(d); local.isValue {
 		switch {
 		case cc.IsScalarType(d.Type()):
 			var v int64

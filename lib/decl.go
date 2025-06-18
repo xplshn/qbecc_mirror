@@ -5,8 +5,69 @@
 package qbecc // import "modernc.org/qbecc/lib"
 
 import (
+	"fmt"
+
 	"modernc.org/cc/v4"
 )
+
+// function local variable
+type local struct {
+	renamed string
+	offset  int64 // relative to alloc
+
+	isValue bool
+}
+
+// Function compile context
+type fnCtx struct {
+	allocs  int64
+	locals  map[*cc.Declarator]*local
+	returns cc.Type
+	static  []*cc.InitDeclarator
+}
+
+func newFnCtx(n *cc.FunctionDefinition) (r *fnCtx) {
+	r = &fnCtx{}
+	walk(n, func(n cc.Node, mode int) {
+		switch mode {
+		case walkPre:
+			switch x := n.(type) {
+			case *cc.Declarator:
+				switch x.StorageDuration() {
+				case cc.Automatic:
+					r.local(x)
+				}
+			}
+		}
+	})
+	return r
+}
+
+func (f *fnCtx) alloc(align, size int64) (r int64) {
+	r = round(f.allocs, align)
+	f.allocs = r + size
+	return r
+}
+
+func (f *fnCtx) local(d *cc.Declarator) (r *local) {
+	if f.locals == nil {
+		f.locals = map[*cc.Declarator]*local{}
+	}
+	if r = f.locals[d]; r == nil {
+		isValue := !d.AddressTaken() && cc.IsScalarType(d.Type())
+		var off int64
+		if !isValue {
+			off = f.alloc(int64(d.Type().Align()), d.Type().Size())
+		}
+		r = &local{
+			isValue: isValue,
+			offset:  off,
+			renamed: fmt.Sprintf("%%%s.%d", d.Name(), len(f.locals)),
+		}
+		f.locals[d] = r
+	}
+	return r
+}
 
 func (c *ctx) signature(l []*cc.Parameter) {
 	c.w("(")
@@ -26,7 +87,7 @@ func (c *ctx) functionDefinition(n *cc.FunctionDefinition) {
 		return
 	}
 
-	f := &fnCtx{}
+	f := newFnCtx(n)
 	c.fn = f
 
 	defer func() {

@@ -44,6 +44,7 @@ var (
 	gcc    string
 	goos   = runtime.GOOS
 	goarch = runtime.GOARCH
+	target = fmt.Sprintf("%s/%s", goos, goarch)
 
 	qbeTargets = map[string]string{
 		"darwin/amd64":  "amd64_apple",
@@ -59,6 +60,9 @@ var (
 	predefined string
 	//go:embed builtin.h
 	builtin string
+
+	// Testing
+	trcSSA bool
 )
 
 func init() {

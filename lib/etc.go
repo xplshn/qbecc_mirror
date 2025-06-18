@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"reflect"
 	"runtime"
 	"runtime/debug"
 	"strings"
@@ -24,6 +25,10 @@ import (
 
 const (
 	errLimit = 10
+)
+
+var (
+	zeroReflectValue reflect.Value
 )
 
 // origin returns caller's short position, skipping skip frames.
@@ -213,7 +218,7 @@ func (t *Task) recover(fail *atomic.Bool) {
 	case error:
 		err = x
 	default:
-		trc("\n%s", debug.Stack())
+		// trc("\n%s", debug.Stack())
 		err = fmt.Errorf("%v", x)
 	}
 	if fail != nil {
@@ -257,4 +262,51 @@ func shell(timeout time.Duration, cmd string, args ...string) (out []byte, err e
 	defer cancel()
 
 	return exec.CommandContext(ctx, cmd, args...).CombinedOutput()
+}
+
+const (
+	walkTok = iota
+	walkPre
+	walkPost
+)
+
+func walk(n cc.Node, fn func(n cc.Node, mode int)) {
+	if n == nil {
+		return
+	}
+
+	if _, ok := n.(cc.Token); ok {
+		fn(n, walkTok)
+		return
+	}
+
+	t := reflect.TypeOf(n)
+	v := reflect.ValueOf(n)
+	if t.Kind() == reflect.Pointer {
+		t = t.Elem()
+		v = v.Elem()
+	}
+	if v == zeroReflectValue || v.IsZero() || t.Kind() != reflect.Struct {
+		return
+	}
+
+	fn(n, walkPre)
+	for i := 0; i < t.NumField(); i++ {
+		f := t.Field(i)
+		if !f.IsExported() {
+			continue
+		}
+
+		if m, ok := v.Field(i).Interface().(cc.Node); ok {
+			walk(m, fn)
+		}
+	}
+	fn(n, walkPost)
+}
+
+func round(n, to int64) int64 {
+	if m := n % to; m != 0 {
+		n += to - m
+	}
+	return n
 }
