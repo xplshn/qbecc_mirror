@@ -60,9 +60,6 @@ var (
 	predefined string
 	//go:embed builtin.h
 	builtin string
-
-	// Testing
-	trcSSA bool
 )
 
 func init() {
@@ -112,15 +109,17 @@ type Task struct {
 	linkerObjects []*linkerObject
 	options       *Options // from NewTask
 	parallel      *parallel
+	wordTag       string // 32b: "w", 64b: "l"
 
-	optE      bool   // -E, stop after the preprocessing stage; do not run the compiler proper.
-	optS      bool   // -S, stop after the stage of compilation proper; do not assemble.
 	c         bool   // -c, compile or assemble the source files, but do not link.
-	o         string // -o=<file>, Place the primary output in file <file>.
-	goabi0    bool   // --goabi0, produce Go asm file.
 	cc        string // --cc=<string>, C compiler to use for linking.
+	dumpSSA   bool   // --dump-ssa
+	goabi0    bool   // --goabi0, produce Go asm file.
 	goarch    string // --goarch=<string>, target GOARCH
 	goos      string // --goos=<string>, target GOOS
+	o         string // -o=<file>, Place the primary output in file <file>.
+	optE      bool   // -E, stop after the preprocessing stage; do not run the compiler proper.
+	optS      bool   // -S, stop after the stage of compilation proper; do not assemble.
 	positions int    // --positions={base,full}, annotate SSA with source position info
 	ssaHeader string // --ssa-header=<string>, injected into SSA
 	target    string // --target=<string>, QBE target string, like amd64_sysv.
@@ -166,8 +165,9 @@ func (t *Task) Main() (err error) {
 	})
 	set.Arg("-ssa-header", false, func(opt, arg string) error { t.ssaHeader = arg; return nil })
 	set.Arg("-target", false, func(opt, arg string) error { t.target = arg; return nil })
-	set.Opt("-goabi0", func(string) error { t.goabi0 = true; return nil })
+	set.Opt("-dump-ssa", func(string) error { t.dumpSSA = true; return nil })
 	set.Opt("-extended-errors", func(string) error { t.errs.extendedErrors = true; return nil })
+	set.Opt("-goabi0", func(string) error { t.goabi0 = true; return nil })
 	set.Opt("S", func(string) error { t.optS = true; return nil })
 	set.Opt("c", func(string) error { t.c = true; return nil })
 	if err := set.Parse(t.args[1:], func(arg string) error {
@@ -192,6 +192,13 @@ func (t *Task) Main() (err error) {
 		default:
 			return fmt.Errorf("parsing argument %v: %v", t.args[1:], err)
 		}
+	}
+
+	switch t.goarch {
+	case "386", "arm":
+		t.wordTag = "w"
+	default:
+		t.wordTag = "l"
 	}
 
 	if t.target == "" {

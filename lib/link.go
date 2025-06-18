@@ -122,8 +122,11 @@ func (l *linkerObject) goabi0(w io.Writer, ssa []byte, nm string, externs map[st
 		new = strings.ReplaceAll(new, ".", "·")
 		return strings.ReplaceAll(new, "/", "\u2215")
 	}, ast.Defs...)
-	// trc("\n%s", rewritten)
-	if err := libqbe.Main("amd64_goabi0", nm, strings.NewReader(rewritten), w, nil); err != nil {
+	var o libqbe.Options
+	if l.task.dumpSSA {
+		o.DumpGoABI0SSA = true
+	}
+	if err := libqbe.Main("amd64_goabi0", nm, strings.NewReader(rewritten), w, &o); err != nil {
 		l.task.err(fileNode(nm), "producing Go ABI0 assember: %v", err)
 		return false
 	}
@@ -185,7 +188,7 @@ func (t *Task) link() {
 				args = append(args, fn)
 				asm = append(asm, fn)
 			default:
-				panic(todo("", cf.outType))
+				panic(todo("", cf.outType, cf.name))
 			}
 		}
 

@@ -36,17 +36,21 @@ type ctx struct {
 	file    *compilerFile
 	fn      *fnCtx
 	nextID  int
+	ptr     cc.Type
 	strings map[string]string // value: name
 	t       *Task
+	wordTag string
 
 	failed bool
 }
 
 func (t *Task) newCtx(ast *cc.AST, file *compilerFile) *ctx {
 	return &ctx{
-		ast:  ast,
-		file: file,
-		t:    t,
+		ast:     ast,
+		file:    file,
+		ptr:     ast.PVoid,
+		t:       t,
+		wordTag: t.wordTag,
 	}
 }
 
@@ -183,7 +187,7 @@ func (t *Task) compileOne(in *compilerFile) (r *ctx) {
 		return
 	}
 
-	if trcSSA {
+	if t.dumpSSA {
 		fmt.Fprintf(os.Stderr, "==== SSA\n%s", r.buf.b.Bytes())
 	}
 	if err = t.asmFile(in.name, r); err != nil {

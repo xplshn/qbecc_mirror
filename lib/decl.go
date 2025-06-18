@@ -12,8 +12,9 @@ import (
 
 // function local variable
 type local struct {
-	renamed string
+	d       *cc.Declarator
 	offset  int64 // relative to alloc
+	renamed string
 
 	isValue bool
 }
@@ -59,10 +60,15 @@ func (f *fnCtx) local(d *cc.Declarator) (r *local) {
 		if !isValue {
 			off = f.alloc(int64(d.Type().Align()), d.Type().Size())
 		}
+		suff := ""
+		if !d.IsParam() {
+			suff = fmt.Sprintf(".%d", len(f.locals))
+		}
 		r = &local{
+			d:       d,
 			isValue: isValue,
 			offset:  off,
-			renamed: fmt.Sprintf("%%%s.%d", d.Name(), len(f.locals)),
+			renamed: fmt.Sprintf("%%%s%s", d.Name(), suff),
 		}
 		f.locals[d] = r
 	}
@@ -73,7 +79,12 @@ func (c *ctx) signature(l []*cc.Parameter) {
 	c.w("(")
 	for _, v := range l {
 		c.w("%s ", c.typ(v, v.Type()))
-		c.w("TODO, ")
+		switch nm := v.Name(); nm {
+		case "":
+			c.w("TODO, ")
+		default:
+			c.w("%%%s, ", nm)
+		}
 	}
 	c.w(")")
 }
@@ -108,7 +119,12 @@ func (c *ctx) functionDefinition(n *cc.FunctionDefinition) {
 	c.signature(ft.Parameters())
 	c.w(" {\n")
 	c.w("@start.0\n")
-	c.compoundStatement(n.CompoundStatement)
+	if f.allocs != 0 {
+		c.w("\t%%.bp. =%s alloc8 %v\n", c.wordTag, f.allocs)
+	}
+	if !c.compoundStatement(n.CompoundStatement) {
+		c.w("\tret\n")
+	}
 	c.w("}\n")
 }
 

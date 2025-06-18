@@ -25,7 +25,7 @@ func (c *ctx) jumpStatementReturn(n *cc.JumpStatement) {
 	c.w("\tret %s\n", s)
 }
 
-func (c *ctx) jumpStatement(n *cc.JumpStatement) {
+func (c *ctx) jumpStatement(n *cc.JumpStatement) (isReturn bool) {
 	switch n.Case {
 	case cc.JumpStatementGoto: // "goto" IDENTIFIER ';'
 		panic(todo("%v: %s %s", n.Position(), n.Case, cc.NodeSource(n)))
@@ -37,12 +37,14 @@ func (c *ctx) jumpStatement(n *cc.JumpStatement) {
 		panic(todo("%v: %s %s", n.Position(), n.Case, cc.NodeSource(n)))
 	case cc.JumpStatementReturn: // "return" ExpressionList ';'
 		c.jumpStatementReturn(n)
+		isReturn = true
 	default:
 		panic(todo("%v: %s %s", n.Position(), n.Case, cc.NodeSource(n)))
 	}
+	return isReturn
 }
 
-func (c *ctx) statement(n *cc.Statement) {
+func (c *ctx) statement(n *cc.Statement) (isReturn bool) {
 	switch n.Case {
 	case cc.StatementLabeled: // LabeledStatement
 		panic(todo("%v: %v %v", n.Position(), n.Case, cc.NodeSource(n)))
@@ -55,12 +57,13 @@ func (c *ctx) statement(n *cc.Statement) {
 	case cc.StatementIteration: // IterationStatement
 		c.iterationStatement(n.IterationStatement)
 	case cc.StatementJump: // JumpStatement
-		c.jumpStatement(n.JumpStatement)
+		isReturn = c.jumpStatement(n.JumpStatement)
 	case cc.StatementAsm: // AsmStatement
 		panic(todo("%v: %v %v", n.Position(), n.Case, cc.NodeSource(n)))
 	default:
 		panic(todo("%v: %s %s", n.Position(), n.Case, cc.NodeSource(n)))
 	}
+	return isReturn
 }
 
 func (c *ctx) iterationStatement(n *cc.IterationStatement) {
@@ -165,29 +168,34 @@ func (c *ctx) blockItemDecl(n *cc.BlockItem) {
 	}
 }
 
-func (c *ctx) blockItem(n *cc.BlockItem) {
+func (c *ctx) blockItem(n *cc.BlockItem) (isReturn bool) {
 	switch n.Case {
 	case cc.BlockItemDecl: // Declaration
 		c.blockItemDecl(n)
 	case cc.BlockItemLabel: // LabelDeclaration
 		panic(todo("%v: %v %v", n.Position(), n.Case, cc.NodeSource(n)))
 	case cc.BlockItemStmt: // Statement
-		c.statement(n.Statement)
+		isReturn = c.statement(n.Statement)
 	case cc.BlockItemFuncDef: // DeclarationSpecifiers Declarator CompoundStatement
 		// c.err(n.Declarator, "nested functions not supported")
 		panic(todo("%v: %v %v", n.Position(), n.Case, cc.NodeSource(n)))
 	default:
 		panic(todo("%v: %s %s", n.Position(), n.Case, cc.NodeSource(n)))
 	}
+	return isReturn
 }
 
 // CompoundStatement:
 //	'{' BlockItemList '}'
 
-func (c *ctx) compoundStatement(n *cc.CompoundStatement) {
+func (c *ctx) compoundStatement(n *cc.CompoundStatement) (hasReturn bool) {
 	c.pos(n.Token)
 	for l := n.BlockItemList; l != nil; l = l.BlockItemList {
-		c.blockItem(l.BlockItem)
+		hasReturn = c.blockItem(l.BlockItem)
+		if l.BlockItem.Case != cc.BlockItemStmt {
+			hasReturn = false
+		}
 	}
 	c.pos(n.Token2)
+	return hasReturn
 }

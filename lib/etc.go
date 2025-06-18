@@ -310,3 +310,10 @@ func round(n, to int64) int64 {
 	}
 	return n
 }
+
+// func pos(n cc.Node) (r token.Position) {
+// 	if n != nil {
+// 		r = n.Position()
+// 	}
+// 	return r
+// }
