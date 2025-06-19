@@ -125,7 +125,7 @@ func (c *ctx) functionDefinition(n *cc.FunctionDefinition) {
 	if !c.compoundStatement(n.CompoundStatement) {
 		c.w("\tret\n")
 	}
-	c.w("}\n")
+	c.w("}\n\n")
 }
 
 func (c *ctx) declarationDecl(n *cc.Declaration) {

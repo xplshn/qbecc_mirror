@@ -31,6 +31,7 @@ type linkerObject struct {
 	compilerFile *compilerFile
 	defines      map[string]symbolType // export function $foo() { ... }, export data $bar = { ... }
 	references   map[string]struct{}   // call $printf, store $foo, load $bar
+	signatures   map[string][]string   // "$myfunc": []{"tls *libc.TLS", "x int32"}
 	task         *Task
 }
 
@@ -43,7 +44,19 @@ func (t *Task) newLinkerObject(f *compilerFile) (r *linkerObject) {
 	}
 }
 
+func (l *linkerObject) ssaTyp(s string) string {
+	switch s {
+	case "w":
+		return "int32"
+	case "l":
+		return "uintptr"
+	default:
+		panic(todo("", s))
+	}
+}
+
 func (l *linkerObject) inspectSSA(ssa []byte, nm string) (ok bool) {
+	l.signatures = map[string][]string{}
 	ast, err := parser.Parse(ssa, nm, false)
 	if err != nil {
 		l.task.err(fileNode(nm), "%v", err)
@@ -57,7 +70,35 @@ func (l *linkerObject) inspectSSA(ssa []byte, nm string) (ok bool) {
 			if x.Export.IsValid() {
 				st = symbolExportedFunction
 			}
-			l.defines[string(x.Global.Src())] = st
+			fn := string(x.Global.Src())
+			l.defines[fn] = st
+			a := []string{"tls *libc.TLS"}
+			for _, v := range x.Params {
+				switch x := v.(type) {
+				case *parser.RegularParamNode:
+					a = append(a, fmt.Sprintf("%s %s", x.Local.Src()[1:], l.ssaTyp(string(x.Type.Src()))))
+				default:
+					panic(todo("%T", x))
+				}
+			}
+			switch {
+			case fn == "$main":
+				if len(a) < 2 {
+					a = append(a, "argc int32")
+				}
+				if len(a) < 3 {
+					a = append(a, "argv uintptr")
+				}
+				a = append(a, "int32")
+			default:
+				switch {
+				case x.ABIType.IsValid():
+					a = append(a, l.ssaTyp(string(x.ABIType.Src())))
+				default:
+					a = append(a, "")
+				}
+			}
+			l.signatures[fn[1:]] = a
 			for _, v := range x.Blocks {
 				for _, w := range v.Insts {
 					var ref parser.Node
@@ -110,11 +151,15 @@ func (l *linkerObject) goabi0(w io.Writer, ssa []byte, nm string, externs map[st
 	}
 
 	rewritten := parser.RewriteSource(func(nm string) (r string) {
+		// defer func() { trc("nm=%s r=%s", nm, r)}()
 		if !strings.HasPrefix(nm, "$") {
 			return nm
 		}
 
 		if _, ok := l.defines[nm]; ok {
+			if !strings.HasPrefix(nm, "$.") {
+				nm = "$." + nm[1:]
+			}
 			return nm
 		}
 

@@ -14,6 +14,7 @@ import (
 	"regexp"
 	"runtime"
 	"sort"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -30,6 +31,7 @@ const (
 )
 
 var (
+	disableVet     bool
 	dumpSSA        bool
 	extendedErrors bool
 	keep           bool
@@ -48,11 +50,12 @@ func TestMain(m *testing.M) {
 	}
 
 	oRE := flag.String("re", "", "")
-	flag.BoolVar(&keep, "keep", false, "")
-	flag.BoolVar(&extendedErrors, "extended-errors", false, "")
-	flag.BoolVar(&xtrc, "trc", false, "")
+	flag.BoolVar(&disableVet, "disable-vet", false, "")
 	flag.BoolVar(&dumpSSA, "dump-ssa", false, "")
+	flag.BoolVar(&extendedErrors, "extended-errors", false, "")
+	flag.BoolVar(&keep, "keep", false, "")
 	flag.BoolVar(&skipGoABI0, "skipgoabi0", !enableGoABI0[target], "")
+	flag.BoolVar(&xtrc, "trc", false, "")
 	flag.Parse()
 	if s := *oRE; s != "" {
 		re = regexp.MustCompile(s)
@@ -149,75 +152,75 @@ func TestExec(t *testing.T) {
 var (
 	bad       = []byte("require-effective-target int128")
 	blacklist = map[string]struct{}{
-		"06_case.c": {},
-		"07_function.c": {},
-		"08_while.c": {},
-		"09_do_while.c": {},
-		"10_pointer.c": {},
-		"11_precedence.c": {},
-		"12_hashdefine.c": {},
-		"14_if.c": {},
-		"15_recursion.c": {},
-		"17_enum.c": {},
-		"19_pointer_arithmetic.c": {},
-		"20_pointer_comparison.c": {},
-		"21_char_array.c": {},
-		"22_floating_point.c": {},
-		"23_type_coercion.c": {},
-		"24_math_library.c": {},
-		"25_quicksort.c": {},
-		"27_sizeof.c": {},
-		"28_strings.c": {},
-		"29_array_address.c": {},
-		"30_hanoi.c": {},
-		"32_led.c": {},
-		"33_ternary_op.c": {},
-		"35_sizeof.c": {},
-		"36_array_initialisers.c": {},
-		"37_sprintf.c": {},
-		"38_multiple_array_index.c": {},
-		"39_typedef.c": {},
-		"40_stdio.c": {},
-		"42_function_pointer.c": {},
-		"43_void_param.c": {},
-		"44_scoped_declarations.c": {},
-		"45_empty_for.c": {},
-		"47_switch_return.c": {},
-		"48_nested_break.c": {},
-		"49_bracket_evaluation.c": {},
-		"50_logical_second_arg.c": {},
-		"51_static.c": {},
-		"52_unnamed_enum.c": {},
-		"54_goto.c": {},
-		"55_lshift_type.c": {},
-		"64_macro_nesting.c": {},
-		"67_macro_concat.c": {},
+		"06_case.c":                    {},
+		"07_function.c":                {},
+		"08_while.c":                   {},
+		"09_do_while.c":                {},
+		"10_pointer.c":                 {},
+		"11_precedence.c":              {},
+		"12_hashdefine.c":              {},
+		"14_if.c":                      {},
+		"15_recursion.c":               {},
+		"17_enum.c":                    {},
+		"19_pointer_arithmetic.c":      {},
+		"20_pointer_comparison.c":      {},
+		"21_char_array.c":              {},
+		"22_floating_point.c":          {},
+		"23_type_coercion.c":           {},
+		"24_math_library.c":            {},
+		"25_quicksort.c":               {},
+		"27_sizeof.c":                  {},
+		"28_strings.c":                 {},
+		"29_array_address.c":           {},
+		"30_hanoi.c":                   {},
+		"32_led.c":                     {},
+		"33_ternary_op.c":              {},
+		"35_sizeof.c":                  {},
+		"36_array_initialisers.c":      {},
+		"37_sprintf.c":                 {},
+		"38_multiple_array_index.c":    {},
+		"39_typedef.c":                 {},
+		"40_stdio.c":                   {},
+		"42_function_pointer.c":        {},
+		"43_void_param.c":              {},
+		"44_scoped_declarations.c":     {},
+		"45_empty_for.c":               {},
+		"47_switch_return.c":           {},
+		"48_nested_break.c":            {},
+		"49_bracket_evaluation.c":      {},
+		"50_logical_second_arg.c":      {},
+		"51_static.c":                  {},
+		"52_unnamed_enum.c":            {},
+		"54_goto.c":                    {},
+		"55_lshift_type.c":             {},
+		"64_macro_nesting.c":           {},
+		"67_macro_concat.c":            {},
 		"70_floating_point_literals.c": {},
-		"71_macro_empty_arg.c": {},
-		"72_long_long_constant.c": {},
-		"73_arm64.c": {},
-		"75_array_in_struct_init.c": {},
-		"76_dollars_in_identifiers.c": {},
-		"77_push_pop_macro.c": {},
-		"78_vla_label.c": {},
-		"79_vla_continue.c": {},
-		"80_flexarray.c": {},
-		"81_types.c": {},
-		"82_attribs_position.c": {},
-		"83_utf8_in_identifiers.c": {},
-		"84_hex-float.c": {},
-		"85_asm-outside-function.c": {},
-		"86_memory-model.c": {},
-		"87_dead_code.c": {},
-		"88_codeopt.c": {},
-		"89_nocode_wanted.c": {},
-		"90_struct-init.c": {},
-		"91_ptr_longlong_arith32.c": {},
-		"92_enum_bitfield.c": {},
-		"93_integer_promotion.c": {},
-		"94_generic.c": {},
-		"97_utf8_string_literal.c": {},
-		"98_al_ax_extend.c": {},
+		"71_macro_empty_arg.c":         {},
+		"72_long_long_constant.c":      {},
+		"73_arm64.c":                   {},
+		"75_array_in_struct_init.c":    {},
+		"76_dollars_in_identifiers.c":  {},
+		"77_push_pop_macro.c":          {},
+		"78_vla_label.c":               {},
+		"79_vla_continue.c":            {},
+		"80_flexarray.c":               {},
+		"81_types.c":                   {},
+		"82_attribs_position.c":        {},
+		"83_utf8_in_identifiers.c":     {},
+		"84_hex-float.c":               {},
+		"85_asm-outside-function.c":    {},
+		"86_memory-model.c":            {},
+		"87_dead_code.c":               {},
+		"88_codeopt.c":                 {},
+		"89_nocode_wanted.c":           {},
+		"90_struct-init.c":             {},
+		"91_ptr_longlong_arith32.c":    {},
+		"92_enum_bitfield.c":           {},
+		"93_integer_promotion.c":       {},
+		"94_generic.c":                 {},
+		"97_utf8_string_literal.c":     {},
+		"98_al_ax_extend.c":            {},
 	}
 )
 
@@ -380,6 +383,9 @@ func testExec2(t *testing.T, p *parallelTest, suite, testNm, fn, sid, fsName str
 	if extendedErrors {
 		args = append(args, "--extended-errors")
 	}
+	if dumpSSA {
+		args = append(args, "--dump-ssa")
+	}
 	if task, err = NewTask(&Options{
 		Stdout:     io.Discard,
 		Stderr:     io.Discard,
@@ -396,26 +402,57 @@ func testExec2(t *testing.T, p *parallelTest, suite, testNm, fn, sid, fsName str
 	}
 
 	mainGo := filepath.Join(dir, fmt.Sprintf("%s.go", filepath.Base(fn)))
-	if err = os.WriteFile(mainGo, []byte(`package main
+	b := bytes.NewBuffer([]byte(`package main
 
 import (
 	"modernc.org/libc"
 )
 
-func __qbe_main(*libc.TLS, int32, uintptr) int32
-
 func main() {
 	libc.Start(__qbe_main)
 }
-`), 0660); err != nil {
+
+`))
+	for _, v := range task.linkerObjects {
+		var a []string
+		for k := range v.signatures {
+			a = append(a, k)
+		}
+		sort.Strings(a)
+		for _, k := range a {
+			in := v.signatures[k]
+			out := in[len(in)-1]
+			in = in[:len(in)-1]
+			switch k {
+			case "main":
+				fmt.Fprintf(b, "func __qbe_main(%s) int32", strings.Join(in, ", "))
+			default:
+				fmt.Fprintf(b, "func %s(%s)", k, strings.Join(in, ", "))
+				if out != "" {
+					fmt.Fprintf(b, " %s", out)
+				}
+			}
+			fmt.Fprintf(b, "\n")
+		}
+	}
+	if err = os.WriteFile(mainGo, b.Bytes(), 0660); err != nil {
 		t.Logf("COMPILE FAIL: %s", fsName)
 		p.failed.Add(1)
 		return err
 	}
 
+	if !disableVet {
+		goOut, err := shell(goTO, "go", "vet", "./"+dir)
+		if err != nil {
+			t.Logf("GO VET FAIL: %s\n%s", fsName, goOut)
+			p.failed.Add(1)
+			return err
+		}
+	}
+
 	goOut, err := shell(goTO, "go", "run", "./"+dir)
 	if err != nil {
-		t.Logf("EXEC FAIL: %s", fsName)
+		t.Logf("EXEC FAIL: %s\n%s", fsName, goOut)
 		p.failed.Add(1)
 		return err
 	}
