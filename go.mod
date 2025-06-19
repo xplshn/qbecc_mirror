@@ -6,7 +6,7 @@ require (
 	modernc.org/ace v1.1.0
 	modernc.org/cc/v4 v4.26.1
 	modernc.org/ccorpus2 v1.5.2
-	modernc.org/libqbe v0.2.3
+	modernc.org/libqbe v0.2.4
 	modernc.org/opt v0.1.4
 	modernc.org/token v1.1.0
 )

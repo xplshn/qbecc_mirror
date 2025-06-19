@@ -153,14 +153,8 @@ var (
 	bad       = []byte("require-effective-target int128")
 	blacklist = map[string]struct{}{
 		"06_case.c":                    {},
-		"07_function.c":                {},
-		"08_while.c":                   {},
-		"09_do_while.c":                {},
 		"10_pointer.c":                 {},
 		"11_precedence.c":              {},
-		"12_hashdefine.c":              {},
-		"14_if.c":                      {},
-		"15_recursion.c":               {},
 		"17_enum.c":                    {},
 		"19_pointer_arithmetic.c":      {},
 		"20_pointer_comparison.c":      {},

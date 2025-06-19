@@ -53,7 +53,7 @@ func (c *ctx) statement(n *cc.Statement) (isReturn bool) {
 	case cc.StatementExpr: // ExpressionStatement
 		c.expressionStatement(n.ExpressionStatement)
 	case cc.StatementSelection: // SelectionStatement
-		panic(todo("%v: %v %v", n.Position(), n.Case, cc.NodeSource(n)))
+		c.selectionStatement(n.SelectionStatement)
 	case cc.StatementIteration: // IterationStatement
 		c.iterationStatement(n.IterationStatement)
 	case cc.StatementJump: // JumpStatement
@@ -66,12 +66,50 @@ func (c *ctx) statement(n *cc.Statement) (isReturn bool) {
 	return isReturn
 }
 
+func (c *ctx) selectionStatement(n *cc.SelectionStatement) {
+	switch n.Case {
+	case cc.SelectionStatementIf: // "if" '(' ExpressionList ')' Statement
+		panic(todo("%v: %v %v", n.Position(), n.Case, cc.NodeSource(n)))
+	case cc.SelectionStatementIfElse: // "if" '(' ExpressionList ')' Statement "else" Statement
+		c.selectionStatementIfElse(n)
+	case cc.SelectionStatementSwitch: // "switch" '(' ExpressionList ')' Statement
+		panic(todo("%v: %v %v", n.Position(), n.Case, cc.NodeSource(n)))
+	default:
+		panic(todo("%v: %s %s", n.Position(), n.Case, cc.NodeSource(n)))
+	}
+}
+
+// "if" '(' ExpressionList ')' Statement "else" Statement
+func (c *ctx) selectionStatementIfElse(n *cc.SelectionStatement) {
+	//	jnz expr @a, @b
+	// @a
+	//	stmt
+	// @x
+	//	jmp @z
+	// @b
+	//	stmt2
+	// @z
+	a := c.label()
+	x := c.label()
+	b := c.label()
+	z := c.label()
+	e := c.expr(n.ExpressionList, rvalue, n.ExpressionList.Type())
+	c.w("\tjnz %v, %s, %s\n", e, a, b)
+	c.w("%s\n", a)
+	c.statement(n.Statement)
+	c.w("%s\n", x)
+	c.w("\tjmp %s\n", z)
+	c.w("%s\n", b)
+	c.statement(n.Statement2)
+	c.w("%s\n", z)
+}
+
 func (c *ctx) iterationStatement(n *cc.IterationStatement) {
 	switch n.Case {
 	case cc.IterationStatementWhile: // "while" '(' ExpressionList ')' Statement
 		c.iterationStatementWhile(n)
 	case cc.IterationStatementDo: // "do" Statement "while" '(' ExpressionList ')' ';'
-		panic(todo("%v: %v %v", n.Position(), n.Case, cc.NodeSource(n)))
+		c.iterationStatementDo(n)
 	case cc.IterationStatementFor: // "for" '(' ExpressionList ';' ExpressionList ';' ExpressionList ')' Statement
 		c.iterationStatementFor(n)
 	case cc.IterationStatementForDecl: // "for" '(' Declaration ExpressionList ';' ExpressionList ')' Statement
@@ -79,6 +117,21 @@ func (c *ctx) iterationStatement(n *cc.IterationStatement) {
 	default:
 		panic(todo("%v: %s %s", n.Position(), n.Case, cc.NodeSource(n)))
 	}
+}
+
+// "do" Statement "while" '(' ExpressionList ')' ';'
+func (c *ctx) iterationStatementDo(n *cc.IterationStatement) {
+	// @a
+	//	stmt
+	//	jnz expr @a, @z
+	// @z
+	a := c.label()
+	z := c.label()
+	c.w("%s\n", a)
+	c.statement(n.Statement)
+	e := c.expr(n.ExpressionList, rvalue, n.ExpressionList.Type())
+	c.w("\tjnz %v, %s, %s\n", e, a, z)
+	c.w("%s\n", z)
 }
 
 // "while" '(' ExpressionList ')' Statement
@@ -144,7 +197,7 @@ func (c *ctx) blockItemDeclAutomatic(n *cc.BlockItem, id *cc.InitDeclarator) {
 				}
 			}
 			switch d.Type().Size() {
-			case 4:
+			case 4, 8:
 				c.w("\t%s =%s copy %v\n", local.renamed, c.typ(d, d.Type()), v)
 			default:
 				panic(todo("%v: %v %v", n.Position(), n.Case, cc.NodeSource(n)))

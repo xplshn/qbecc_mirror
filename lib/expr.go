@@ -256,7 +256,7 @@ func (c *ctx) primaryExpression(n *cc.PrimaryExpression, mode mode, t cc.Type) (
 	case cc.PrimaryExpressionLString: // LONGSTRINGLITERAL
 		panic(todo("%v: %v %v", n.Position(), n.Case, cc.NodeSource(n)))
 	case cc.PrimaryExpressionExpr: // '(' ExpressionList ')'
-		panic(todo("%v: %v %v", n.Position(), n.Case, cc.NodeSource(n)))
+		return c.expr(n.ExpressionList, mode, t)
 	case cc.PrimaryExpressionStmt: // '(' CompoundStatement ')'
 		panic(todo("%v: %v %v", n.Position(), n.Case, cc.NodeSource(n)))
 	case cc.PrimaryExpressionGeneric: // GenericSelection

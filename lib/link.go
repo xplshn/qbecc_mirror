@@ -49,7 +49,7 @@ func (l *linkerObject) ssaTyp(s string) string {
 	case "w":
 		return "int32"
 	case "l":
-		return "uintptr"
+		return "int64"
 	default:
 		panic(todo("", s))
 	}
@@ -88,6 +88,9 @@ func (l *linkerObject) inspectSSA(ssa []byte, nm string) (ok bool) {
 				}
 				if len(a) < 3 {
 					a = append(a, "argv uintptr")
+				}
+				if b := strings.Split(a[2], " "); b[1] != "uintptr" {
+					a[2] = b[0] + " uintptr"
 				}
 				a = append(a, "int32")
 			default:
