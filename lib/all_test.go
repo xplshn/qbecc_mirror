@@ -37,6 +37,7 @@ var (
 	keep           bool
 	re             *regexp.Regexp
 	skipGoABI0     bool
+	trcOutput      bool
 	xtrc           bool
 
 	enableGoABI0 = map[string]bool{
@@ -55,6 +56,7 @@ func TestMain(m *testing.M) {
 	flag.BoolVar(&extendedErrors, "extended-errors", false, "")
 	flag.BoolVar(&keep, "keep", false, "")
 	flag.BoolVar(&skipGoABI0, "skipgoabi0", !enableGoABI0[target], "")
+	flag.BoolVar(&trcOutput, "trco", false, "")
 	flag.BoolVar(&xtrc, "trc", false, "")
 	flag.Parse()
 	if s := *oRE; s != "" {
@@ -152,7 +154,6 @@ func TestExec(t *testing.T) {
 var (
 	bad       = []byte("require-effective-target int128")
 	blacklist = map[string]struct{}{
-		"06_case.c":                    {},
 		"10_pointer.c":                 {},
 		"11_precedence.c":              {},
 		"17_enum.c":                    {},
@@ -179,7 +180,6 @@ var (
 		"43_void_param.c":              {},
 		"44_scoped_declarations.c":     {},
 		"45_empty_for.c":               {},
-		"47_switch_return.c":           {},
 		"48_nested_break.c":            {},
 		"49_bracket_evaluation.c":      {},
 		"50_logical_second_arg.c":      {},
@@ -297,14 +297,15 @@ func testExec2(t *testing.T, p *parallelTest, suite, testNm, fn, sid, fsName str
 		return nil
 	}
 
+	if trcOutput {
+		t.Logf("\n%s", gccBinOut)
+	}
+
 	if goos == "windows" {
 		t.Skip("windows targets are not supported")
 	}
 
 	p.tested.Add(1)
-	if xtrc {
-		trc("%s %s", sid, fsName)
-	}
 	qbeccBin := binPath(fmt.Sprintf("%s.out", fn))
 	args = []string{
 		os.Args[0],
@@ -345,7 +346,7 @@ func testExec2(t *testing.T, p *parallelTest, suite, testNm, fn, sid, fsName str
 	if !bytes.Equal(gccBinOut, qbeccBinOut) {
 		t.Logf("EQUAL FAIL: %s", fsName)
 		p.failed.Add(1)
-		return fmt.Errorf("output differs")
+		return fmt.Errorf("output differs\ngot\n%s\nwant\n%s", qbeccBinOut, gccBinOut)
 	}
 
 	dir := fmt.Sprintf("%s.dir", fn)
@@ -360,9 +361,6 @@ func testExec2(t *testing.T, p *parallelTest, suite, testNm, fn, sid, fsName str
 	}
 
 	if skipGoABI0 {
-		if xtrc {
-			trc("OK %v", fsName)
-		}
 		p.passed.Add(1)
 		return
 	}
@@ -458,7 +456,7 @@ func main() {
 	}
 
 	if xtrc {
-		trc("OK %v", fsName)
+		trc("%s", fsName)
 	}
 	p.passed.Add(1)
 	return nil

@@ -19,29 +19,63 @@ type local struct {
 	isValue bool
 }
 
-// Function compile context
-type fnCtx struct {
-	allocs  int64
-	locals  map[*cc.Declarator]*local
-	returns cc.Type
-	static  []*cc.InitDeclarator
+type breakCtx struct {
+	label string
 }
 
-func newFnCtx(n *cc.FunctionDefinition) (r *fnCtx) {
-	r = &fnCtx{}
+type switchCtx struct {
+	dflt     string
+	expr     string
+	nextCase string
+	typ      cc.Type
+}
+
+// Function compile context
+type fnCtx struct {
+	allocs    int64
+	breakCtx  *breakCtx
+	ctx       *ctx
+	locals    map[*cc.Declarator]*local
+	returns   cc.Type
+	static    []*cc.InitDeclarator
+	switchCtx *switchCtx
+}
+
+func (c *ctx) newFnCtx(n *cc.FunctionDefinition) (r *fnCtx) {
+	r = &fnCtx{ctx: c}
 	walk(n, func(n cc.Node, mode int) {
 		switch mode {
 		case walkPre:
 			switch x := n.(type) {
 			case *cc.Declarator:
-				switch x.StorageDuration() {
-				case cc.Automatic:
-					r.local(x)
+				if x.ReadCount() != 0 || x.WriteCount() != 0 || x.HasInitializer() || x.AddressTaken() {
+					r.registerLocal(x)
 				}
 			}
 		}
 	})
 	return r
+}
+
+func (f *fnCtx) newBreakCtx(label string) func() {
+	old := f.breakCtx
+	f.breakCtx = &breakCtx{label: label}
+	return func() {
+		f.breakCtx = old
+	}
+}
+
+func (f *fnCtx) newSwitchCtx(expr string, typ cc.Type) func() {
+	old := f.switchCtx
+	f.switchCtx = &switchCtx{
+		expr: expr,
+		typ:  typ,
+	}
+	g := f.newBreakCtx(f.ctx.label())
+	return func() {
+		f.switchCtx = old
+		g()
+	}
 }
 
 func (f *fnCtx) alloc(align, size int64) (r int64) {
@@ -50,11 +84,16 @@ func (f *fnCtx) alloc(align, size int64) (r int64) {
 	return r
 }
 
-func (f *fnCtx) local(d *cc.Declarator) (r *local) {
+func (f *fnCtx) registerLocal(d *cc.Declarator) (r *local) {
+	if d.StorageDuration() == cc.Static && (d.ResolvedIn() == nil || d.ResolvedIn().Parent == nil) {
+		return nil
+	}
+
 	if f.locals == nil {
 		f.locals = map[*cc.Declarator]*local{}
 	}
 	if r = f.locals[d]; r == nil {
+		//TODO static locals
 		isValue := !d.AddressTaken() && cc.IsScalarType(d.Type())
 		var off int64
 		if !isValue {
@@ -98,7 +137,7 @@ func (c *ctx) functionDefinition(n *cc.FunctionDefinition) {
 		return
 	}
 
-	f := newFnCtx(n)
+	f := c.newFnCtx(n)
 	c.fn = f
 
 	defer func() {
@@ -122,9 +161,8 @@ func (c *ctx) functionDefinition(n *cc.FunctionDefinition) {
 	if f.allocs != 0 {
 		c.w("\t%%.bp. =%s alloc8 %v\n", c.wordTag, f.allocs)
 	}
-	if !c.compoundStatement(n.CompoundStatement) {
-		c.w("\tret\n")
-	}
+	c.compoundStatement(n.CompoundStatement)
+	c.w("%s\n\tret\n", c.label())
 	c.w("}\n\n")
 }
 
@@ -143,7 +181,7 @@ func (c *ctx) declarationDecl(n *cc.Declaration) {
 		if d.Linkage() == cc.External {
 			c.w("export ")
 		}
-		c.w("$%s = align %d ", d.Name(), d.Type().Align())
+		c.w("data $%s = align %d ", d.Name(), d.Type().Align())
 		switch l.InitDeclarator.Case {
 		case cc.InitDeclaratorDecl: // int d;
 			c.w("{ z %d }", d.Type().Size())
@@ -159,11 +197,11 @@ func (c *ctx) declaration(n *cc.Declaration) {
 	case cc.DeclarationDecl: // DeclarationSpecifiers InitDeclaratorList AttributeSpecifierList ';'
 		c.declarationDecl(n)
 	case cc.DeclarationAssert: // StaticAssertDeclaration
-		panic(todo("%v: %s %s", n.Position(), n.Case, cc.NodeSource(n)))
+		panic(todo("%v: %v %s", n.Position(), n.Case, cc.NodeSource(n)))
 	case cc.DeclarationAuto: // "__auto_type" Declarator '=' Initializer ';'
-		panic(todo("%v: %s %s", n.Position(), n.Case, cc.NodeSource(n)))
+		panic(todo("%v: %v %s", n.Position(), n.Case, cc.NodeSource(n)))
 	default:
-		panic(todo("%v: %s %s", n.Position(), n.Case, cc.NodeSource(n)))
+		panic(todo("%v: %v %s", n.Position(), n.Case, cc.NodeSource(n)))
 	}
 }
 
@@ -174,10 +212,10 @@ func (c *ctx) externalDeclaration(n *cc.ExternalDeclaration) {
 	case cc.ExternalDeclarationDecl: // Declaration
 		c.declaration(n.Declaration)
 	case cc.ExternalDeclarationAsmStmt: // AsmStatement
-		panic(todo("%v: %s %s", n.Position(), n.Case, cc.NodeSource(n)))
+		panic(todo("%v: %v %s", n.Position(), n.Case, cc.NodeSource(n)))
 	case cc.ExternalDeclarationEmpty: // ';'
-		panic(todo("%v: %s %s", n.Position(), n.Case, cc.NodeSource(n)))
+		panic(todo("%v: %v %s", n.Position(), n.Case, cc.NodeSource(n)))
 	default:
-		panic(todo("%v: %s %s", n.Position(), n.Case, cc.NodeSource(n)))
+		panic(todo("%v: %v %s", n.Position(), n.Case, cc.NodeSource(n)))
 	}
 }

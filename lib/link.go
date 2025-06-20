@@ -127,7 +127,9 @@ func (l *linkerObject) inspectSSA(ssa []byte, nm string) (ok bool) {
 		case *parser.DataDefNode:
 			st := symbolData
 			if x.Linkage.IsValid() {
-				switch ln := string(x.Linkage.Src()); {
+				switch ln := string(x.Linkage.Src()); ln {
+				case "export":
+					st = symbolExportedData
 				default:
 					panic(todo("%q", ln))
 				}
