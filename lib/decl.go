@@ -16,7 +16,8 @@ type local struct {
 	offset  int64 // relative to alloc
 	renamed string
 
-	isValue bool
+	isStatic bool
+	isValue  bool
 }
 
 type breakCtx struct {
@@ -93,8 +94,8 @@ func (f *fnCtx) registerLocal(d *cc.Declarator) (r *local) {
 		f.locals = map[*cc.Declarator]*local{}
 	}
 	if r = f.locals[d]; r == nil {
-		//TODO static locals
-		isValue := !d.AddressTaken() && cc.IsScalarType(d.Type())
+		isStatic := d.StorageDuration() == cc.Static
+		isValue := !d.AddressTaken() && cc.IsScalarType(d.Type()) && !isStatic
 		var off int64
 		if !isValue {
 			off = f.alloc(int64(d.Type().Align()), d.Type().Size())
@@ -104,10 +105,11 @@ func (f *fnCtx) registerLocal(d *cc.Declarator) (r *local) {
 			suff = fmt.Sprintf(".%d", len(f.locals))
 		}
 		r = &local{
-			d:       d,
-			isValue: isValue,
-			offset:  off,
-			renamed: fmt.Sprintf("%%%s%s", d.Name(), suff),
+			d:        d,
+			isStatic: isStatic,
+			isValue:  isValue,
+			offset:   off,
+			renamed:  fmt.Sprintf("%%%s%s", d.Name(), suff),
 		}
 		f.locals[d] = r
 	}

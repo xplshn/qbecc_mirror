@@ -36,7 +36,6 @@ type ctx struct {
 	file    *compilerFile
 	fn      *fnCtx
 	nextID  int
-	ptr     cc.Type
 	strings map[string]string // value: name
 	t       *Task
 	wordTag string
@@ -48,7 +47,6 @@ func (t *Task) newCtx(ast *cc.AST, file *compilerFile) *ctx {
 	return &ctx{
 		ast:     ast,
 		file:    file,
-		ptr:     ast.PVoid,
 		t:       t,
 		wordTag: t.wordTag,
 	}

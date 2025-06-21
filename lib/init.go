@@ -13,7 +13,7 @@ import (
 func (c *ctx) initializer(n *cc.Initializer, t cc.Type) (r string) {
 	defer func() {
 		if n != nil {
-			r = c.convert(n, t, n.Type(), r)
+			r = c.convertRValue(n, t, n.Type(), r)
 		}
 	}()
 
@@ -47,5 +47,4 @@ func (c *ctx) initializer(n *cc.Initializer, t cc.Type) (r string) {
 			panic(todo("%v: %v %s", n.Position(), t, cc.NodeSource(n)))
 		}
 	}
-	return r
 }
