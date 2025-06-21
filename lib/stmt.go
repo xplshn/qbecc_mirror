@@ -269,11 +269,16 @@ func (c *ctx) blockItemDeclAutomatic(n *cc.BlockItem, id *cc.InitDeclarator) {
 	switch local := c.fn.locals[d]; {
 	case local == nil:
 		// dead var
+	case local.isStatic:
+		panic(todo("%v: %v %v", n.Position(), n.Case, cc.NodeSource(n)))
 	case local.isValue:
 		c.w("\t%s =%s copy %s\n", local.renamed, c.typ(d, d.Type()), c.initializer(id.Initializer, d.Type()))
 	default:
 		if id.Initializer != nil {
-			panic(todo("%v: %v %v", n.Position(), n.Case, cc.NodeSource(n)))
+			v := c.initializer(id.Initializer, d.Type())
+			p := c.temp()
+			c.w("\t%s =%s add %%.bp., %v\n", p, c.wordTag, local.offset)
+			c.w("\tstore%s %s, %s\n", c.typ(d, d.Type()), v, p)
 		}
 	}
 }

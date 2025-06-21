@@ -10,13 +10,6 @@ import (
 
 func (c *ctx) typ(n cc.Node, t cc.Type) string {
 	switch t.Kind() {
-	case cc.Int:
-		switch t.Size() {
-		case 4:
-			return "w"
-		default:
-			panic(todo("%v: %s %v", n.Position(), t, t.Kind()))
-		}
 	case cc.Ptr:
 		switch t.Size() {
 		case 8:
@@ -24,7 +17,21 @@ func (c *ctx) typ(n cc.Node, t cc.Type) string {
 		default:
 			panic(todo("%v: %s %v", n.Position(), t, t.Kind()))
 		}
+	case cc.Enum:
+		return c.typ(n, t.(*cc.EnumType).UnderlyingType())
 	default:
-		panic(todo("%v: %s %v", n.Position(), t, t.Kind()))
+		switch {
+		case cc.IsIntegerType(t):
+			switch t.Size() {
+			case 4:
+				return "w"
+			case 8:
+				return "l"
+			default:
+				panic(todo("%v: %s %v", n.Position(), t, t.Kind()))
+			}
+		default:
+			panic(todo("%v: %s %v", n.Position(), t, t.Kind()))
+		}
 	}
 }

@@ -119,6 +119,10 @@ func (f *fnCtx) registerLocal(d *cc.Declarator) (r *local) {
 func (c *ctx) signature(l []*cc.Parameter) {
 	c.w("(")
 	for _, v := range l {
+		if v.Type().Kind() == cc.Void {
+			break
+		}
+
 		c.w("%s ", c.typ(v, v.Type()))
 		switch nm := v.Name(); nm {
 		case "":
