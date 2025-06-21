@@ -154,7 +154,6 @@ func TestExec(t *testing.T) {
 var (
 	bad       = []byte("require-effective-target int128")
 	blacklist = map[string]struct{}{
-		"10_pointer.c":                 {},
 		"11_precedence.c":              {},
 		"17_enum.c":                    {},
 		"19_pointer_arithmetic.c":      {},
@@ -178,7 +177,6 @@ var (
 		"40_stdio.c":                   {},
 		"42_function_pointer.c":        {},
 		"43_void_param.c":              {},
-		"44_scoped_declarations.c":     {},
 		"45_empty_for.c":               {},
 		"48_nested_break.c":            {},
 		"49_bracket_evaluation.c":      {},
