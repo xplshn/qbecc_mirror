@@ -179,30 +179,14 @@ func (c *ctx) convertRValue(n cc.Node, dst, src cc.Type, v string) (r string) {
 func (c *ctx) assignmentExpressionAssign(n *cc.AssignmentExpression, mode mode, t cc.Type) (r string) {
 	lhs := c.expr(n.UnaryExpression, lvalue, n.Type())
 	rhs := c.expr(n.AssignmentExpression, rvalue, n.Type())
-	d := c.declaratorOf(n.UnaryExpression)
-	local := c.fn.locals[d]
-	switch {
-	case local != nil:
-		switch {
-		case local.isStatic:
-			panic(todo("%v: %v %v", n.Position(), mode, cc.NodeSource(n)))
-		case local.isValue:
-			c.w("\t%s =%s copy %s\n", lhs, c.baseType(n, n.Type()), rhs)
-		default:
-			switch n.Type().Size() {
-			case 4, 8:
-				c.w("\tstore%s %s, %s\n", c.baseType(n, n.Type()), rhs, lhs)
-			default:
-				panic(todo("%v: %v %v", n.Position(), n.Type().Size(), cc.NodeSource(n)))
-			}
-		}
+	_, nfo := c.fn.info(n.UnaryExpression)
+	switch x := nfo.(type) {
+	case *local:
+		c.w("\t%s =%s copy %s\n", lhs, c.baseType(n, n.Type()), rhs)
+	case *escaped, nil:
+		c.w("\tstore%s %s, %s\n", c.extType(n, n.Type()), rhs, lhs)
 	default:
-		switch n.Type().Size() {
-		case 1, 2, 4, 8:
-			c.w("\tstore%s %s, %s\n", c.extType(n, n.Type()), rhs, lhs)
-		default:
-			panic(todo("%v: %v %v", n.Position(), n.Type().Size(), cc.NodeSource(n)))
-		}
+		panic(todo("%v: %T %v", n.Position(), x, cc.NodeSource(n)))
 	}
 	switch mode {
 	case void:
@@ -210,11 +194,11 @@ func (c *ctx) assignmentExpressionAssign(n *cc.AssignmentExpression, mode mode, 
 	case rvalue:
 		defer func() { r = c.convertRValue(n, t, n.Type(), r) }()
 
-		switch {
-		case local != nil:
-			return local.renamed
+		switch x := nfo.(type) {
+		case *local:
+			return x.name
 		default:
-			panic(todo("%v: %v %v", n.Position(), n.Type().Size(), cc.NodeSource(n)))
+			panic(todo("%T", x))
 		}
 	default:
 		panic(todo("%v: %v %v", n.Position(), mode, cc.NodeSource(n)))
@@ -582,9 +566,11 @@ func (c *ctx) primaryExpressionIdent(n *cc.PrimaryExpression, mode mode, t cc.Ty
 func (c *ctx) primaryExpressionInt(n *cc.PrimaryExpression, mode mode, t cc.Type) (r string) {
 	switch mode {
 	case rvalue:
+		defer func() { r = c.convertRValue(n, t, n.Type(), r) }()
+
 		switch {
 		case c.isIntegerType(t) || c.isFloatingPointType(t) || t.Kind() == cc.Ptr || t.Kind() == cc.Enum:
-			return c.convertRValue(n, t, n.Type(), fmt.Sprint(n.Value()))
+			return fmt.Sprint(n.Value())
 		default:
 			panic(todo("%v: t=%s %v", n.Position(), t, cc.NodeSource(n)))
 		}
@@ -596,11 +582,13 @@ func (c *ctx) primaryExpressionInt(n *cc.PrimaryExpression, mode mode, t cc.Type
 func (c *ctx) primaryExpressionString(n *cc.PrimaryExpression, mode mode, t cc.Type) (r string) {
 	switch mode {
 	case rvalue:
+		defer func() { r = c.convertRValue(n, t, n.Type(), r) }()
+
 		switch t.Kind() {
 		case cc.Ptr:
 			switch e := t.(*cc.PointerType).Elem().Kind(); e {
 			case cc.Char, cc.Void:
-				return c.convertRValue(n, t, n.Type(), c.addString(string(n.Value().(cc.StringValue))))
+				return c.addString(string(n.Value().(cc.StringValue)))
 			default:
 				panic(todo("%v: e=%s %v", n.Position(), e, cc.NodeSource(n)))
 			}
@@ -631,11 +619,13 @@ func (c *ctx) primaryExpressionChar(n *cc.PrimaryExpression, mode mode, t cc.Typ
 func (c *ctx) primaryExpressionFloat(n *cc.PrimaryExpression, mode mode, t cc.Type) (r string) {
 	switch mode {
 	case rvalue:
+		defer func() { r = c.convertRValue(n, t, n.Type(), r) }()
+
 		switch {
 		case c.isFloatingPointType(t) || c.isIntegerType(t):
 			switch x := n.Value().(type) {
 			case cc.Float64Value:
-				return c.convertRValue(n, t, n.Type(), fmt.Sprintf("d_%v", float64(x)))
+				return fmt.Sprintf("d_%v", float64(x))
 			default:
 				panic(todo("%v: %T %v", n.Position(), x, cc.NodeSource(n)))
 			}
@@ -1102,6 +1092,8 @@ func (c *ctx) postfixExpressionSelect(n *cc.PostfixExpression, mode mode, t cc.T
 			c.w("\t%s =%s add %s, %v\n", r, c.wordTag, p, f.Offset())
 			return r
 		case rvalue:
+			defer func() { r = c.convertRValue(n, t, n.Type(), r) }()
+
 			p := c.expr(n.PostfixExpression, lvalue, nil)
 			c.w("\t%s =%s add %s, %v\n", p, c.wordTag, p, f.Offset())
 			r = c.temp()
@@ -1111,11 +1103,11 @@ func (c *ctx) postfixExpressionSelect(n *cc.PostfixExpression, mode mode, t cc.T
 			default:
 				panic(todo("%v: %v %s", n.Position(), n.Type().Size(), cc.NodeSource(n)))
 			}
-			return c.convertRValue(n, t, n.Type(), r)
 		default:
 			panic(todo("%v: %s %s", n.Position(), mode, cc.NodeSource(n)))
 		}
 	}
+	return r
 }
 
 // PostfixExpression "->" IDENTIFIER
@@ -1168,9 +1160,11 @@ func (c *ctx) postfixExpressionIndex(n *cc.PostfixExpression, mode mode, t cc.Ty
 	case lvalue:
 		return p
 	case rvalue:
+		defer func() { r = c.convertRValue(n, t, n.Type(), r) }()
+
 		r = c.temp()
 		c.w("\t%s =%s load%[2]s %s\n", r, c.baseType(n, n.Type()), p)
-		return c.convertRValue(n, t, n.Type(), r)
+		return r
 	default:
 		panic(todo("%v: %s %s", n.Position(), mode, cc.NodeSource(n)))
 	}
@@ -1364,6 +1358,8 @@ func (c *ctx) usualArithmeticConversions(a, b cc.Type) (r cc.Type) {
 func (c *ctx) relationalExpressionLeq(n *cc.RelationalExpression, mode mode, t cc.Type) (r string) {
 	switch mode {
 	case rvalue:
+		defer func() { r = c.convertRValue(n, t, n.Type(), r) }()
+
 		ct := c.usualArithmeticConversions(n.RelationalExpression.Type(), n.ShiftExpression.Type())
 		lhs := c.expr(n.RelationalExpression, rvalue, ct)
 		rhs := c.expr(n.ShiftExpression, rvalue, ct)
@@ -1376,7 +1372,7 @@ func (c *ctx) relationalExpressionLeq(n *cc.RelationalExpression, mode mode, t c
 		default:
 			panic(todo("%v: %s %s", n.Position(), n.Type(), cc.NodeSource(n)))
 		}
-		return c.convertRValue(n, t, c.ast.Int, r)
+		return r
 	default:
 		panic(todo("%v: %s %s", n.Position(), mode, cc.NodeSource(n)))
 	}
@@ -1386,6 +1382,8 @@ func (c *ctx) relationalExpressionLeq(n *cc.RelationalExpression, mode mode, t c
 func (c *ctx) relationalExpressionLt(n *cc.RelationalExpression, mode mode, t cc.Type) (r string) {
 	switch mode {
 	case rvalue:
+		defer func() { r = c.convertRValue(n, t, n.Type(), r) }()
+
 		ct := c.usualArithmeticConversions(n.RelationalExpression.Type(), n.ShiftExpression.Type())
 		lhs := c.expr(n.RelationalExpression, rvalue, ct)
 		rhs := c.expr(n.ShiftExpression, rvalue, ct)
@@ -1398,7 +1396,7 @@ func (c *ctx) relationalExpressionLt(n *cc.RelationalExpression, mode mode, t cc
 		default:
 			panic(todo("%v: %s %s", n.Position(), n.Type(), cc.NodeSource(n)))
 		}
-		return c.convertRValue(n, t, c.ast.Int, r)
+		return r
 	default:
 		panic(todo("%v: %s %s", n.Position(), mode, cc.NodeSource(n)))
 	}
@@ -1408,6 +1406,8 @@ func (c *ctx) relationalExpressionLt(n *cc.RelationalExpression, mode mode, t cc
 func (c *ctx) relationalExpressionGeq(n *cc.RelationalExpression, mode mode, t cc.Type) (r string) {
 	switch mode {
 	case rvalue:
+		defer func() { r = c.convertRValue(n, t, n.Type(), r) }()
+
 		ct := c.usualArithmeticConversions(n.RelationalExpression.Type(), n.ShiftExpression.Type())
 		lhs := c.expr(n.RelationalExpression, rvalue, ct)
 		rhs := c.expr(n.ShiftExpression, rvalue, ct)
@@ -1420,7 +1420,7 @@ func (c *ctx) relationalExpressionGeq(n *cc.RelationalExpression, mode mode, t c
 		default:
 			panic(todo("%v: %s %s", n.Position(), n.Type(), cc.NodeSource(n)))
 		}
-		return c.convertRValue(n, t, c.ast.Int, r)
+		return r
 	default:
 		panic(todo("%v: %s %s", n.Position(), mode, cc.NodeSource(n)))
 	}
@@ -1430,6 +1430,8 @@ func (c *ctx) relationalExpressionGeq(n *cc.RelationalExpression, mode mode, t c
 func (c *ctx) relationalExpressionGt(n *cc.RelationalExpression, mode mode, t cc.Type) (r string) {
 	switch mode {
 	case rvalue:
+		defer func() { r = c.convertRValue(n, t, n.Type(), r) }()
+
 		ct := c.usualArithmeticConversions(n.RelationalExpression.Type(), n.ShiftExpression.Type())
 		lhs := c.expr(n.RelationalExpression, rvalue, ct)
 		rhs := c.expr(n.ShiftExpression, rvalue, ct)
@@ -1442,7 +1444,7 @@ func (c *ctx) relationalExpressionGt(n *cc.RelationalExpression, mode mode, t cc
 		default:
 			panic(todo("%v: %s %s", n.Position(), n.Type(), cc.NodeSource(n)))
 		}
-		return c.convertRValue(n, t, c.ast.Int, r)
+		return r
 	default:
 		panic(todo("%v: %s %s", n.Position(), mode, cc.NodeSource(n)))
 	}
@@ -1468,6 +1470,8 @@ func (c *ctx) relationalExpression(n *cc.RelationalExpression, mode mode, t cc.T
 func (c *ctx) additiveExpressionAdd(n *cc.AdditiveExpression, mode mode, t cc.Type) (r string) {
 	switch mode {
 	case rvalue:
+		defer func() { r = c.convertRValue(n, t, n.Type(), r) }()
+
 		switch {
 		case c.isIntegerType(n.Type()) || c.isFloatingPointType(n.Type()):
 			ct := c.usualArithmeticConversions(n.AdditiveExpression.Type(), n.MultiplicativeExpression.Type())
@@ -1475,10 +1479,10 @@ func (c *ctx) additiveExpressionAdd(n *cc.AdditiveExpression, mode mode, t cc.Ty
 			rhs := c.expr(n.MultiplicativeExpression, rvalue, ct)
 			r = c.temp()
 			c.w("\t%s =%s add %s, %s\n", r, c.baseType(n, ct), lhs, rhs)
-			return c.convertRValue(n, t, n.Type(), r)
 		default:
 			panic(todo("%v: %s %s", n.Position(), n.Type(), cc.NodeSource(n)))
 		}
+		return r
 	default:
 		panic(todo("%v: %s %s", n.Position(), mode, cc.NodeSource(n)))
 	}
@@ -1487,6 +1491,8 @@ func (c *ctx) additiveExpressionAdd(n *cc.AdditiveExpression, mode mode, t cc.Ty
 func (c *ctx) additiveExpressionSub(n *cc.AdditiveExpression, mode mode, t cc.Type) (r string) {
 	switch mode {
 	case rvalue:
+		defer func() { r = c.convertRValue(n, t, n.Type(), r) }()
+
 		switch {
 		case c.isIntegerType(n.Type()) || c.isFloatingPointType(n.Type()):
 			ct := c.usualArithmeticConversions(n.AdditiveExpression.Type(), n.MultiplicativeExpression.Type())
@@ -1494,10 +1500,10 @@ func (c *ctx) additiveExpressionSub(n *cc.AdditiveExpression, mode mode, t cc.Ty
 			rhs := c.expr(n.MultiplicativeExpression, rvalue, ct)
 			r = c.temp()
 			c.w("\t%s =%s sub %s, %s\n", r, c.baseType(n, ct), lhs, rhs)
-			return c.convertRValue(n, t, n.Type(), r)
 		default:
 			panic(todo("%v: %s %s", n.Position(), n.Type(), cc.NodeSource(n)))
 		}
+		return r
 	default:
 		panic(todo("%v: %s %s", n.Position(), mode, cc.NodeSource(n)))
 	}
@@ -1610,6 +1616,8 @@ func (c *ctx) logicalAndExpression(n *cc.LogicalAndExpression, mode mode, t cc.T
 func (c *ctx) multiplicativeExpressionMul(n *cc.MultiplicativeExpression, mode mode, t cc.Type) (r string) {
 	switch mode {
 	case rvalue:
+		defer func() { r = c.convertRValue(n, t, n.Type(), r) }()
+
 		switch {
 		case c.isIntegerType(n.Type()) || c.isFloatingPointType(n.Type()):
 			ct := c.usualArithmeticConversions(n.MultiplicativeExpression.Type(), n.CastExpression.Type())
@@ -1617,10 +1625,10 @@ func (c *ctx) multiplicativeExpressionMul(n *cc.MultiplicativeExpression, mode m
 			rhs := c.expr(n.CastExpression, rvalue, ct)
 			r = c.temp()
 			c.w("\t%s =%s mul %s, %s\n", r, c.baseType(n, ct), lhs, rhs)
-			return c.convertRValue(n, t, n.Type(), r)
 		default:
 			panic(todo("%v: %s %s", n.Position(), n.Type(), cc.NodeSource(n)))
 		}
+		return r
 	default:
 		panic(todo("%v: %s %s", n.Position(), mode, cc.NodeSource(n)))
 	}
@@ -1635,16 +1643,18 @@ func (c *ctx) multiplicativeExpressionDiv(n *cc.MultiplicativeExpression, mode m
 	}
 	switch mode {
 	case rvalue:
+		defer func() { r = c.convertRValue(n, t, n.Type(), r) }()
+
 		switch {
 		case c.isIntegerType(n.Type()) || c.isFloatingPointType(n.Type()):
 			lhs := c.expr(n.MultiplicativeExpression, rvalue, ct)
 			rhs := c.expr(n.CastExpression, rvalue, ct)
 			r = c.temp()
 			c.w("\t%s =%s %s %s, %s\n", r, c.baseType(n, ct), div, lhs, rhs)
-			return c.convertRValue(n, t, n.Type(), r)
 		default:
 			panic(todo("%v: %s %s", n.Position(), n.Type(), cc.NodeSource(n)))
 		}
+		return r
 	default:
 		panic(todo("%v: %s %s", n.Position(), mode, cc.NodeSource(n)))
 	}
@@ -1654,6 +1664,8 @@ func (c *ctx) multiplicativeExpressionDiv(n *cc.MultiplicativeExpression, mode m
 func (c *ctx) multiplicativeExpressionMod(n *cc.MultiplicativeExpression, mode mode, t cc.Type) (r string) {
 	switch mode {
 	case rvalue:
+		defer func() { r = c.convertRValue(n, t, n.Type(), r) }()
+
 		switch {
 		case c.isIntegerType(n.Type()):
 			ct := c.usualArithmeticConversions(n.MultiplicativeExpression.Type(), n.CastExpression.Type())
@@ -1666,10 +1678,10 @@ func (c *ctx) multiplicativeExpressionMod(n *cc.MultiplicativeExpression, mode m
 			default:
 				c.w("\t%s =%s urem %s, %s\n", r, c.baseType(n, ct), lhs, rhs)
 			}
-			return c.convertRValue(n, t, n.Type(), r)
 		default:
 			panic(todo("%v: %s %s", n.Position(), n.Type(), cc.NodeSource(n)))
 		}
+		return r
 	default:
 		panic(todo("%v: %s %s", n.Position(), mode, cc.NodeSource(n)))
 	}
@@ -1693,9 +1705,11 @@ func (c *ctx) multiplicativeExpression(n *cc.MultiplicativeExpression, mode mode
 func (c *ctx) constantExpression(n *cc.ConstantExpression, mode mode, t cc.Type) (r string) {
 	switch mode {
 	case rvalue:
+		defer func() { r = c.convertRValue(n, t, n.Type(), r) }()
+
 		switch x := n.Value().(type) {
 		case cc.Int64Value:
-			return c.convertRValue(n, t, n.Type(), fmt.Sprint(int64(x)))
+			return fmt.Sprint(int64(x))
 		default:
 			panic(todo("%T", x))
 		}

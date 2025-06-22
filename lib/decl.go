@@ -11,8 +11,44 @@ import (
 	"modernc.org/cc/v4"
 )
 
-// function local variable
+type nfo interface {
+	isInfo()
+}
+
+type nfo0 struct{}
+
+func (nfo0) isInfo() {}
+
+// declared in function scope, storage automatic
 type local struct {
+	nfo0
+	d    *cc.Declarator
+	name string
+}
+
+// declared in function scope, storage automatic, escaped to TLSAlloc
+type escaped struct {
+	nfo0
+	d      *cc.Declarator
+	offset int64 // into %.bp.
+}
+
+// declared in function scope, storage static
+type static struct {
+	nfo0
+	d    *cc.Declarator
+	name string
+}
+
+// declared in top-level scope, storage static
+type global struct {
+	nfo0
+	d    *cc.Declarator
+	name string
+}
+
+// function localOld variable
+type localOld struct { //TODO-
 	d       *cc.Declarator
 	offset  int64 // relative to alloc
 	renamed string
@@ -37,7 +73,8 @@ type fnCtx struct {
 	allocs    int64
 	breakCtx  *breakCtx
 	ctx       *ctx
-	locals    map[*cc.Declarator]*local
+	infos     map[cc.Node]nfo
+	locals    map[*cc.Declarator]*localOld
 	returns   cc.Type
 	static    []*cc.InitDeclarator
 	switchCtx *switchCtx
@@ -46,15 +83,20 @@ type fnCtx struct {
 }
 
 func (c *ctx) newFnCtx(n *cc.FunctionDefinition) (r *fnCtx) {
-	r = &fnCtx{ctx: c}
+	r = &fnCtx{
+		ctx:   c,
+		infos: map[cc.Node]nfo{},
+	}
 	walk(n, func(n cc.Node, mode int) {
 		switch mode {
 		case walkPre:
 			switch x := n.(type) {
 			case *cc.Declarator:
-				if x.ReadCount() != 0 || x.WriteCount() != 0 || x.HasInitializer() || x.AddressTaken() {
+				if x.ReadCount() != 0 || x.WriteCount() != 0 || x.HasInitializer() || x.AddressTaken() { //TODO-
 					r.registerLocal(x)
 				}
+
+				r.registerDeclarator(x)
 			}
 		}
 	})
@@ -94,18 +136,79 @@ func (f *fnCtx) alloc(align, size int64) (r int64) {
 	return r
 }
 
-func (f *fnCtx) registerLocal(d *cc.Declarator) (r *local) {
+func (f *fnCtx) registerDeclarator(d *cc.Declarator) {
+	if d == nil {
+		return
+	}
+
+	dt := d.Type()
+	k := dt.Kind()
+	switch dt := d.Type(); d.StorageDuration() {
+	case cc.Static:
+		switch sc := d.ResolvedIn(); sc {
+		case nil:
+			// dead
+		default:
+			switch {
+			case sc.Parent == nil:
+				f.infos[d] = &global{
+					d:    d,
+					name: fmt.Sprintf("$%s", d.Name()),
+				}
+			default:
+				f.infos[d] = &static{
+					d:    d,
+					name: fmt.Sprintf("$%s.%v", d.Name(), f.ctx.id()),
+				}
+			}
+		}
+	case cc.Automatic:
+		switch {
+		case d.AddressTaken() || k == cc.Array || k == cc.Struct || k == cc.Union:
+			f.infos[d] = &escaped{
+				d:      d,
+				offset: f.alloc(int64(dt.Align()), dt.Size()),
+			}
+		default:
+			suff := ""
+			if !d.IsParam() {
+				//TODO suff = fmt.Sprintf(".%d", f.id())
+				suff = fmt.Sprintf(".%d", len(f.locals)-1)
+			}
+			f.infos[d] = &local{
+				d:    d,
+				name: fmt.Sprintf("%%%s%s", d.Name(), suff),
+			}
+		}
+	default:
+		panic(todo("", d.StorageDuration()))
+	}
+}
+
+func (f *fnCtx) info(n cc.Node) (d *cc.Declarator, nfo nfo) {
+	switch x := n.(type) {
+	case *cc.Declarator:
+		d = x
+	case cc.ExpressionNode:
+		d = f.ctx.declaratorOf(x)
+	default:
+		panic(todo("%T", x))
+	}
+	return d, f.infos[d]
+}
+
+func (f *fnCtx) registerLocal(d *cc.Declarator) (r *localOld) { //TODO-
 	if d.StorageDuration() == cc.Static && (d.ResolvedIn() == nil || d.ResolvedIn().Parent == nil) {
 		return nil
 	}
 
 	if f.locals == nil {
-		f.locals = map[*cc.Declarator]*local{}
+		f.locals = map[*cc.Declarator]*localOld{}
 	}
 	if r = f.locals[d]; r == nil {
 		switch {
 		case d.StorageDuration() == cc.Static:
-			r = &local{
+			r = &localOld{
 				d:       d,
 				renamed: fmt.Sprintf("$%s.%d", d.Name(), f.ctx.id()),
 			}
@@ -119,7 +222,7 @@ func (f *fnCtx) registerLocal(d *cc.Declarator) (r *local) {
 			if !d.IsParam() {
 				suff = fmt.Sprintf(".%d", len(f.locals))
 			}
-			r = &local{
+			r = &localOld{
 				d:       d,
 				isValue: isValue,
 				offset:  off,
