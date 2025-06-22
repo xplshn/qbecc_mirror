@@ -36,9 +36,9 @@ func (c *ctx) initializer(n *cc.Initializer, t cc.Type) (r string) {
 		}
 
 		switch it := n.Type(); {
-		case cc.IsScalarType(it):
-			switch it.Size() {
-			case 4, 8:
+		case c.isIntegerType(it) || c.isFloatingPointType(it) || it.Kind() == cc.Ptr:
+			switch sz := it.Size(); {
+			case sz <= 8:
 				return c.expr(n.AssignmentExpression, rvalue, t)
 			default:
 				panic(todo("%v: %v %s", n.Position(), t, cc.NodeSource(n)))

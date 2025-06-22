@@ -2,7 +2,7 @@
 # Use of this source code is governed by a BSD-style
 # license that can be found in the LICENSE file.
 
-.PHONY:	all clean edit editor work shorttest test
+.PHONY:	all clean edit editor work shorttest test todo
 
 all: editor
 	golint
@@ -33,3 +33,7 @@ work:
 
 test:
 	go test -v -timeout 24h
+
+todo:
+	go test -v -timeout 24h 2>&1 | tee log
+	grep FAIL: log 2>&1 | tee log-todo

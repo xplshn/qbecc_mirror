@@ -204,7 +204,7 @@ func (t *Task) link() {
 			for _, lo := range t.linkerObjects {
 				cf := lo.compilerFile
 				switch cf.outType {
-				case fileHostAsm:
+				case fileHostAsm, fileLib:
 					// ok
 				default:
 					panic(todo("", cf.outType))
@@ -237,6 +237,8 @@ func (t *Task) link() {
 				fn := cf.out.(string)
 				args = append(args, fn)
 				asm = append(asm, fn)
+			case fileLib:
+				args = append(args, "-l", cf.name)
 			default:
 				panic(todo("", cf.outType, cf.name))
 			}

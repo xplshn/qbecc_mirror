@@ -231,6 +231,8 @@ func (t *Task) compile() (ok bool) {
 				v.out = a
 				v.outType = fileQbeSSA
 			})
+		case fileLib:
+			// pass through
 		default:
 			t.err(fileNode(v.name), "unexpected file type")
 			fail.Store(true)

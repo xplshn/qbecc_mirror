@@ -154,11 +154,7 @@ func TestExec(t *testing.T) {
 var (
 	bad       = []byte("require-effective-target int128")
 	blacklist = map[string]struct{}{
-		"21_char_array.c":              {},
-		"22_floating_point.c":          {},
 		"23_type_coercion.c":           {},
-		"24_math_library.c":            {},
-		"25_quicksort.c":               {},
 		"27_sizeof.c":                  {},
 		"28_strings.c":                 {},
 		"29_array_address.c":           {},
@@ -167,20 +163,16 @@ var (
 		"33_ternary_op.c":              {},
 		"35_sizeof.c":                  {},
 		"36_array_initialisers.c":      {},
-		"37_sprintf.c":                 {},
 		"38_multiple_array_index.c":    {},
 		"39_typedef.c":                 {},
 		"40_stdio.c":                   {},
 		"42_function_pointer.c":        {},
 		"45_empty_for.c":               {},
 		"48_nested_break.c":            {},
-		"49_bracket_evaluation.c":      {},
 		"51_static.c":                  {},
 		"54_goto.c":                    {},
 		"55_lshift_type.c":             {},
-		"67_macro_concat.c":            {},
 		"70_floating_point_literals.c": {},
-		"72_long_long_constant.c":      {},
 		"73_arm64.c":                   {},
 		"75_array_in_struct_init.c":    {},
 		"76_dollars_in_identifiers.c":  {},
@@ -300,6 +292,7 @@ func testExec2(t *testing.T, p *parallelTest, suite, testNm, fn, sid, fsName str
 		"-o", qbeccBin,
 		"--ssa-header", fmt.Sprintf("# %s\n\n", fsName),
 		fn,
+		"-lm",
 	}
 	if extendedErrors {
 		args = append(args, "--extended-errors")

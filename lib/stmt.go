@@ -120,7 +120,7 @@ func (c *ctx) labeledStatementCaseLabel(n *cc.LabeledStatement) {
 	a := c.label()
 	next := c.label()
 	test := c.temp()
-	c.w("\t%s =w ceq%s %s, %v\n", test, c.typ(n, c.fn.switchCtx.typ), c.fn.switchCtx.expr, c.expr(n.ConstantExpression, rvalue, c.fn.switchCtx.typ))
+	c.w("\t%s =w ceq%s %s, %v\n", test, c.baseType(n, c.fn.switchCtx.typ), c.fn.switchCtx.expr, c.expr(n.ConstantExpression, rvalue, c.fn.switchCtx.typ))
 	c.w("\tjnz %s, %s, %s\n", test, a, next)
 	c.w("%s\n", a)
 	c.statement(n.Statement)
@@ -130,7 +130,7 @@ func (c *ctx) labeledStatementCaseLabel(n *cc.LabeledStatement) {
 func (c *ctx) selectionStatement(n *cc.SelectionStatement) {
 	switch n.Case {
 	case cc.SelectionStatementIf: // "if" '(' ExpressionList ')' Statement
-		panic(todo("%v: %v %v", n.Position(), n.Case, cc.NodeSource(n)))
+		c.selectionStatementIf(n)
 	case cc.SelectionStatementIfElse: // "if" '(' ExpressionList ')' Statement "else" Statement
 		c.selectionStatementIfElse(n)
 	case cc.SelectionStatementSwitch: // "switch" '(' ExpressionList ')' Statement
@@ -153,6 +153,21 @@ func (c *ctx) selectionStatementSwitch(n *cc.SelectionStatement) {
 		c.w("%s\n\tjmp %s\n", c.label(), d)
 	}
 	c.w("%s\n", c.fn.breakCtx.label)
+}
+
+// "if" '(' ExpressionList ')' Statement
+func (c *ctx) selectionStatementIf(n *cc.SelectionStatement) {
+	//	jnz expr @a, @z
+	// @a
+	//	stmt
+	// @z
+	a := c.label()
+	z := c.label()
+	e := c.expr(n.ExpressionList, rvalue, n.ExpressionList.Type())
+	c.w("\tjnz %v, %s, %s\n", e, a, z)
+	c.w("%s\n", a)
+	c.statement(n.Statement)
+	c.w("%s\n", z)
 }
 
 // "if" '(' ExpressionList ')' Statement "else" Statement
@@ -272,13 +287,13 @@ func (c *ctx) blockItemDeclAutomatic(n *cc.BlockItem, id *cc.InitDeclarator) {
 	case local.isStatic:
 		panic(todo("%v: %v %v", n.Position(), n.Case, cc.NodeSource(n)))
 	case local.isValue:
-		c.w("\t%s =%s copy %s\n", local.renamed, c.typ(d, d.Type()), c.initializer(id.Initializer, d.Type()))
+		c.w("\t%s =%s copy %s\n", local.renamed, c.baseType(d, d.Type()), c.initializer(id.Initializer, d.Type()))
 	default:
 		if id.Initializer != nil {
 			v := c.initializer(id.Initializer, d.Type())
 			p := c.temp()
 			c.w("\t%s =%s add %%.bp., %v\n", p, c.wordTag, local.offset)
-			c.w("\tstore%s %s, %s\n", c.typ(d, d.Type()), v, p)
+			c.w("\tstore%s %s, %s\n", c.baseType(d, d.Type()), v, p)
 		}
 	}
 }

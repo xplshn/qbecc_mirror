@@ -10,15 +10,16 @@ func _() {
 	var x [1]struct{}
 	_ = x[fileInvalid-0]
 	_ = x[fileC-1]
-	_ = x[fileH-2]
-	_ = x[fileELF-3]
+	_ = x[fileELF-2]
+	_ = x[fileH-3]
 	_ = x[fileHostAsm-4]
-	_ = x[fileQbeSSA-5]
+	_ = x[fileLib-5]
+	_ = x[fileQbeSSA-6]
 }
 
-const _fileType_name = "fileInvalidfileCfileHfileELFfileHostAsmfileQbeSSA"
+const _fileType_name = "fileInvalidfileCfileELFfileHfileHostAsmfileLibfileQbeSSA"
 
-var _fileType_index = [...]uint8{0, 11, 16, 21, 28, 39, 49}
+var _fileType_index = [...]uint8{0, 11, 16, 23, 28, 39, 46, 56}
 
 func (i fileType) String() string {
 	if i < 0 || i >= fileType(len(_fileType_index)-1) {

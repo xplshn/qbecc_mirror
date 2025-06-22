@@ -29,11 +29,13 @@ type fileType int
 
 const (
 	fileInvalid fileType = iota
-	fileC
-	fileH
-	fileELF
-	fileHostAsm
-	fileQbeSSA
+
+	fileC       // .c
+	fileELF     // a.out, ...
+	fileH       // .h
+	fileHostAsm // .s for as(1)
+	fileLib     // .o, .so
+	fileQbeSSA  // .ssa
 )
 
 const (
@@ -165,6 +167,12 @@ func (t *Task) Main() (err error) {
 	})
 	set.Arg("-ssa-header", false, func(opt, arg string) error { t.ssaHeader = arg; return nil })
 	set.Arg("-target", false, func(opt, arg string) error { t.target = arg; return nil })
+
+	set.Arg("l", true, func(opt, arg string) error {
+		t.compilerFiles = append(t.compilerFiles, &compilerFile{name: arg, inType: fileLib, outType: fileLib})
+		return nil
+	})
+
 	set.Opt("-dump-ssa", func(string) error { t.dumpSSA = true; return nil })
 	set.Opt("-extended-errors", func(string) error { t.errs.extendedErrors = true; return nil })
 	set.Opt("-goabi0", func(string) error { t.goabi0 = true; return nil })

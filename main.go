@@ -138,7 +138,7 @@
 //	        Go      8  1044      142    155   12
 //	jnml@e5-1650:~/src/modernc.org/qbecc/lib$
 //
-// # ==== CC compatible flags supported
+// # ==== CC compatible supported flags
 //
 // # -S: Produce/keep assembler code
 //
@@ -147,6 +147,10 @@
 // # -c: Do not link
 //
 // Compile or assemble the source files, but do not link. Ignored with --abi0.
+//
+// # -llibrary or -l library
+//
+// Search the library named library when linking.
 //
 // # -o=<file>: Name the output file
 //

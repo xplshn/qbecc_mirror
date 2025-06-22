@@ -95,7 +95,7 @@ func (f *fnCtx) registerLocal(d *cc.Declarator) (r *local) {
 	}
 	if r = f.locals[d]; r == nil {
 		isStatic := d.StorageDuration() == cc.Static
-		isValue := !d.AddressTaken() && cc.IsScalarType(d.Type()) && !isStatic
+		isValue := !d.AddressTaken() && (f.ctx.isIntegerType(d.Type()) || f.ctx.isFloatingPointType(d.Type()) || d.Type().Kind() == cc.Ptr) && !isStatic
 		var off int64
 		if !isValue {
 			off = f.alloc(int64(d.Type().Align()), d.Type().Size())
@@ -123,7 +123,7 @@ func (c *ctx) signature(l []*cc.Parameter) {
 			break
 		}
 
-		c.w("%s ", c.typ(v, v.Type()))
+		c.w("%s ", c.baseType(v, v.Type()))
 		switch nm := v.Name(); nm {
 		case "":
 			c.w("TODO, ")
@@ -158,7 +158,7 @@ func (c *ctx) functionDefinition(n *cc.FunctionDefinition) {
 	c.w("function ")
 	ft := d.Type().(*cc.FunctionType)
 	if f.returns = ft.Result(); f.returns.Kind() != cc.Void {
-		c.w("%s ", c.typ(d, f.returns))
+		c.w("%s ", c.baseType(d, f.returns))
 	}
 	c.w("$%s", d.Name())
 	c.signature(ft.Parameters())
