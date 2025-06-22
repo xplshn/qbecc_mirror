@@ -6,6 +6,7 @@ package qbecc // import "modernc.org/qbecc/lib"
 
 import (
 	"fmt"
+	"strings"
 
 	"modernc.org/cc/v4"
 )
@@ -40,6 +41,8 @@ type fnCtx struct {
 	returns   cc.Type
 	static    []*cc.InitDeclarator
 	switchCtx *switchCtx
+
+	nextID int
 }
 
 func (c *ctx) newFnCtx(n *cc.FunctionDefinition) (r *fnCtx) {
@@ -55,6 +58,12 @@ func (c *ctx) newFnCtx(n *cc.FunctionDefinition) (r *fnCtx) {
 			}
 		}
 	})
+	return r
+}
+
+func (f *fnCtx) id() (r int) {
+	r = f.nextID
+	f.nextID++
 	return r
 }
 
@@ -94,22 +103,28 @@ func (f *fnCtx) registerLocal(d *cc.Declarator) (r *local) {
 		f.locals = map[*cc.Declarator]*local{}
 	}
 	if r = f.locals[d]; r == nil {
-		isStatic := d.StorageDuration() == cc.Static
-		isValue := !d.AddressTaken() && (f.ctx.isIntegerType(d.Type()) || f.ctx.isFloatingPointType(d.Type()) || d.Type().Kind() == cc.Ptr) && !isStatic
-		var off int64
-		if !isValue {
-			off = f.alloc(int64(d.Type().Align()), d.Type().Size())
-		}
-		suff := ""
-		if !d.IsParam() {
-			suff = fmt.Sprintf(".%d", len(f.locals))
-		}
-		r = &local{
-			d:        d,
-			isStatic: isStatic,
-			isValue:  isValue,
-			offset:   off,
-			renamed:  fmt.Sprintf("%%%s%s", d.Name(), suff),
+		switch {
+		case d.StorageDuration() == cc.Static:
+			r = &local{
+				d:       d,
+				renamed: fmt.Sprintf("$%s.%d", d.Name(), f.ctx.id()),
+			}
+		default:
+			isValue := !d.AddressTaken() && (f.ctx.isIntegerType(d.Type()) || f.ctx.isFloatingPointType(d.Type()) || d.Type().Kind() == cc.Ptr)
+			var off int64
+			if !isValue {
+				off = f.alloc(int64(d.Type().Align()), d.Type().Size())
+			}
+			suff := ""
+			if !d.IsParam() {
+				suff = fmt.Sprintf(".%d", len(f.locals))
+			}
+			r = &local{
+				d:       d,
+				isValue: isValue,
+				offset:  off,
+				renamed: fmt.Sprintf("%%%s%s", d.Name(), suff),
+			}
 		}
 		f.locals[d] = r
 	}
@@ -137,7 +152,7 @@ func (c *ctx) signature(l []*cc.Parameter) {
 // FunctionDefinition:
 //	DeclarationSpecifiers Declarator DeclarationList CompoundStatement
 
-func (c *ctx) functionDefinition(n *cc.FunctionDefinition) {
+func (c *ctx) externalDeclarationFuncDef(n *cc.FunctionDefinition) {
 	if n.DeclarationList != nil {
 		c.err(n.DeclarationList, "unsupported declaration list style")
 		return
@@ -150,8 +165,12 @@ func (c *ctx) functionDefinition(n *cc.FunctionDefinition) {
 		c.fn = nil
 	}()
 
-	c.pos(n)
 	d := n.Declarator
+	if d.IsInline() && c.isHeader(d) {
+		return
+	}
+
+	c.pos(n)
 	if d.Linkage() == cc.External {
 		c.w("export ")
 	}
@@ -172,7 +191,7 @@ func (c *ctx) functionDefinition(n *cc.FunctionDefinition) {
 	c.w("}\n\n")
 }
 
-func (c *ctx) declarationDecl(n *cc.Declaration) {
+func (c *ctx) externalDeclarationDeclFull(n *cc.Declaration) {
 	for l := n.InitDeclaratorList; l != nil; l = l.InitDeclaratorList {
 		d := l.InitDeclarator.Declarator
 		if d.IsTypename() { // typedef int i;
@@ -180,6 +199,10 @@ func (c *ctx) declarationDecl(n *cc.Declaration) {
 		}
 
 		if d.IsExtern() { // extern int foo;
+			continue
+		}
+
+		if d.Type().Kind() == cc.Function { // int foo(int);
 			continue
 		}
 
@@ -198,10 +221,10 @@ func (c *ctx) declarationDecl(n *cc.Declaration) {
 	}
 }
 
-func (c *ctx) declaration(n *cc.Declaration) {
+func (c *ctx) externalDeclarationDecl(n *cc.Declaration) {
 	switch n.Case {
 	case cc.DeclarationDecl: // DeclarationSpecifiers InitDeclaratorList AttributeSpecifierList ';'
-		c.declarationDecl(n)
+		c.externalDeclarationDeclFull(n)
 	case cc.DeclarationAssert: // StaticAssertDeclaration
 		panic(todo("%v: %v %s", n.Position(), n.Case, cc.NodeSource(n)))
 	case cc.DeclarationAuto: // "__auto_type" Declarator '=' Initializer ';'
@@ -214,9 +237,9 @@ func (c *ctx) declaration(n *cc.Declaration) {
 func (c *ctx) externalDeclaration(n *cc.ExternalDeclaration) {
 	switch n.Case {
 	case cc.ExternalDeclarationFuncDef: // FunctionDefinition
-		c.functionDefinition(n.FunctionDefinition)
+		c.externalDeclarationFuncDef(n.FunctionDefinition)
 	case cc.ExternalDeclarationDecl: // Declaration
-		c.declaration(n.Declaration)
+		c.externalDeclarationDecl(n.Declaration)
 	case cc.ExternalDeclarationAsmStmt: // AsmStatement
 		panic(todo("%v: %v %s", n.Position(), n.Case, cc.NodeSource(n)))
 	case cc.ExternalDeclarationEmpty: // ';'
@@ -224,4 +247,13 @@ func (c *ctx) externalDeclaration(n *cc.ExternalDeclaration) {
 	default:
 		panic(todo("%v: %v %s", n.Position(), n.Case, cc.NodeSource(n)))
 	}
+}
+
+func (c *ctx) isHeader(n cc.Node) bool {
+	if n == nil {
+		return false
+	}
+
+	return strings.HasSuffix(n.Position().Filename, ".h") ||
+		c.t.goos == "windows" && strings.HasSuffix(n.Position().Filename, ".inl")
 }

@@ -119,12 +119,12 @@ func (c *ctx) labeledStatementCaseLabel(n *cc.LabeledStatement) {
 	}
 	a := c.label()
 	next := c.label()
+	c.fn.switchCtx.nextCase = next
 	test := c.temp()
 	c.w("\t%s =w ceq%s %s, %v\n", test, c.baseType(n, c.fn.switchCtx.typ), c.fn.switchCtx.expr, c.expr(n.ConstantExpression, rvalue, c.fn.switchCtx.typ))
 	c.w("\tjnz %s, %s, %s\n", test, a, next)
 	c.w("%s\n", a)
 	c.statement(n.Statement)
-	c.fn.switchCtx.nextCase = next
 }
 
 func (c *ctx) selectionStatement(n *cc.SelectionStatement) {
@@ -218,6 +218,9 @@ func (c *ctx) iterationStatementDo(n *cc.IterationStatement) {
 	// @z
 	a := c.label()
 	z := c.label()
+
+	defer c.fn.newBreakCtx(z)()
+
 	c.w("%s\n", a)
 	c.statement(n.Statement)
 	e := c.expr(n.ExpressionList, rvalue, n.ExpressionList.Type())
@@ -238,6 +241,9 @@ func (c *ctx) iterationStatementWhile(n *cc.IterationStatement) {
 	b := c.label()
 	x := c.label()
 	z := c.label()
+
+	defer c.fn.newBreakCtx(z)()
+
 	c.w("%s\n", a)
 	e := c.expr(n.ExpressionList, rvalue, n.ExpressionList.Type())
 	c.w("\tjnz %v, %s, %s\n", e, b, z)

@@ -50,6 +50,10 @@ func (l *linkerObject) ssaTyp(s string) string {
 		return "int32"
 	case "l":
 		return "int64"
+	case "s":
+		return "float32"
+	case "d":
+		return "float64"
 	default:
 		panic(todo("", s))
 	}
