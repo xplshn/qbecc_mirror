@@ -285,20 +285,23 @@ func (c *ctx) label() string {
 }
 
 func (c *ctx) blockItemDeclAutomatic(n *cc.BlockItem, id *cc.InitDeclarator) {
-	d := id.Declarator
-	switch local := c.fn.localsOld[d]; {
-	case local == nil:
-		// dead var
-	case local.isStatic:
-		panic(todo("%v: %v %v", n.Position(), n.Case, cc.NodeSource(n)))
-	case local.isValue:
-		c.w("\t%s =%s copy %s\n", local.renamed, c.baseType(d, d.Type()), c.initializer(id.Initializer, d.Type()))
-	default:
+	d, info := c.fn.info(id.Declarator)
+	switch x := info.(type) {
+	case *local:
+		c.w("\t%s =%s copy %s\n", x.name, c.baseType(d, d.Type()), c.initializer(id.Initializer, d.Type()))
+	case *escaped:
 		if id.Initializer != nil {
-			v := c.initializer(id.Initializer, d.Type())
-			p := c.temp("%s add %%.bp., %v\n", c.wordTag, local.offset)
-			c.w("\tstore%s %s, %s\n", c.baseType(d, d.Type()), v, p)
+			p := c.temp("%s add %%.bp., %v\n", c.wordTag, x.offset)
+			switch {
+			case c.isIntegerType(d.Type()) || c.isFloatingPointType(d.Type()):
+				v := c.initializer(id.Initializer, d.Type())
+				c.w("\tstore%s %s, %s\n", c.extType(d, d.Type()), v, p)
+			default:
+				panic(todo("%v: %T", n.Position(), x))
+			}
 		}
+	default:
+		panic(todo("%v: %T", n.Position(), x))
 	}
 }
 

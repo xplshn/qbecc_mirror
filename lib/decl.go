@@ -47,16 +47,6 @@ type global struct {
 	name string
 }
 
-// function localOld variable
-type localOld struct { //TODO-
-	d       *cc.Declarator
-	offset  int64 // relative to alloc
-	renamed string
-
-	isStatic bool
-	isValue  bool
-}
-
 type breakCtx struct {
 	label string
 }
@@ -74,7 +64,6 @@ type fnCtx struct {
 	breakCtx  *breakCtx
 	ctx       *ctx
 	infos     map[cc.Node]nfo
-	localsOld map[*cc.Declarator]*localOld
 	returns   cc.Type
 	static    []*cc.InitDeclarator
 	switchCtx *switchCtx
@@ -92,11 +81,14 @@ func (c *ctx) newFnCtx(n *cc.FunctionDefinition) (r *fnCtx) {
 		case walkPre:
 			switch x := n.(type) {
 			case *cc.Declarator:
-				if x.ReadCount() != 0 || x.WriteCount() != 0 || x.HasInitializer() || x.AddressTaken() { //TODO-
-					r.registerLocal(x)
-				}
-
 				r.registerDeclarator(x)
+			case *cc.PrimaryExpression:
+				switch x.Case {
+				case cc.PrimaryExpressionIdent:
+					if d, ok := x.ResolvedTo().(*cc.Declarator); ok {
+						r.registerDeclarator(d)
+					}
+				}
 			}
 		}
 	})
@@ -172,8 +164,7 @@ func (f *fnCtx) registerDeclarator(d *cc.Declarator) {
 		default:
 			suff := ""
 			if !d.IsParam() {
-				//TODO suff = fmt.Sprintf(".%d", f.id())
-				suff = fmt.Sprintf(".%d", len(f.localsOld)-1)
+				suff = fmt.Sprintf(".%d", f.id())
 			}
 			f.infos[d] = &local{
 				d:    d,
@@ -195,43 +186,6 @@ func (f *fnCtx) info(n cc.Node) (d *cc.Declarator, nfo nfo) {
 		panic(todo("%T", x))
 	}
 	return d, f.infos[d]
-}
-
-func (f *fnCtx) registerLocal(d *cc.Declarator) (r *localOld) { //TODO-
-	if d.StorageDuration() == cc.Static && (d.ResolvedIn() == nil || d.ResolvedIn().Parent == nil) {
-		return nil
-	}
-
-	if f.localsOld == nil {
-		f.localsOld = map[*cc.Declarator]*localOld{}
-	}
-	if r = f.localsOld[d]; r == nil {
-		switch {
-		case d.StorageDuration() == cc.Static:
-			r = &localOld{
-				d:       d,
-				renamed: fmt.Sprintf("$%s.%d", d.Name(), f.ctx.id()),
-			}
-		default:
-			isValue := !d.AddressTaken() && (f.ctx.isIntegerType(d.Type()) || f.ctx.isFloatingPointType(d.Type()) || d.Type().Kind() == cc.Ptr)
-			var off int64
-			if !isValue {
-				off = f.alloc(int64(d.Type().Align()), d.Type().Size())
-			}
-			suff := ""
-			if !d.IsParam() {
-				suff = fmt.Sprintf(".%d", len(f.localsOld))
-			}
-			r = &localOld{
-				d:       d,
-				isValue: isValue,
-				offset:  off,
-				renamed: fmt.Sprintf("%%%s%s", d.Name(), suff),
-			}
-		}
-		f.localsOld[d] = r
-	}
-	return r
 }
 
 func (c *ctx) signature(l []*cc.Parameter) {

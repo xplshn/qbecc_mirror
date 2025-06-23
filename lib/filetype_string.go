@@ -55,12 +55,11 @@ func _() {
 	_ = x[void-0]
 	_ = x[lvalue-1]
 	_ = x[rvalue-2]
-	_ = x[call-3]
 }
 
-const _mode_name = "voidlvaluervaluecall"
+const _mode_name = "voidlvaluervalue"
 
-var _mode_index = [...]uint8{0, 4, 10, 16, 20}
+var _mode_index = [...]uint8{0, 4, 10, 16}
 
 func (i mode) String() string {
 	if i < 0 || i >= mode(len(_mode_index)-1) {

@@ -13,7 +13,7 @@ import (
 func (c *ctx) initializer(n *cc.Initializer, t cc.Type) (r string) {
 	defer func() {
 		if n != nil {
-			r = c.convertRValue(n, t, n.Type(), r)
+			r = c.convert(n, t, n.Type(), r)
 		}
 	}()
 
