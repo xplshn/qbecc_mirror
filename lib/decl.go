@@ -133,6 +133,7 @@ func (f *fnCtx) registerDeclarator(d *cc.Declarator) {
 		return
 	}
 
+	// trc("%v: %p %s", d.Position(), d, d.Name())
 	dt := d.Type()
 	k := dt.Kind()
 	switch dt := d.Type(); d.StorageDuration() {
@@ -150,7 +151,7 @@ func (f *fnCtx) registerDeclarator(d *cc.Declarator) {
 			default:
 				f.infos[d] = &static{
 					d:    d,
-					name: fmt.Sprintf("$%s.%v", d.Name(), f.ctx.id()),
+					name: fmt.Sprintf("$%s.%v.", d.Name(), f.ctx.id()),
 				}
 			}
 		}
@@ -246,6 +247,22 @@ func (c *ctx) externalDeclarationFuncDef(n *cc.FunctionDefinition) {
 	c.compoundStatement(n.CompoundStatement)
 	c.w("%s\n\tret\n", c.label())
 	c.w("}\n\n")
+	for _, v := range c.fn.static {
+		d := v.Declarator
+		// trc("%v: %p %s", d.Position(), d, d.Name())
+		if d.ReadCount() == 0 {
+			continue
+		}
+
+		_, info := c.fn.info(d)
+		c.w("data %s = align %d ", info.(*static).name, d.Type().Align())
+		switch {
+		case v.Initializer != nil:
+			panic(todo("%v: %v", d.Position(), cc.NodeSource(v.Initializer)))
+		default:
+			c.w("{ z %d }\n\n", d.Type().Size())
+		}
+	}
 }
 
 func (c *ctx) externalDeclarationDeclFull(n *cc.Declaration) {

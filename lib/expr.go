@@ -150,6 +150,13 @@ func (c *ctx) convert(n cc.Node, dst, src cc.Type, v string) (r string) {
 		}
 	case dst.Kind() == cc.Function && src.Kind() == cc.Ptr:
 		return v
+	case c.isIntegerType(dst) && src.Kind() == cc.Ptr:
+		switch {
+		case dst.Size() == src.Size():
+			return v
+		default:
+			panic(todo("%v: %s(%v, %v) <- %s(%v, %v) %v", n.Position(), dst, dst.Kind(), dst.Size(), src, src.Kind(), src.Size(), cc.NodeSource(n)))
+		}
 	default:
 		panic(todo("%v: %s(%v, %v) <- %s(%v, %v) %v", n.Position(), dst, dst.Kind(), dst.Size(), src, src.Kind(), src.Size(), cc.NodeSource(n)))
 	}
@@ -212,6 +219,8 @@ func (c *ctx) primaryExpressionIdent(n *cc.PrimaryExpression, mode mode, t cc.Ty
 			return x.name
 		case *escaped:
 			return c.temp("%s add %%.bp., %v\n", c.wordTag, x.offset)
+		case *static:
+			return c.temp("%s copy %s\n", c.wordTag, x.name)
 		case *global:
 			return c.temp("%s copy %s\n", c.wordTag, x.name)
 		default:
@@ -235,7 +244,7 @@ func (c *ctx) primaryExpressionIdent(n *cc.PrimaryExpression, mode mode, t cc.Ty
 			case cc.Function, cc.Array:
 				return x.name
 			default:
-				panic(todo("%v: %v %v %v", n.Position(), d.Type(), d.Type().Kind(), cc.NodeSource(n)))
+				return c.load(n, x.name, d.Type())
 			}
 		default:
 			if x, ok := n.ResolvedTo().(*cc.Enumerator); ok {
@@ -1047,18 +1056,20 @@ func (c *ctx) equalityExpression(n *cc.EqualityExpression, mode mode, t cc.Type)
 func (c *ctx) binop(lhs, rhs cc.ExpressionNode, mode mode, t cc.Type, op string) (r string) {
 	lt, rt := lhs.Type(), rhs.Type()
 	ct := c.usualArithmeticConversions(lt, rt)
+	mul := int64(1)
+	div := int64(1)
 	switch op {
 	case "add":
 		switch {
 		case lt.Kind() == cc.Ptr:
-			panic(todo("%v: %v %s %s %s", lhs.Position(), mode, cc.NodeSource(lhs), op, cc.NodeSource(rhs)))
+			mul = lt.(*cc.PointerType).Elem().Size()
 		case rt.Kind() == cc.Ptr:
 			panic(todo("%v: %v %s %s %s", lhs.Position(), mode, cc.NodeSource(lhs), op, cc.NodeSource(rhs)))
 		}
 	case "sub":
 		switch {
 		case lt.Kind() == cc.Ptr && rt.Kind() == cc.Ptr:
-			panic(todo("%v: %v %s %s %s", lhs.Position(), mode, cc.NodeSource(lhs), op, cc.NodeSource(rhs)))
+			div = lt.(*cc.PointerType).Elem().Size()
 		case lt.Kind() == cc.Ptr:
 			panic(todo("%v: %v %s %s %s", lhs.Position(), mode, cc.NodeSource(lhs), op, cc.NodeSource(rhs)))
 		}
@@ -1079,7 +1090,17 @@ func (c *ctx) binop(lhs, rhs cc.ExpressionNode, mode mode, t cc.Type, op string)
 	case rvalue:
 		defer func() { r = c.convert(lhs, t, ct, r) }()
 
-		return c.temp("%s %s %s, %s\n", c.baseType(lhs, ct), op, c.expr(lhs, rvalue, ct), c.expr(rhs, rvalue, ct))
+		switch {
+		case mul != 1:
+			ix := c.expr(rhs, rvalue, ct)
+			ix = c.temp("%s mul %s, %v", c.wordTag, ix, mul)
+			return c.temp("%s %s %s, %s\n", c.baseType(lhs, ct), op, c.expr(lhs, rvalue, ct), ix)
+		case div != 1:
+			v := c.temp("%s %s %s, %s\n", c.baseType(lhs, ct), op, c.expr(lhs, rvalue, ct), c.expr(rhs, rvalue, ct))
+			return c.temp("%s udiv %s, %v\n", c.wordTag, v, div)
+		default:
+			return c.temp("%s %s %s, %s\n", c.baseType(lhs, ct), op, c.expr(lhs, rvalue, ct), c.expr(rhs, rvalue, ct))
+		}
 	default:
 		panic(todo("%v: %v %s %s %s", lhs.Position(), mode, cc.NodeSource(lhs), op, cc.NodeSource(rhs)))
 	}

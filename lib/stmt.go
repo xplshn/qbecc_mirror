@@ -25,10 +25,6 @@ func (c *ctx) jumpStatementReturn(n *cc.JumpStatement) {
 	c.w("\tret %s\n", s)
 }
 
-func (c *ctx) jumpStatementBreak(n *cc.JumpStatement) {
-	c.w("%s\n\tjmp %s\n", c.label(), c.fn.breakCtx.label)
-}
-
 func (c *ctx) jumpStatement(n *cc.JumpStatement) {
 	switch n.Case {
 	case cc.JumpStatementGoto: // "goto" IDENTIFIER ';'
@@ -82,50 +78,6 @@ func (c *ctx) labeledStatement(n *cc.LabeledStatement) {
 	}
 }
 
-// "default" ':' Statement
-func (c *ctx) labeledStatementDefault(n *cc.LabeledStatement) {
-	// @a
-	//	jmp @next
-	// @d:
-	//	stmt
-	// @e
-	//	jmp @switchBreak
-	// @next
-	if next := c.fn.switchCtx.nextCase; next != "" {
-		c.w("%s\n", next)
-	}
-	a := c.label()
-	d := c.label()
-	e := c.label()
-	next := c.label()
-	c.fn.switchCtx.dflt = d
-	c.w("%s\n\tjmp %s\n", a, next)
-	c.w("%s\n", d)
-	c.statement(n.Statement)
-	c.w("%s\n\tjmp %s\n", e, c.fn.breakCtx.label)
-	c.fn.switchCtx.nextCase = next
-}
-
-// "case" ConstantExpression ':' Statement
-func (c *ctx) labeledStatementCaseLabel(n *cc.LabeledStatement) {
-	//TODO generate jump tables
-
-	//	jnz constExpr == switchExpr, @a, @next
-	// @a
-	//	stmt
-	// @next
-	if next := c.fn.switchCtx.nextCase; next != "" {
-		c.w("%s\n", next)
-	}
-	a := c.label()
-	next := c.label()
-	c.fn.switchCtx.nextCase = next
-	test := c.temp("w ceq%s %s, %v\n", c.baseType(n, c.fn.switchCtx.typ), c.fn.switchCtx.expr, c.expr(n.ConstantExpression, rvalue, c.fn.switchCtx.typ))
-	c.w("\tjnz %s, %s, %s\n", test, a, next)
-	c.w("%s\n", a)
-	c.statement(n.Statement)
-}
-
 func (c *ctx) selectionStatement(n *cc.SelectionStatement) {
 	switch n.Case {
 	case cc.SelectionStatementIf: // "if" '(' ExpressionList ')' Statement
@@ -141,17 +93,109 @@ func (c *ctx) selectionStatement(n *cc.SelectionStatement) {
 
 // "switch" '(' ExpressionList ')' Statement
 func (c *ctx) selectionStatementSwitch(n *cc.SelectionStatement) {
-	el := n.ExpressionList
-	et := el.Type()
-	defer c.fn.newSwitchCtx(c.expr(el, rvalue, et), et)()
-	c.statement(n.Statement)
-	if next := c.fn.switchCtx.nextCase; next != "" {
-		c.w("%s\n", next)
+	var level int
+	var cases []*cc.LabeledStatement
+	defaultIndex := -1
+	walk(n.Statement, func(n cc.Node, mode int) {
+		switch mode {
+		case walkPre:
+			switch x := n.(type) {
+			case *cc.SelectionStatement:
+				if x.Case == cc.SelectionStatementSwitch {
+					level++
+				}
+			case *cc.LabeledStatement:
+				switch x.Case {
+				case cc.LabeledStatementCaseLabel, cc.LabeledStatementDefault:
+					if level == 0 {
+						if x.Case == cc.LabeledStatementDefault {
+							defaultIndex = len(cases)
+						}
+						cases = append(cases, x)
+					}
+
+				}
+			}
+		case walkPost:
+			switch x := n.(type) {
+			case *cc.SelectionStatement:
+				if x.Case == cc.SelectionStatementSwitch {
+					level--
+				}
+			}
+		}
+	})
+	for i, v := range cases {
+		trc("", v.Position(), i, cc.NodeSource(v))
 	}
-	if d := c.fn.switchCtx.dflt; d != "" {
-		c.w("%s\n\tjmp %s\n", c.label(), d)
-	}
-	c.w("%s\n", c.fn.breakCtx.label)
+	trc("defaultIndex=%v", defaultIndex)
+	panic(todo("", n.Position(), cc.NodeSource(n)))
+
+	//TODO- el := n.ExpressionList
+	//TODO- et := el.Type()
+	//TODO- defer c.fn.newSwitchCtx(c.expr(el, rvalue, et), et)()
+	//TODO- c.statement(n.Statement)
+	//TODO- if next := c.fn.switchCtx.nextCase; next != "" {
+	//TODO- 	c.w("%s\n", next)
+	//TODO- }
+	//TODO- if d := c.fn.switchCtx.dflt; d != "" {
+	//TODO- 	c.w("%s\n\tjmp %s\n", c.label(), d)
+	//TODO- }
+	//TODO- c.w("%s\n", c.fn.breakCtx.label)
+}
+
+// "case" ConstantExpression ':' Statement
+func (c *ctx) labeledStatementCaseLabel(n *cc.LabeledStatement) {
+	panic(todo("", n.Position(), cc.NodeSource(n)))
+
+	//TODO- //	jnz constExpr == switchExpr, @a, @next
+	//TODO- // @a
+	//TODO- //	stmt
+	//TODO- // @next
+	//TODO- if next := c.fn.switchCtx.nextCase; next != "" {
+	//TODO- 	c.w("%s\n", next)
+	//TODO- }
+	//TODO- a := c.label()
+	//TODO- next := c.label()
+	//TODO- c.fn.switchCtx.nextCase = next
+	//TODO- test := c.temp("w ceq%s %s, %v\n", c.baseType(n, c.fn.switchCtx.typ), c.fn.switchCtx.expr, c.expr(n.ConstantExpression, rvalue, c.fn.switchCtx.typ))
+	//TODO- c.w("\tjnz %s, %s, %s\n", test, a, next)
+	//TODO- c.w("%s\n", a)
+	//TODO- if !c.isCaseOrDefault(n.Statement) {
+	//TODO- 	c.statement(n.Statement)
+	//TODO- }
+}
+
+func (c *ctx) jumpStatementBreak(n *cc.JumpStatement) {
+	c.w("%s\n\tjmp %s\n", c.label(), c.fn.breakCtx.label)
+}
+
+// "default" ':' Statement
+func (c *ctx) labeledStatementDefault(n *cc.LabeledStatement) {
+	panic(todo("", n.Position(), cc.NodeSource(n)))
+
+	//TODO- // @a
+	//TODO- //	jmp @next
+	//TODO- // @d:
+	//TODO- //	stmt
+	//TODO- // @e
+	//TODO- //	jmp @switchBreak
+	//TODO- // @next
+	//TODO- if next := c.fn.switchCtx.nextCase; next != "" {
+	//TODO- 	c.w("%s\n", next)
+	//TODO- }
+	//TODO- a := c.label()
+	//TODO- d := c.label()
+	//TODO- e := c.label()
+	//TODO- next := c.label()
+	//TODO- c.fn.switchCtx.dflt = d
+	//TODO- c.w("%s\n\tjmp %s\n", a, next)
+	//TODO- c.w("%s\n", d)
+	//TODO- if !c.isCaseOrDefault(n.Statement) {
+	//TODO- 	c.statement(n.Statement)
+	//TODO- }
+	//TODO- c.w("%s\n\tjmp %s\n", e, c.fn.breakCtx.label)
+	//TODO- c.fn.switchCtx.nextCase = next
 }
 
 // "if" '(' ExpressionList ')' Statement
