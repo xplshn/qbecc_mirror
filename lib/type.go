@@ -68,3 +68,14 @@ func (c *ctx) extType(n cc.Node, t cc.Type) string {
 		panic(todo("%v: %s %v", n.Position(), t, t.Kind()))
 	}
 }
+
+func (c *ctx) loadType(n cc.Node, et cc.Type) string {
+	switch et.Size() {
+	case 1, 2, 4:
+		return "w"
+	case 8:
+		return "l"
+	default:
+		panic(todo("%v: %s %v", n.Position(), et, et.Kind()))
+	}
+}

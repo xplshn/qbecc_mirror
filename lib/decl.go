@@ -74,7 +74,7 @@ type fnCtx struct {
 	breakCtx  *breakCtx
 	ctx       *ctx
 	infos     map[cc.Node]nfo
-	locals    map[*cc.Declarator]*localOld
+	localsOld map[*cc.Declarator]*localOld
 	returns   cc.Type
 	static    []*cc.InitDeclarator
 	switchCtx *switchCtx
@@ -173,7 +173,7 @@ func (f *fnCtx) registerDeclarator(d *cc.Declarator) {
 			suff := ""
 			if !d.IsParam() {
 				//TODO suff = fmt.Sprintf(".%d", f.id())
-				suff = fmt.Sprintf(".%d", len(f.locals)-1)
+				suff = fmt.Sprintf(".%d", len(f.localsOld)-1)
 			}
 			f.infos[d] = &local{
 				d:    d,
@@ -202,10 +202,10 @@ func (f *fnCtx) registerLocal(d *cc.Declarator) (r *localOld) { //TODO-
 		return nil
 	}
 
-	if f.locals == nil {
-		f.locals = map[*cc.Declarator]*localOld{}
+	if f.localsOld == nil {
+		f.localsOld = map[*cc.Declarator]*localOld{}
 	}
-	if r = f.locals[d]; r == nil {
+	if r = f.localsOld[d]; r == nil {
 		switch {
 		case d.StorageDuration() == cc.Static:
 			r = &localOld{
@@ -220,7 +220,7 @@ func (f *fnCtx) registerLocal(d *cc.Declarator) (r *localOld) { //TODO-
 			}
 			suff := ""
 			if !d.IsParam() {
-				suff = fmt.Sprintf(".%d", len(f.locals))
+				suff = fmt.Sprintf(".%d", len(f.localsOld))
 			}
 			r = &localOld{
 				d:       d,
@@ -229,7 +229,7 @@ func (f *fnCtx) registerLocal(d *cc.Declarator) (r *localOld) { //TODO-
 				renamed: fmt.Sprintf("%%%s%s", d.Name(), suff),
 			}
 		}
-		f.locals[d] = r
+		f.localsOld[d] = r
 	}
 	return r
 }

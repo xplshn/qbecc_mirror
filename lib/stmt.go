@@ -120,8 +120,7 @@ func (c *ctx) labeledStatementCaseLabel(n *cc.LabeledStatement) {
 	a := c.label()
 	next := c.label()
 	c.fn.switchCtx.nextCase = next
-	test := c.temp()
-	c.w("\t%s =w ceq%s %s, %v\n", test, c.baseType(n, c.fn.switchCtx.typ), c.fn.switchCtx.expr, c.expr(n.ConstantExpression, rvalue, c.fn.switchCtx.typ))
+	test := c.temp("w ceq%s %s, %v\n", c.baseType(n, c.fn.switchCtx.typ), c.fn.switchCtx.expr, c.expr(n.ConstantExpression, rvalue, c.fn.switchCtx.typ))
 	c.w("\tjnz %s, %s, %s\n", test, a, next)
 	c.w("%s\n", a)
 	c.statement(n.Statement)
@@ -287,7 +286,7 @@ func (c *ctx) label() string {
 
 func (c *ctx) blockItemDeclAutomatic(n *cc.BlockItem, id *cc.InitDeclarator) {
 	d := id.Declarator
-	switch local := c.fn.locals[d]; {
+	switch local := c.fn.localsOld[d]; {
 	case local == nil:
 		// dead var
 	case local.isStatic:
@@ -297,8 +296,7 @@ func (c *ctx) blockItemDeclAutomatic(n *cc.BlockItem, id *cc.InitDeclarator) {
 	default:
 		if id.Initializer != nil {
 			v := c.initializer(id.Initializer, d.Type())
-			p := c.temp()
-			c.w("\t%s =%s add %%.bp., %v\n", p, c.wordTag, local.offset)
+			p := c.temp("%s add %%.bp., %v\n", c.wordTag, local.offset)
 			c.w("\tstore%s %s, %s\n", c.baseType(d, d.Type()), v, p)
 		}
 	}

@@ -57,6 +57,14 @@ func (c *ctx) err(n cc.Node, s string, args ...any) {
 	c.t.err(n, s, args...)
 }
 
+// define a new temp var, return its name
+func (c *ctx) temp(s string, args ...any) (r string) {
+	r = fmt.Sprintf("%%.%v", c.fn.id())
+	c.w("\t%s =", r)
+	c.w(s, args...)
+	return r
+}
+
 func (c *ctx) translationUnit(n *cc.TranslationUnit) (ok bool) {
 	for ; n != nil; n = n.TranslationUnit {
 		c.externalDeclaration(n.ExternalDeclaration)
