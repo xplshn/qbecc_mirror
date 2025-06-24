@@ -74,6 +74,8 @@ func (c *ctx) convert(n cc.Node, dst, src cc.Type, v string) (r string) {
 			return c.temp("w exts%s %s\n", c.extType(n, src), v)
 		case !cc.IsSignedInteger(dst) && srcSz == 4 && dstSz > srcSz:
 			return c.temp("%s extuw %s\n", c.baseType(n, dst), v)
+		case dstSz == 4 && srcSz == 8:
+			return v
 		default:
 			panic(todo("%v: %s(%v, %v) <- %s(%v, %v) %v", n.Position(), dst, dst.Kind(), dst.Size(), src, src.Kind(), src.Size(), cc.NodeSource(n)))
 		}
@@ -933,12 +935,26 @@ func (c *ctx) unaryExpressionDeref(n *cc.UnaryExpression, mode mode, t cc.Type) 
 }
 
 // "sizeof" UnaryExpression
-func (c *ctx) unaryExpressionSizeof(n *cc.UnaryExpression, mode mode, t cc.Type) (r string) {
+func (c *ctx) unaryExpressionSizeofExpr(n *cc.UnaryExpression, mode mode, t cc.Type) (r string) {
 	switch mode {
 	case rvalue:
 		defer func() { r = c.convert(n, t, n.Type(), r) }()
 
 		et := n.UnaryExpression.Type()
+		return fmt.Sprint(et.Size())
+	default:
+		panic(todo("%v: %s %s", n.Position(), mode, cc.NodeSource(n)))
+	}
+	return r
+}
+
+// "sizeof" '(' TypeName ')'
+func (c *ctx) unaryExpressionSizeofType(n *cc.UnaryExpression, mode mode, t cc.Type) (r string) {
+	switch mode {
+	case rvalue:
+		defer func() { r = c.convert(n, t, n.Type(), r) }()
+
+		et := n.TypeName.Type()
 		return fmt.Sprint(et.Size())
 	default:
 		panic(todo("%v: %s %s", n.Position(), mode, cc.NodeSource(n)))
@@ -967,9 +983,9 @@ func (c *ctx) unaryExpression(n *cc.UnaryExpression, mode mode, t cc.Type) (r st
 	case cc.UnaryExpressionNot: // '!' CastExpression
 		panic(todo("%v: %v %v", n.Position(), n.Case, cc.NodeSource(n)))
 	case cc.UnaryExpressionSizeofExpr: // "sizeof" UnaryExpression
-		return c.unaryExpressionSizeof(n, mode, t)
+		return c.unaryExpressionSizeofExpr(n, mode, t)
 	case cc.UnaryExpressionSizeofType: // "sizeof" '(' TypeName ')'
-		panic(todo("%v: %v %v", n.Position(), n.Case, cc.NodeSource(n)))
+		return c.unaryExpressionSizeofType(n, mode, t)
 	case cc.UnaryExpressionLabelAddr: // "&&" IDENTIFIER
 		panic(todo("%v: %v %v", n.Position(), n.Case, cc.NodeSource(n)))
 	case cc.UnaryExpressionAlignofExpr: // "_Alignof" UnaryExpression
@@ -1294,6 +1310,9 @@ func (c *ctx) castExpressionCast(n *cc.CastExpression, mode mode, t cc.Type) (r 
 		defer func() { r = c.convert(n, t, n.Type(), r) }()
 
 		r = c.expr(n.CastExpression, mode, n.CastExpression.Type())
+	case void:
+		r = nothing
+		c.expr(n.CastExpression, mode, n.CastExpression.Type())
 	default:
 		panic(todo("%v: %s %s", n.Position(), mode, cc.NodeSource(n)))
 	}
@@ -1358,6 +1377,10 @@ func (c *ctx) conditionalExpression(n *cc.ConditionalExpression, mode mode, t cc
 }
 
 func (c *ctx) expr(n cc.ExpressionNode, mode mode, t cc.Type) (r string) {
+	if n == nil && mode == void {
+		return nothing
+	}
+
 	switch x := n.(type) {
 	case *cc.AssignmentExpression:
 		return c.assignmentExpression(x, mode, t)

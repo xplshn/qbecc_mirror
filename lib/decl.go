@@ -6,6 +6,7 @@ package qbecc // import "modernc.org/qbecc/lib"
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 
 	"modernc.org/cc/v4"
@@ -51,11 +52,25 @@ type breakCtx struct {
 	label string
 }
 
+type switchCase struct {
+	*cc.LabeledStatement
+	label string
+	val0  any
+	val   int64
+
+	isDefault bool
+}
+
 type switchCtx struct {
-	dflt     string
-	expr     string
-	nextCase string
-	typ      cc.Type
+	defaultCase *switchCase
+	case2index  map[*cc.LabeledStatement]int // index into the sorted cases slice
+	cases       []*switchCase
+	expr        string
+	sign        string // "s" or "u"
+	suff        string // "w" or "l"
+	typ         cc.Type
+
+	isSigned bool
 }
 
 // Function compile context
@@ -109,11 +124,66 @@ func (f *fnCtx) newBreakCtx(label string) func() {
 	}
 }
 
-func (f *fnCtx) newSwitchCtx(expr string, typ cc.Type) func() {
+func (f *fnCtx) newSwitchCtx(expr string, typ cc.Type, cases0 []*cc.LabeledStatement) func() {
+	isSigned := cc.IsSignedInteger(typ)
+	defaultCase := &switchCase{
+		isDefault: true,
+		label:     f.ctx.label(),
+	}
+	cases := []*switchCase{defaultCase}
+	for _, v := range cases0 {
+		switch v.Case {
+		case cc.LabeledStatementDefault:
+			defaultCase.LabeledStatement = v
+		default:
+			var val0 any
+			var val int64
+			switch x := v.ConstantExpression.Value().(type) {
+			case cc.Int64Value:
+				val0 = int64(x)
+				val = int64(x)
+			case cc.UInt64Value:
+				val0 = uint64(x)
+				val = int64(x)
+			default:
+				panic(todo("%v: %T %s", v.ConstantExpression, x, cc.NodeSource(v.ConstantExpression)))
+			}
+			cases = append(cases, &switchCase{
+				LabeledStatement: v,
+				label:            f.ctx.label(),
+				val0:             val0,
+				val:              val,
+			})
+		}
+	}
+	cases1 := cases[1:]
+	sort.Slice(cases1, func(i, j int) bool {
+		switch {
+		case isSigned:
+			return cases1[i].val < cases1[j].val
+		default:
+			return uint64(cases1[i].val) < uint64(cases1[j].val)
+		}
+	})
+	cases2index := map[*cc.LabeledStatement]int{}
+	for i, v := range cases {
+		cases2index[v.LabeledStatement] = i
+	}
+	cases = append(cases, defaultCase)
 	old := f.switchCtx
+	sign := "u"
+	if isSigned {
+		sign = "s"
+	}
 	f.switchCtx = &switchCtx{
-		expr: expr,
-		typ:  typ,
+		defaultCase: defaultCase,
+		case2index:  cases2index,
+		cases:       cases,
+		expr:        expr,
+		isSigned:    isSigned,
+		sign:        sign,
+		suff:        f.ctx.baseType(nil, typ),
+		typ:         typ,
 	}
 	g := f.newBreakCtx(f.ctx.label())
 	return func() {
@@ -245,7 +315,12 @@ func (c *ctx) externalDeclarationFuncDef(n *cc.FunctionDefinition) {
 		c.w("\t%%.bp. =%s alloc8 %v\n", c.wordTag, f.allocs)
 	}
 	c.compoundStatement(n.CompoundStatement)
-	c.w("%s\n\tret\n", c.label())
+	switch {
+	case d.Linkage() == cc.External && d.Name() == "main":
+		c.w("%s\n\tret 0\n", c.label())
+	default:
+		c.w("%s\n\tret\n", c.label())
+	}
 	c.w("}\n\n")
 	for _, v := range c.fn.static {
 		d := v.Declarator
