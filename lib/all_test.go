@@ -127,9 +127,9 @@ func (p *parallelTest) err(err error) {
 //	all_test.go:283: tcc-0.9.27/tests/tests2: gcc fails=0 files=7 skipped=81 failed=0 passed=7
 
 // 2025-06-24
-//	all_test.go:1658: CompCert-3.6/test/c: gcc fails=8 files=1 skipped=15 failed=0 passed=1
-//	all_test.go:1658: gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute: gcc fails=26 files=79 skipped=1401 failed=0 passed=79
-//	all_test.go:1658: tcc-0.9.27/tests/tests2: gcc fails=8 files=53 skipped=27 failed=0 passed=53
+//	all_test.go:1657: CompCert-3.6/test/c: gcc fails=8 files=2 skipped=14 failed=0 passed=2
+//	all_test.go:1657: gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute: gcc fails=26 files=81 skipped=1399 failed=0 passed=81
+//	all_test.go:1657: tcc-0.9.27/tests/tests2: gcc fails=8 files=55 skipped=25 failed=0 passed=55
 
 func TestExec(t *testing.T) {
 	t.Logf("using C compiler at %s", gcc)
@@ -159,22 +159,20 @@ var (
 	bad       = []byte("require-effective-target int128")
 	blacklist = map[string]struct{}{
 		// "CompCert-3.6/test/c",
-		"aes.c":                 {},
-		"bisect.c":              {},
-		"chomp.c":               {},
-		"fannkuch.c":            {},
-		"fftw.c":                {},
-		"integr.c":              {},
-		"lists.c exit status 2": {},
-		"lists.c":               {},
-		"mandelbrot.c":          {},
-		"nsieve.c":              {},
-		"nsievebits.c":          {},
-		"qsort.c":               {},
-		"sha1.c":                {},
-		"sha3.c":                {},
-		"siphash24.c":           {},
-		"vmach.c":               {},
+		"aes.c":        {},
+		"bisect.c":     {},
+		"chomp.c":      {},
+		"fannkuch.c":   {},
+		"fftw.c":       {},
+		"integr.c":     {},
+		"mandelbrot.c": {},
+		"nsieve.c":     {},
+		"nsievebits.c": {},
+		"qsort.c":      {},
+		"sha1.c":       {},
+		"sha3.c":       {},
+		"siphash24.c":  {},
+		"vmach.c":      {},
 
 		// "tcc-0.9.27/tests/tests2",
 		"36_array_initialisers.c":      {},
@@ -187,12 +185,10 @@ var (
 		"73_arm64.c":                   {},
 		"75_array_in_struct_init.c":    {},
 		"76_dollars_in_identifiers.c":  {},
-		"77_push_pop_macro.c":          {},
 		"78_vla_label.c":               {},
 		"79_vla_continue.c":            {},
 		"80_flexarray.c":               {},
 		"83_utf8_in_identifiers.c":     {},
-		"84_hex-float.c":               {},
 		"85_asm-outside-function.c":    {},
 		"87_dead_code.c":               {},
 		"88_codeopt.c":                 {},
@@ -579,7 +575,6 @@ var (
 		"20090113-2.c":                 {},
 		"20090113-3.c":                 {},
 		"20090219-1.c":                 {},
-		"20090527-1.c":                 {},
 		"20090623-1.c":                 {},
 		"20090711-1.c":                 {},
 		"20090814-1.c":                 {},
@@ -666,7 +661,6 @@ var (
 		"920728-1.c":                   {},
 		"920730-1.c":                   {},
 		"920731-1.c":                   {},
-		"920810-1.c":                   {},
 		"920812-1.c":                   {},
 		"920829-1.c":                   {},
 		"920908-1.c":                   {},

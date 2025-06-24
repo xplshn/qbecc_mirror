@@ -796,12 +796,11 @@ func (c *ctx) postfixExpressionPSelect(n *cc.PostfixExpression, mode mode, t cc.
 			defer func() { r = c.convert(n, t, n.Type(), r) }()
 
 			p := c.expr(n.PostfixExpression, rvalue, c.ast.PVoid)
-			c.w("\t%s =%s add %s, %v\n", p, c.wordTag, p, f.Offset())
-			return c.load(n, p, f.Type())
+			t := c.temp("%s add %s, %v\n", c.wordTag, p, f.Offset())
+			return c.load(n, t, f.Type())
 		case lvalue:
 			p := c.expr(n.PostfixExpression, lvalue, c.ast.PVoid)
-			c.w("\t%s =%s add %s, %v\n", p, c.wordTag, p, f.Offset())
-			return p
+			return c.temp("%s add %s, %v\n", c.wordTag, p, f.Offset())
 		default:
 			panic(todo("%v: %s %s", n.Position(), mode, cc.NodeSource(n)))
 		}
