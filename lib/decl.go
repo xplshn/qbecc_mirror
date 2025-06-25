@@ -12,38 +12,38 @@ import (
 	"modernc.org/cc/v4"
 )
 
-type nfo interface {
-	isInfo()
+type variable interface {
+	isVarinfo()
 }
 
-type nfo0 struct{}
+type varinfo struct{}
 
-func (nfo0) isInfo() {}
+func (varinfo) isVarinfo() {}
 
 // declared in function scope, storage automatic
 type local struct {
-	nfo0
+	varinfo
 	d    *cc.Declarator
 	name string
 }
 
-// declared in function scope, storage automatic, escaped to TLSAlloc
+// declared in function scope, storage automatic, escaped to TLSAlloc.
 type escaped struct {
-	nfo0
+	varinfo
 	d      *cc.Declarator
 	offset int64 // into %.bp.
 }
 
 // declared in function scope, storage static
 type static struct {
-	nfo0
+	varinfo
 	d    *cc.Declarator
 	name string
 }
 
 // declared in top-level scope, storage static
 type global struct {
-	nfo0
+	varinfo
 	d    *cc.Declarator
 	name string
 }
@@ -78,7 +78,7 @@ type fnCtx struct {
 	allocs    int64
 	breakCtx  *breakCtx
 	ctx       *ctx
-	infos     map[cc.Node]nfo
+	vars      map[cc.Node]variable
 	returns   cc.Type
 	static    []*cc.InitDeclarator
 	switchCtx *switchCtx
@@ -88,22 +88,37 @@ type fnCtx struct {
 
 func (c *ctx) newFnCtx(n *cc.FunctionDefinition) (r *fnCtx) {
 	r = &fnCtx{
-		ctx:   c,
-		infos: map[cc.Node]nfo{},
+		ctx:  c,
+		vars: map[cc.Node]variable{},
 	}
+	ignore := 0
 	walk(n, func(n cc.Node, mode int) {
 		switch mode {
 		case walkPre:
 			switch x := n.(type) {
+			case *cc.StructDeclarator:
+				ignore++
 			case *cc.Declarator:
-				r.registerDeclarator(x)
+				if ignore == 0 {
+					r.registerVar(x)
+				}
+			case *cc.PostfixExpression:
+				switch x.Case {
+				case cc.PostfixExpressionComplit:
+					r.registerVar(x)
+				}
 			case *cc.PrimaryExpression:
 				switch x.Case {
 				case cc.PrimaryExpressionIdent:
 					if d, ok := x.ResolvedTo().(*cc.Declarator); ok {
-						r.registerDeclarator(d)
+						r.registerVar(d)
 					}
 				}
+			}
+		case walkPost:
+			switch n.(type) {
+			case *cc.StructDeclarator:
+				ignore--
 			}
 		}
 	})
@@ -192,62 +207,74 @@ func (f *fnCtx) newSwitchCtx(expr string, typ cc.Type, cases0 []*cc.LabeledState
 	}
 }
 
-func (f *fnCtx) alloc(align, size int64) (r int64) {
+func (f *fnCtx) alloc(n cc.Node, align, size int64) (r int64) {
+	if align <= 0 || size < 0 {
+		panic(todo("%v: align=%v size=%v %s", n.Position(), align, size, cc.NodeSource(n)))
+	}
+
+	size = max(size, 1)
 	r = round(f.allocs, align)
 	f.allocs = r + size
+	// trc("%v: (align=%v size=%v)=%v", n.Position(), align, size, r)
 	return r
 }
 
-func (f *fnCtx) registerDeclarator(d *cc.Declarator) {
-	if d == nil {
+func (f *fnCtx) registerVar(n cc.Node) {
+	switch x := n.(type) {
+	case nil:
 		return
-	}
+	case *cc.Declarator:
+		if x == nil || f.vars[x] != nil {
+			return
+		}
 
-	// trc("%v: %p %s", d.Position(), d, d.Name())
-	dt := d.Type()
-	k := dt.Kind()
-	switch dt := d.Type(); d.StorageDuration() {
-	case cc.Static:
-		switch sc := d.ResolvedIn(); sc {
-		case nil:
-			// dead
-		default:
+		dt := x.Type()
+		k := dt.Kind()
+		switch x.StorageDuration() {
+		case cc.Static:
+			switch sc := x.ResolvedIn(); sc {
+			case nil:
+				// dead
+			default:
+				switch {
+				case sc.Parent == nil:
+					f.vars[x] = &global{
+						d:    x,
+						name: fmt.Sprintf("$%s", x.Name()),
+					}
+				default:
+					f.vars[x] = &static{
+						d:    x,
+						name: fmt.Sprintf("$%s.%v.", x.Name(), f.ctx.id()),
+					}
+				}
+			}
+		case cc.Automatic:
 			switch {
-			case sc.Parent == nil:
-				f.infos[d] = &global{
-					d:    d,
-					name: fmt.Sprintf("$%s", d.Name()),
+			case x.AddressTaken() || k == cc.Array || k == cc.Struct || k == cc.Union:
+				f.vars[x] = &escaped{
+					d:      x,
+					offset: f.alloc(x, int64(dt.Align()), dt.Size()),
 				}
 			default:
-				f.infos[d] = &static{
-					d:    d,
-					name: fmt.Sprintf("$%s.%v.", d.Name(), f.ctx.id()),
+				suff := ""
+				if !x.IsParam() {
+					suff = fmt.Sprintf(".%d", f.id())
+				}
+				f.vars[x] = &local{
+					d:    x,
+					name: fmt.Sprintf("%%%s%s", x.Name(), suff),
 				}
 			}
-		}
-	case cc.Automatic:
-		switch {
-		case d.AddressTaken() || k == cc.Array || k == cc.Struct || k == cc.Union:
-			f.infos[d] = &escaped{
-				d:      d,
-				offset: f.alloc(int64(dt.Align()), dt.Size()),
-			}
 		default:
-			suff := ""
-			if !d.IsParam() {
-				suff = fmt.Sprintf(".%d", f.id())
-			}
-			f.infos[d] = &local{
-				d:    d,
-				name: fmt.Sprintf("%%%s%s", d.Name(), suff),
-			}
+			panic(todo("", x.StorageDuration()))
 		}
 	default:
-		panic(todo("", d.StorageDuration()))
+		panic(todo("%T", x))
 	}
 }
 
-func (f *fnCtx) info(n cc.Node) (d *cc.Declarator, nfo nfo) {
+func (f *fnCtx) variable(n cc.Node) (d *cc.Declarator, v variable) {
 	switch x := n.(type) {
 	case *cc.Declarator:
 		d = x
@@ -256,7 +283,7 @@ func (f *fnCtx) info(n cc.Node) (d *cc.Declarator, nfo nfo) {
 	default:
 		panic(todo("%T", x))
 	}
-	return d, f.infos[d]
+	return d, f.vars[d]
 }
 
 func (c *ctx) signature(l []*cc.Parameter) {
@@ -329,7 +356,7 @@ func (c *ctx) externalDeclarationFuncDef(n *cc.FunctionDefinition) {
 			continue
 		}
 
-		_, info := c.fn.info(d)
+		_, info := c.fn.variable(d)
 		c.w("data %s = align %d ", info.(*static).name, d.Type().Align())
 		switch {
 		case v.Initializer != nil:
@@ -359,12 +386,30 @@ func (c *ctx) externalDeclarationDeclFull(n *cc.Declaration) {
 		if d.Linkage() == cc.External {
 			c.w("export ")
 		}
-		c.w("data $%s = align %d ", d.Name(), d.Type().Align())
-		switch l.InitDeclarator.Case {
-		case cc.InitDeclaratorDecl: // int d;
-			c.w("{ z %d }", d.Type().Size())
-		default:
+		// switch l.InitDeclarator.Case {
+		// case cc.InitDeclaratorDecl: // int d;
+		// 	c.w("data $%s = align %d ", d.Name(), d.Type().Align())
+		// 	c.w("{ z %d }", d.Type().Size())
+		// default:
+		// 	panic(todo("%v: %s %s", n.Position(), l.InitDeclarator.Case, cc.NodeSource(n)))
+		// }
+
+		if l.InitDeclarator.Asm != nil {
 			panic(todo("%v: %s %s", n.Position(), l.InitDeclarator.Case, cc.NodeSource(n)))
+		}
+
+		switch n := l.InitDeclarator; n.Case {
+		case cc.InitDeclaratorDecl: // Declarator Asm
+			c.w("data $%s = align %d { z %d }", d.Name(), d.Type().Align(), d.Type().Size())
+		case cc.InitDeclaratorInit: // Declarator Asm '=' Initializer
+			c.w("data $%s = align %d {", d.Name(), d.Type().Align())
+			c.initialize(n.Initializer, &global{
+				d:    d,
+				name: fmt.Sprintf("$%s", d.Name()),
+			}, 0, d.Type())
+			c.w(" }")
+		default:
+			panic(todo("%v: %v %s", n.Position(), n.Case, cc.NodeSource(n)))
 		}
 		c.w("\n")
 	}

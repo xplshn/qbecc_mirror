@@ -394,44 +394,49 @@ func (c *ctx) label() string {
 	return fmt.Sprintf("@.%v", c.id())
 }
 
-func (c *ctx) blockItemDeclAutomatic(n *cc.BlockItem, id *cc.InitDeclarator) {
-	d, info := c.fn.info(id.Declarator)
-	switch x := info.(type) {
-	case *local:
-		c.w("\t%s =%s copy %s\n", x.name, c.baseType(d, d.Type()), c.initializer(id.Initializer, d.Type()))
-	case *escaped:
-		if id.Initializer != nil {
-			p := c.temp("%s add %%.bp., %v\n", c.wordTag, x.offset)
-			switch {
-			case c.isIntegerType(d.Type()) || c.isFloatingPointType(d.Type()):
-				v := c.initializer(id.Initializer, d.Type())
-				c.w("\tstore%s %s, %s\n", c.extType(d, d.Type()), v, p)
-			default:
-				panic(todo("%v: %T", n.Position(), x))
-			}
-		}
+func (c *ctx) blockItemDeclAutomatic(n *cc.InitDeclarator) {
+	if n.Asm != nil {
+		panic(todo("%v: %v %s", n.Position(), n.Case, cc.NodeSource(n)))
+	}
+
+	_, info := c.fn.variable(n.Declarator)
+	switch n.Case {
+	case cc.InitDeclaratorDecl: // Declarator Asm
+		c.declare(n, info)
+	case cc.InitDeclaratorInit: // Declarator Asm '=' Initializer
+		c.initialize(n.Initializer, info, 0, n.Declarator.Type())
 	default:
-		panic(todo("%v: %T", n.Position(), x))
+		panic(todo("%v: %v %s", n.Position(), n.Case, cc.NodeSource(n)))
 	}
 }
 
-func (c *ctx) blockItemDecl(n *cc.BlockItem) {
-	for l := n.Declaration.InitDeclaratorList; l != nil; l = l.InitDeclaratorList {
-		switch d := l.InitDeclarator.Declarator; d.StorageDuration() {
-		case cc.Static:
-			c.fn.static = append(c.fn.static, l.InitDeclarator)
-		case cc.Automatic:
-			c.blockItemDeclAutomatic(n, l.InitDeclarator)
-		default:
-			panic(todo("%v: %v %v", n.Position(), n.Case, cc.NodeSource(n)))
+// Declaration
+func (c *ctx) blockItemDecl(n *cc.Declaration) {
+	switch n.Case {
+	case cc.DeclarationDecl: // DeclarationSpecifiers InitDeclaratorList AttributeSpecifierList ';'
+		for l := n.InitDeclaratorList; l != nil; l = l.InitDeclaratorList {
+			switch l.InitDeclarator.Declarator.StorageDuration() {
+			case cc.Static:
+				c.fn.static = append(c.fn.static, l.InitDeclarator)
+			case cc.Automatic:
+				c.blockItemDeclAutomatic(l.InitDeclarator)
+			default:
+				panic(todo("%v: %v %v", n.Position(), n.Case, cc.NodeSource(n)))
+			}
 		}
+	case cc.DeclarationAssert: // StaticAssertDeclaration
+		panic(todo("%v: %v %s", n.Position(), n.Case, cc.NodeSource(n)))
+	case cc.DeclarationAuto: // "__auto_type" Declarator '=' Initializer ';'
+		panic(todo("%v: %v %s", n.Position(), n.Case, cc.NodeSource(n)))
+	default:
+		panic(todo("%v: %v %s", n.Position(), n.Case, cc.NodeSource(n)))
 	}
 }
 
 func (c *ctx) blockItem(n *cc.BlockItem) {
 	switch n.Case {
 	case cc.BlockItemDecl: // Declaration
-		c.blockItemDecl(n)
+		c.blockItemDecl(n.Declaration)
 	case cc.BlockItemLabel: // LabelDeclaration
 		panic(todo("%v: %v %v", n.Position(), n.Case, cc.NodeSource(n)))
 	case cc.BlockItemStmt: // Statement

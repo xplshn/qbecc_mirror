@@ -72,6 +72,8 @@ func (c *ctx) convert(n cc.Node, dst, src cc.Type, v string) (r string) {
 			return v
 		case cc.IsSignedInteger(dst) && dstSz == 4 && dstSz > srcSz:
 			return c.temp("w exts%s %s\n", c.extType(n, src), v)
+		case cc.IsSignedInteger(dst) && dstSz == 8 && dstSz > srcSz:
+			return c.temp("l exts%s %s\n", c.extType(n, src), v)
 		case !cc.IsSignedInteger(dst) && srcSz == 4 && dstSz > srcSz:
 			return c.temp("%s extuw %s\n", c.baseType(n, dst), v)
 		case dstSz == 4 && srcSz == 8:
@@ -213,7 +215,7 @@ func (c *ctx) constantValue(n cc.Node, mode mode, t cc.Type, v cc.Value, vt cc.T
 }
 
 func (c *ctx) primaryExpressionIdent(n *cc.PrimaryExpression, mode mode, t cc.Type) (r string) {
-	d, info := c.fn.info(n)
+	d, info := c.fn.variable(n)
 	switch mode {
 	case lvalue:
 		switch x := info.(type) {
@@ -365,7 +367,7 @@ func (c *ctx) primaryExpression(n *cc.PrimaryExpression, mode mode, t cc.Type) (
 func (c *ctx) assignmentExpressionAssign(n *cc.AssignmentExpression, mode mode, t cc.Type) (r string) {
 	lhs := c.expr(n.UnaryExpression, lvalue, n.Type())
 	rhs := c.expr(n.AssignmentExpression, rvalue, n.Type())
-	_, info := c.fn.info(n.UnaryExpression)
+	_, info := c.fn.variable(n.UnaryExpression)
 	switch x := info.(type) {
 	case *local:
 		c.w("\t%s =%s copy %s\n", lhs, c.baseType(n, n.Type()), rhs)
@@ -435,7 +437,7 @@ func (c *ctx) assignmentExpressionOp(n *cc.AssignmentExpression, mode mode, t cc
 	case void:
 		lhs, rhs := n.UnaryExpression, n.AssignmentExpression
 		lt, rt := lhs.Type(), rhs.Type()
-		_, info := c.fn.info(lhs)
+		_, info := c.fn.variable(lhs)
 		switch x := info.(type) {
 		case *local:
 			ct := c.usualArithmeticConversions(lt, rt)
@@ -730,7 +732,7 @@ func (c *ctx) declaratorOf(n cc.ExpressionNode) (r *cc.Declarator) {
 }
 
 func (c *ctx) postfixExpressionIncDec(n *cc.PostfixExpression, mode mode, t cc.Type, op string) (r string) {
-	_, info := c.fn.info(n.PostfixExpression)
+	_, info := c.fn.variable(n.PostfixExpression)
 	delta := int64(1)
 	if x, ok := n.PostfixExpression.Type().(*cc.PointerType); ok {
 		delta = x.Elem().Size()
@@ -884,7 +886,7 @@ func (c *ctx) unaryExpressionPlus(n *cc.UnaryExpression, mode mode, t cc.Type) (
 
 // '&' CastExpression
 func (c *ctx) unaryExpressionAddrof(n *cc.UnaryExpression, mode mode, t cc.Type) (r string) {
-	_, info := c.fn.info(n.CastExpression)
+	_, info := c.fn.variable(n.CastExpression)
 	switch mode {
 	case rvalue:
 		defer func() { r = c.convert(n, t, n.Type(), r) }()
@@ -911,6 +913,18 @@ func (c *ctx) unaryExpressionDeref(n *cc.UnaryExpression, mode mode, t cc.Type) 
 		defer func() { r = c.convert(n, t, n.Type(), r) }()
 
 		switch et := n.Type(); {
+		case et.Kind() == cc.Ptr:
+			switch x := n.CastExpression.Type().(type) {
+			case *cc.PointerType:
+				switch y := x.Elem().(type) {
+				case *cc.FunctionType:
+					return c.expr(n.CastExpression, rvalue, x)
+				default:
+					panic(todo("%v: %T %s", n.Position(), y, cc.NodeSource(n.CastExpression)))
+				}
+			default:
+				panic(todo("%v: %T %s", n.Position(), x, cc.NodeSource(n.CastExpression)))
+			}
 		case c.isIntegerType(et) || c.isFloatingPointType(et) || et.Kind() == cc.Ptr:
 			return c.load(n, c.expr(n.CastExpression, rvalue, n.CastExpression.Type()), et)
 		default:
