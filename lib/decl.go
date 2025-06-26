@@ -245,7 +245,7 @@ func (f *fnCtx) registerVar(n cc.Node) {
 				default:
 					f.vars[x] = &static{
 						d:    x,
-						name: fmt.Sprintf("$%s.%v.", x.Name(), f.ctx.id()),
+						name: fmt.Sprintf("$.%s.%v.", x.Name(), f.ctx.id()),
 					}
 				}
 			}

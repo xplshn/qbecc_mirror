@@ -136,6 +136,11 @@ func (p *parallelTest) err(err error) {
 //	all_test.go:219: gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute: files=1506 gcc fails=26 skipped=1399 failed=0 passed=81
 //	all_test.go:219: tcc-0.9.27/tests/tests2: files=88 gcc fails=8 skipped=24 failed=0 passed=56
 
+// 2025-06-26
+//	all_test.go:219: CompCert-3.6/test/c: files=24 gcc fails=8 skipped=14 failed=0 passed=2
+//	all_test.go:219: gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute: files=1506 gcc fails=26 skipped=1375 failed=0 passed=105
+//	all_test.go:219: tcc-0.9.27/tests/tests2: files=88 gcc fails=8 skipped=24 failed=0 passed=56
+
 func TestExec(t *testing.T) {
 	t.Logf("using C compiler at %s", gcc)
 	const destDir = "tmp"
@@ -399,7 +404,7 @@ func main() {
 	if !bytes.Equal(gccBinOut, goOut) {
 		t.Logf("EQUAL FAIL: GO %s", fsName)
 		p.failed.Add(1)
-		return fmt.Errorf("output differs")
+		return fmt.Errorf("output differs\ngot\n%s\nwant\n%s", gccBinOut, goOut)
 	}
 
 	if xtrc {

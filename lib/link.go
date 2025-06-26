@@ -166,9 +166,9 @@ func (l *linkerObject) goabi0(w io.Writer, ssa []byte, nm string, externs map[st
 		}
 
 		if _, ok := l.defines[nm]; ok {
-			if !strings.HasPrefix(nm, "$.") {
-				nm = "$." + nm[1:]
-			}
+			//TODO- if !strings.HasPrefix(nm, "$.") {
+			//TODO- 	nm = "$." + nm[1:]
+			//TODO- }
 			return nm
 		}
 
