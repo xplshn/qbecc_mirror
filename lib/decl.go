@@ -386,14 +386,6 @@ func (c *ctx) externalDeclarationDeclFull(n *cc.Declaration) {
 		if d.Linkage() == cc.External {
 			c.w("export ")
 		}
-		// switch l.InitDeclarator.Case {
-		// case cc.InitDeclaratorDecl: // int d;
-		// 	c.w("data $%s = align %d ", d.Name(), d.Type().Align())
-		// 	c.w("{ z %d }", d.Type().Size())
-		// default:
-		// 	panic(todo("%v: %s %s", n.Position(), l.InitDeclarator.Case, cc.NodeSource(n)))
-		// }
-
 		if l.InitDeclarator.Asm != nil {
 			panic(todo("%v: %s %s", n.Position(), l.InitDeclarator.Case, cc.NodeSource(n)))
 		}

@@ -152,6 +152,7 @@ func (t *Task) err(n cc.Node, s string, args ...any) {
 }
 
 func (t *Task) Main() (err error) {
+	hasLC := false // -lc
 	set := opt.NewSet()
 	set.Arg("-goarch", false, func(opt, arg string) error { t.goarch = arg; return nil })
 	set.Arg("-goos", false, func(opt, arg string) error { t.goos = arg; return nil })
@@ -169,6 +170,9 @@ func (t *Task) Main() (err error) {
 	set.Arg("-target", false, func(opt, arg string) error { t.target = arg; return nil })
 
 	set.Arg("l", true, func(opt, arg string) error {
+		if arg == "c" {
+			hasLC = true
+		}
 		t.compilerFiles = append(t.compilerFiles, &compilerFile{name: arg, inType: fileLib, outType: fileLib})
 		return nil
 	})
@@ -200,6 +204,9 @@ func (t *Task) Main() (err error) {
 		default:
 			return fmt.Errorf("parsing argument %v: %v", t.args[1:], err)
 		}
+	}
+	if !hasLC {
+		t.compilerFiles = append(t.compilerFiles, &compilerFile{name: "c", inType: fileLib, outType: fileLib})
 	}
 
 	switch t.goarch {

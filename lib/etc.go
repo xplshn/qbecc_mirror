@@ -311,9 +311,152 @@ func round(n, to int64) int64 {
 	return n
 }
 
-// func pos(n cc.Node) (r token.Position) {
-// 	if n != nil {
-// 		r = n.Position()
-// 	}
-// 	return r
-// }
+func (c *ctx) declaratorOf(n cc.ExpressionNode) (r *cc.Declarator) {
+	for n != nil {
+		n = c.unparen(n)
+		switch x := n.(type) {
+		case *cc.PrimaryExpression:
+			switch x.Case {
+			case cc.PrimaryExpressionIdent: // IDENTIFIER
+				switch y := x.ResolvedTo().(type) {
+				case *cc.Declarator:
+					return y
+				case *cc.Parameter:
+					return y.Declarator
+				case *cc.Enumerator, nil:
+					return nil
+				default:
+					panic(todo("%v: %s %s", n.Position(), x.Case, cc.NodeSource(n)))
+				}
+			case cc.PrimaryExpressionExpr: // '(' ExpressionList ')'
+				n = x.ExpressionList
+			default:
+				return nil
+			}
+		case *cc.PostfixExpression:
+			switch x.Case {
+			case cc.PostfixExpressionPrimary: // PrimaryExpression
+				n = x.PrimaryExpression
+			default:
+				return nil
+			}
+		case *cc.ExpressionList:
+			if x == nil {
+				return nil
+			}
+
+			for l := x; l != nil; l = l.ExpressionList {
+				n = l.AssignmentExpression
+			}
+		case *cc.CastExpression:
+			switch x.Case {
+			case cc.CastExpressionUnary: // UnaryExpression
+				n = x.UnaryExpression
+			case cc.CastExpressionCast:
+				if x.Type() != x.CastExpression.Type() {
+					return nil
+				}
+
+				n = x.CastExpression
+			default:
+				return nil
+			}
+		case *cc.UnaryExpression:
+			switch x.Case {
+			case cc.UnaryExpressionPostfix: // PostfixExpression
+				n = x.PostfixExpression
+			default:
+				return nil
+			}
+		case *cc.ConditionalExpression:
+			switch x.Case {
+			case cc.ConditionalExpressionLOr: // LogicalOrExpression
+				n = x.LogicalOrExpression
+			default:
+				return nil
+			}
+		case *cc.AdditiveExpression:
+			switch x.Case {
+			case cc.AdditiveExpressionMul: // MultiplicativeExpression
+				n = x.MultiplicativeExpression
+			default:
+				return nil
+			}
+		case *cc.InclusiveOrExpression:
+			switch x.Case {
+			case cc.InclusiveOrExpressionXor: // ExclusiveOrExpression
+				n = x.ExclusiveOrExpression
+			default:
+				return nil
+			}
+		case *cc.ShiftExpression:
+			switch x.Case {
+			case cc.ShiftExpressionAdd:
+				n = x.AdditiveExpression
+			default:
+				return nil
+			}
+		case *cc.AndExpression:
+			switch x.Case {
+			case cc.AndExpressionEq:
+				n = x.EqualityExpression
+			default:
+				return nil
+			}
+		case *cc.MultiplicativeExpression:
+			switch x.Case {
+			case cc.MultiplicativeExpressionCast:
+				n = x.CastExpression
+			default:
+				return nil
+			}
+		case *cc.EqualityExpression:
+			switch x.Case {
+			case cc.EqualityExpressionRel:
+				n = x.RelationalExpression
+			default:
+				return nil
+			}
+		case *cc.RelationalExpression:
+			switch x.Case {
+			case cc.RelationalExpressionShift:
+				n = x.ShiftExpression
+			default:
+				return nil
+			}
+		case *cc.LogicalOrExpression:
+			switch x.Case {
+			case cc.LogicalOrExpressionLAnd:
+				n = x.LogicalAndExpression
+			default:
+				return nil
+			}
+		case *cc.AssignmentExpression:
+			switch x.Case {
+			case cc.AssignmentExpressionCond:
+				n = x.ConditionalExpression
+			default:
+				return nil
+			}
+		case *cc.LogicalAndExpression:
+			switch x.Case {
+			case cc.LogicalAndExpressionOr:
+				n = x.InclusiveOrExpression
+			default:
+				return nil
+			}
+		case *cc.ExclusiveOrExpression:
+			switch x.Case {
+			case cc.ExclusiveOrExpressionAnd:
+				n = x.AndExpression
+			default:
+				return nil
+			}
+		case *cc.ConstantExpression:
+			n = x.ConditionalExpression
+		default:
+			panic(todo("%T", n))
+		}
+	}
+	return nil
+}
