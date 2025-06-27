@@ -36,4 +36,4 @@ test:
 
 todo:
 	go test -v -timeout 24h 2>&1 | tee log
-	grep FAIL: log 2>&1 | tee log-todo
+	grep ' FAIL: ~' log | sed 's/.* FAIL: \(.*\)/\1/p' 2>&1 | sed 's/\.c signal.*/.c/' | sort -u 2>&1 | tee log-todo

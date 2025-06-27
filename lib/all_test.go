@@ -296,7 +296,7 @@ func testExec2(t *testing.T, p *parallelTest, suite, testNm, fn, sid, fsName str
 	}
 
 	if !bytes.Equal(gccBinOut, qbeccBinOut) {
-		t.Logf("EQUAL FAIL: C %s", fsName)
+		t.Logf("C EQUAL FAIL: %s", fsName)
 		p.failed.Add(1)
 		return fmt.Errorf("output differs\ngot\n%s\nwant\n%s", qbeccBinOut, gccBinOut)
 	}
@@ -402,7 +402,7 @@ func main() {
 	}
 
 	if !bytes.Equal(gccBinOut, goOut) {
-		t.Logf("EQUAL FAIL: GO %s", fsName)
+		t.Logf("GO EQUAL FAIL: %s", fsName)
 		p.failed.Add(1)
 		return fmt.Errorf("output differs\ngot\n%s\nwant\n%s", gccBinOut, goOut)
 	}

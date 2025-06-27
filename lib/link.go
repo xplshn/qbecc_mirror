@@ -4,8 +4,6 @@
 
 package qbecc // import "modernc.org/qbecc/lib"
 
-//TODO libc once
-
 import (
 	"bufio"
 	"fmt"
@@ -22,7 +20,7 @@ import (
 
 var (
 	gcCache       *gc.Cache
-	libcCache     *gc.Package
+	libcCache     *linkerObject // 18.611s
 	libcCacheErr  error
 	onceLibcCache sync.Once
 )
@@ -186,6 +184,8 @@ func (l *linkerObject) goabi0(w io.Writer, ssa []byte, nm string, externs map[st
 			switch resolvedIn.defines[cname] {
 			case symbolExportedFunction:
 				nm = fmt.Sprintf("$\"%s.Y%s\"", importPath, cname)
+			case symbolExportedData:
+				nm = fmt.Sprintf("$\"%s.X%s\"", importPath, cname)
 			default:
 				panic(todo("230: %v %v", cname, resolvedIn.defines[cname]))
 			}
@@ -357,8 +357,7 @@ func (t *Task) linkGoABI0() {
 	}
 }
 
-func (l *linkerObject) loadLib() (err error) {
-	importPath := fmt.Sprintf("modernc.org/lib%s", l.compilerFile.name)
+func (l *linkerObject) loadLib0(importPath string) (err error) {
 	pkg, err := loadPackage(importPath)
 	if err != nil {
 		return err
@@ -399,7 +398,26 @@ func (l *linkerObject) loadLib() (err error) {
 	return nil
 }
 
-func loadPackage0(importPath string) (pkg *gc.Package, err error) {
+func (l *linkerObject) loadLib() (err error) {
+	importPath := fmt.Sprintf("modernc.org/lib%s", l.compilerFile.name)
+	if importPath == "modernc.org/libc" {
+		onceLibcCache.Do(func() {
+			if libcCacheErr = l.loadLib0(importPath); libcCacheErr == nil {
+				libcCache = l
+			}
+		})
+		if libcCacheErr != nil {
+			return libcCacheErr
+		}
+
+		l.defines = libcCache.defines
+		return nil
+	}
+
+	return l.loadLib0(importPath)
+}
+
+func loadPackage(importPath string) (pkg *gc.Package, err error) {
 	var opts []gc.ConfigOption
 	if gcCache != nil {
 		opts = append(opts, gc.ConfigCache(gcCache))
@@ -409,15 +427,4 @@ func loadPackage0(importPath string) (pkg *gc.Package, err error) {
 		return nil, err
 	}
 	return cfg.NewPackage("", importPath, "", nil, false, gc.TypeCheckNone)
-}
-
-func loadPackage(importPath string) (pkg *gc.Package, err error) {
-	if importPath == "modernc.org/libc" {
-		onceLibcCache.Do(func() {
-			libcCache, libcCacheErr = loadPackage0(importPath)
-		})
-		return libcCache, libcCacheErr
-	}
-
-	return loadPackage0(importPath)
 }
