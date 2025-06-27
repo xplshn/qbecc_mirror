@@ -9,17 +9,29 @@ package qbecc // import "modernc.org/qbecc/lib"
 import (
 	"bufio"
 	"fmt"
-	"go/ast"
-	"go/token"
 	"io"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
-	"golang.org/x/tools/go/packages"
+	"modernc.org/gc/v3"
 	"modernc.org/libqbe"
 	"modernc.org/qbecc/lib/internal/parser"
 )
+
+var (
+	gcCache       *gc.Cache
+	libcCache     *gc.Package
+	libcCacheErr  error
+	onceLibcCache sync.Once
+)
+
+func init() {
+	if c, err := gc.NewCache(1 << 24); err == nil {
+		gcCache = c
+	}
+}
 
 type symbolType int
 
@@ -44,17 +56,14 @@ const (
 type linkerObject struct {
 	compilerFile *compilerFile
 	defines      map[string]symbolType // export function $foo() { ... }, export data $bar = { ... }
-	//TODO remove?
-	references map[string]refType  // call $printf, store $foo, load $bar, data ... { l $baz }
-	signatures map[string][]string // "$myfunc": []{"tls *libc.TLS", "x int32"}
-	task       *Task
+	signatures   map[string][]string   // "$myfunc": []{"tls *libc.TLS", "x int32"}
+	task         *Task
 }
 
 func (t *Task) newLinkerObject(f *compilerFile) (r *linkerObject) {
 	return &linkerObject{
 		compilerFile: f,
 		defines:      map[string]symbolType{},
-		references:   map[string]refType{},
 		task:         t,
 	}
 }
@@ -128,34 +137,6 @@ func (l *linkerObject) inspectSSA(ssa []byte, nm string) (ok bool) {
 				}
 			}
 			l.signatures[fn[1:]] = a
-			for _, v := range x.Blocks {
-				for _, w := range v.Insts {
-					var rt refType
-					var ref parser.Node
-					switch x := w.(type) {
-					case *parser.CallNode:
-						rt = refFunc
-						ref = x.Val
-					case *parser.LoadNode:
-						rt = refMem
-						ref = x.Val
-					case *parser.StoreNode:
-						rt = refMem
-						ref = x.Dst
-					default:
-						continue
-					}
-
-					switch x := ref.(type) {
-					case *parser.Tok:
-						if nm := string(x.Src()); isQBEExported(nm) {
-							l.references[nm] |= rt
-						}
-					default:
-						panic(todo("%T", x))
-					}
-				}
-			}
 		case *parser.DataDefNode:
 			st := symbolData
 			if x.Linkage.IsValid() {
@@ -168,27 +149,6 @@ func (l *linkerObject) inspectSSA(ssa []byte, nm string) (ok bool) {
 			}
 			if nm := string(x.Global.Src()); isQBEExported(nm) {
 				l.defines[nm[1:]] = st
-			}
-			for _, v := range x.Items {
-				switch y := v.(type) {
-				case parser.DataItemsNode:
-					for _, v := range y.Items {
-						switch z := v.(type) {
-						case *parser.DataItemGlobalNode:
-							if nm := string(z.Global.Src()); isQBEExported(nm) {
-								l.references[nm] |= refData
-							}
-						case *parser.DataItemStringNode:
-							// ok
-						default:
-							panic(todo("%T", z))
-						}
-					}
-				case *parser.Tok, *parser.DataItemZeroNode:
-					// nop
-				default:
-					panic(todo("%T", y))
-				}
 			}
 		default:
 			panic(todo("%T", x))
@@ -397,10 +357,6 @@ func (t *Task) linkGoABI0() {
 	}
 }
 
-func isCCGOExported(nm string) bool {
-	return strings.HasPrefix(nm, "X") && !strings.HasPrefix(nm, "X_")
-}
-
 func (l *linkerObject) loadLib() (err error) {
 	importPath := fmt.Sprintf("modernc.org/lib%s", l.compilerFile.name)
 	pkg, err := loadPackage(importPath)
@@ -408,69 +364,60 @@ func (l *linkerObject) loadLib() (err error) {
 		return err
 	}
 
-	for _, v := range pkg.Syntax {
-		for _, v := range v.Decls {
-			switch x := v.(type) {
-			case *ast.FuncDecl:
-				nm := x.Name.Name
-				if !isCCGOExported(nm) {
-					break
-				}
-
-				params := x.Type.Params.List
-				if len(params) == 0 {
-					return
-				}
-
-				switch z := params[0].Type.(type) {
-				case *ast.StarExpr:
-					switch a := z.X.(type) {
-					case *ast.Ident:
-						if a.Name != "TLS" {
-							continue
-						}
-					default:
-						panic(todo("%T", a))
-					}
-				default:
-					continue
-				}
-
-				l.defines[nm[1:]] = symbolExportedFunction
-			case *ast.GenDecl:
-				switch x.Tok {
-				case token.VAR:
-					for _, v := range x.Specs {
-						switch y := v.(type) {
-						case *ast.ValueSpec:
-							for _, v := range y.Names {
-								nm := v.Name
-								if isCCGOExported(nm) {
-									l.defines[nm[1:]] = symbolExportedData
-								}
-							}
-						default:
-							panic(todo("%T", y))
-						}
-					}
-				}
-			default:
-				panic(todo("%T", x))
+	pkg.Scope.Iterate(func(nm string, n gc.Node) (stop bool) {
+		switch x := n.(type) {
+		case *gc.FunctionDeclNode:
+			if !strings.HasPrefix(nm, "Y") {
+				break
 			}
+
+			p0 := x.Signature.Parameters.ParameterDeclList
+			if p0 == nil {
+				break
+			}
+
+			if strings.Contains(p0.Source(false), "*TLS") {
+				l.defines[nm[1:]] = symbolExportedFunction
+			}
+		case *gc.VarSpecNode:
+			if !strings.HasPrefix(nm, "X") {
+				break
+			}
+
+			l.defines[nm[1:]] = symbolExportedData
+		case
+			*gc.AliasDeclNode,
+			*gc.ConstSpecNode,
+			*gc.TypeDefNode:
+
+			// ok
+		default:
+			panic(todo("%T %s", x, nm))
 		}
-	}
+		return false
+	})
 	return nil
 }
 
-func loadPackage(importPath string) (pkg *packages.Package, err error) {
-	cfg := &packages.Config{
-		Mode: packages.NeedTypesInfo | // Type information for expressions ([*types.Info])
-			packages.NeedSyntax, // ASTs ([*ast.File])
+func loadPackage0(importPath string) (pkg *gc.Package, err error) {
+	var opts []gc.ConfigOption
+	if gcCache != nil {
+		opts = append(opts, gc.ConfigCache(gcCache))
 	}
-	pkgs, err := packages.Load(cfg, importPath)
-	if err != nil || len(pkgs) != 1 {
-		return nil, fmt.Errorf("failed to load package %s: %v", importPath, err)
+	cfg, err := gc.NewConfig(opts...)
+	if err != nil {
+		return nil, err
+	}
+	return cfg.NewPackage("", importPath, "", nil, false, gc.TypeCheckNone)
+}
+
+func loadPackage(importPath string) (pkg *gc.Package, err error) {
+	if importPath == "modernc.org/libc" {
+		onceLibcCache.Do(func() {
+			libcCache, libcCacheErr = loadPackage0(importPath)
+		})
+		return libcCache, libcCacheErr
 	}
 
-	return pkgs[0], nil
+	return loadPackage0(importPath)
 }
