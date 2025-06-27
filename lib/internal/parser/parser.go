@@ -1323,6 +1323,10 @@ func (p *parser) abiTypeOpt() Tok {
 	return Tok{}
 }
 
+func isQBEExported(nm string) bool {
+	return strings.HasPrefix(nm, "$") && !strings.HasPrefix(nm, "$.")
+}
+
 // RweriteSource returns the source form of nodes using a rewriter.
 func RewriteSource(rewriter func(s string) string, nodes ...Node) string {
 	var a []tokener
@@ -1333,7 +1337,11 @@ func RewriteSource(rewriter func(s string) string, nodes ...Node) string {
 	var b strings.Builder
 	for _, t := range a {
 		b.Write(t.Sep())
-		b.WriteString(rewriter(string(t.Src())))
+		src := string(t.Src())
+		if isQBEExported(src) {
+			src = rewriter(src)
+		}
+		b.WriteString(src)
 	}
 	return b.String()
 }

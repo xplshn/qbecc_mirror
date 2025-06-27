@@ -4,6 +4,8 @@
 
 package qbecc // import "modernc.org/qbecc/lib"
 
+//TODO libc once
+
 import (
 	"bufio"
 	"fmt"
@@ -42,9 +44,10 @@ const (
 type linkerObject struct {
 	compilerFile *compilerFile
 	defines      map[string]symbolType // export function $foo() { ... }, export data $bar = { ... }
-	references   map[string]refType    // call $printf, store $foo, load $bar, data ... { l $baz }
-	signatures   map[string][]string   // "$myfunc": []{"tls *libc.TLS", "x int32"}
-	task         *Task
+	//TODO remove?
+	references map[string]refType  // call $printf, store $foo, load $bar, data ... { l $baz }
+	signatures map[string][]string // "$myfunc": []{"tls *libc.TLS", "x int32"}
+	task       *Task
 }
 
 func (t *Task) newLinkerObject(f *compilerFile) (r *linkerObject) {
@@ -71,6 +74,10 @@ func (l *linkerObject) ssaTyp(s string) string {
 	}
 }
 
+func isQBEExported(nm string) bool {
+	return strings.HasPrefix(nm, "$") && !strings.HasPrefix(nm, "$.")
+}
+
 func (l *linkerObject) inspectSSA(ssa []byte, nm string) (ok bool) {
 	defer func() {}()
 	l.signatures = map[string][]string{}
@@ -88,7 +95,9 @@ func (l *linkerObject) inspectSSA(ssa []byte, nm string) (ok bool) {
 				st = symbolExportedFunction
 			}
 			fn := string(x.Global.Src())
-			l.defines[fn] = st
+			if isQBEExported(fn) {
+				l.defines[fn[1:]] = st
+			}
 			a := []string{"tls *libc.TLS"}
 			for _, v := range x.Params {
 				switch x := v.(type) {
@@ -139,7 +148,7 @@ func (l *linkerObject) inspectSSA(ssa []byte, nm string) (ok bool) {
 
 					switch x := ref.(type) {
 					case *parser.Tok:
-						if nm := string(x.Src()); !strings.HasPrefix(nm, "%") {
+						if nm := string(x.Src()); isQBEExported(nm) {
 							l.references[nm] |= rt
 						}
 					default:
@@ -157,14 +166,16 @@ func (l *linkerObject) inspectSSA(ssa []byte, nm string) (ok bool) {
 					panic(todo("%q", ln))
 				}
 			}
-			l.defines[string(x.Global.Src())] = st
+			if nm := string(x.Global.Src()); isQBEExported(nm) {
+				l.defines[nm[1:]] = st
+			}
 			for _, v := range x.Items {
 				switch y := v.(type) {
 				case parser.DataItemsNode:
 					for _, v := range y.Items {
 						switch z := v.(type) {
 						case *parser.DataItemGlobalNode:
-							if nm := string(z.Global.Src()); !strings.HasPrefix(nm, ".") {
+							if nm := string(z.Global.Src()); isQBEExported(nm) {
 								l.references[nm] |= refData
 							}
 						case *parser.DataItemStringNode:
@@ -186,7 +197,7 @@ func (l *linkerObject) inspectSSA(ssa []byte, nm string) (ok bool) {
 	return true
 }
 
-func (l *linkerObject) goabi0(w io.Writer, ssa []byte, nm string, externs map[string]string) (ok bool) {
+func (l *linkerObject) goabi0(w io.Writer, ssa []byte, nm string, externs map[string]*linkerObject) (ok bool) {
 	ast, err := parser.Parse(ssa, nm, false)
 	if err != nil {
 		l.task.err(fileNode(nm), "%v", err)
@@ -194,18 +205,36 @@ func (l *linkerObject) goabi0(w io.Writer, ssa []byte, nm string, externs map[st
 	}
 
 	rewritten := parser.RewriteSource(func(nm string) (r string) {
-		// defer func() { trc("nm=%s r=%s", nm, r)}()
-		if !strings.HasPrefix(nm, "$") {
+		cname := nm[1:]
+		// defer func() { trc("(nm=%s cname=%s)->%s", nm, cname, r) }()
+		if !isQBEExported(nm) {
 			return nm
 		}
 
-		if _, ok := l.defines[nm]; ok {
+		if _, ok := l.defines[cname]; ok {
 			return nm
 		}
 
-		new := fmt.Sprintf("$\"%s.Y%s\"", externs[nm], nm[1:])
-		new = strings.ReplaceAll(new, ".", "·")
-		return strings.ReplaceAll(new, "/", "\u2215")
+		resolvedIn := externs[cname]
+		if resolvedIn == nil {
+			return nm
+		}
+
+		switch resolvedIn.compilerFile.outType {
+		case fileLib: // -lc, -lm, -lfoo, ...
+			importPath := fmt.Sprintf("modernc.org/lib%s", resolvedIn.compilerFile.name)
+			switch resolvedIn.defines[cname] {
+			case symbolExportedFunction:
+				nm = fmt.Sprintf("$\"%s.Y%s\"", importPath, cname)
+			default:
+				panic(todo("230: %v %v", cname, resolvedIn.defines[cname]))
+			}
+		default:
+			panic(todo("228: %v %v %v", cname, resolvedIn.compilerFile.name, resolvedIn.compilerFile.outType))
+		}
+
+		nm = strings.ReplaceAll(nm, ".", "·")
+		return strings.ReplaceAll(nm, "/", "\u2215")
 	}, ast.Defs...)
 	var o libqbe.Options
 	if l.task.dumpSSA {
@@ -301,8 +330,7 @@ func (t *Task) linkGoABI0() {
 	if fn == "" {
 		fn = "a.s"
 	}
-	exported := map[string]*linkerObject{} // $what: where
-	undefined := map[string]string{}       // $what: "example.com/foo", ie. rewrite $what to "$example.com/foo.Ywhat"
+	externs := map[string]*linkerObject{} // cname: defined in
 	for _, lo := range t.linkerObjects {
 		cf := lo.compilerFile
 		switch cf.outType {
@@ -314,13 +342,10 @@ func (t *Task) linkGoABI0() {
 			for k, v := range lo.defines {
 				switch v {
 				case symbolExportedData, symbolExportedFunction:
-					if _, ok := exported[k]; !ok {
-						exported[k] = lo
+					if _, ok := externs[k]; !ok {
+						externs[k] = lo
 					}
 				}
-			}
-			for k := range lo.references {
-				undefined[k] = ""
 			}
 		case fileLib:
 			if err := lo.loadLib(); err != nil {
@@ -330,14 +355,13 @@ func (t *Task) linkGoABI0() {
 		default:
 			panic(todo("", cf.outType))
 		}
+		for k := range lo.defines {
+			if _, ok := externs[k]; !ok {
+				externs[k] = lo
+			}
+		}
 	}
 
-	for k := range exported {
-		delete(undefined, k)
-	}
-	for k := range undefined {
-		undefined[k] = "modernc.org/libc" //TODO support linking above libc
-	}
 	f, err := os.Create(fn)
 	if err != nil {
 		t.err(fileNode(fn), "%v", err)
@@ -362,7 +386,7 @@ func (t *Task) linkGoABI0() {
 		cf := lo.compilerFile
 		switch cf.outType {
 		case fileQbeSSA:
-			if !lo.goabi0(w, cf.out.([]byte), cf.name, undefined) {
+			if !lo.goabi0(w, cf.out.([]byte), cf.name, externs) {
 				return
 			}
 		case fileLib:
@@ -373,8 +397,11 @@ func (t *Task) linkGoABI0() {
 	}
 }
 
+func isCCGOExported(nm string) bool {
+	return strings.HasPrefix(nm, "X") && !strings.HasPrefix(nm, "X_")
+}
+
 func (l *linkerObject) loadLib() (err error) {
-	return nil //TODO-
 	importPath := fmt.Sprintf("modernc.org/lib%s", l.compilerFile.name)
 	pkg, err := loadPackage(importPath)
 	if err != nil {
@@ -382,12 +409,11 @@ func (l *linkerObject) loadLib() (err error) {
 	}
 
 	for _, v := range pkg.Syntax {
-		trc("", pkg.Fset.Position(v.Name.Pos()))
 		for _, v := range v.Decls {
 			switch x := v.(type) {
 			case *ast.FuncDecl:
 				nm := x.Name.Name
-				if !strings.HasPrefix(nm, "X") || strings.HasPrefix(nm, "X_") {
+				if !isCCGOExported(nm) {
 					break
 				}
 
@@ -410,7 +436,7 @@ func (l *linkerObject) loadLib() (err error) {
 					continue
 				}
 
-				l.defines[nm] = symbolExportedFunction
+				l.defines[nm[1:]] = symbolExportedFunction
 			case *ast.GenDecl:
 				switch x.Tok {
 				case token.VAR:
@@ -419,8 +445,8 @@ func (l *linkerObject) loadLib() (err error) {
 						case *ast.ValueSpec:
 							for _, v := range y.Names {
 								nm := v.Name
-								if strings.HasPrefix(nm, "X") && !strings.HasPrefix(nm, "X_") {
-									l.defines[nm] = symbolExportedData
+								if isCCGOExported(nm) {
+									l.defines[nm[1:]] = symbolExportedData
 								}
 							}
 						default:
@@ -433,14 +459,10 @@ func (l *linkerObject) loadLib() (err error) {
 			}
 		}
 	}
-	for k, v := range l.defines {
-		trc("", k, v)
-	}
-	panic(todo(""))
+	return nil
 }
 
 func loadPackage(importPath string) (pkg *packages.Package, err error) {
-	return nil, nil //TODO-
 	cfg := &packages.Config{
 		Mode: packages.NeedTypesInfo | // Type information for expressions ([*types.Info])
 			packages.NeedSyntax, // ASTs ([*ast.File])
