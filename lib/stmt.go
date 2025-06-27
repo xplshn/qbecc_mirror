@@ -28,11 +28,12 @@ func (c *ctx) jumpStatementReturn(n *cc.JumpStatement) {
 func (c *ctx) jumpStatement(n *cc.JumpStatement) {
 	switch n.Case {
 	case cc.JumpStatementGoto: // "goto" IDENTIFIER ';'
-		panic(todo("%v: %v %s", n.Position(), n.Case, cc.NodeSource(n)))
+		c.w("\tjmp @%s\n", n.Token2.Src())
+		c.w("%s\n", c.label())
 	case cc.JumpStatementGotoExpr: // "goto" '*' ExpressionList ';'
 		panic(todo("%v: %v %s", n.Position(), n.Case, cc.NodeSource(n)))
 	case cc.JumpStatementContinue: // "continue" ';'
-		panic(todo("%v: %v %s", n.Position(), n.Case, cc.NodeSource(n)))
+		c.jumpStatementContinue(n)
 	case cc.JumpStatementBreak: // "break" ';'
 		c.jumpStatementBreak(n)
 	case cc.JumpStatementReturn: // "return" ExpressionList ';'
@@ -66,7 +67,8 @@ func (c *ctx) statement(n *cc.Statement) {
 func (c *ctx) labeledStatement(n *cc.LabeledStatement) {
 	switch n.Case {
 	case cc.LabeledStatementLabel: // IDENTIFIER ':' Statement
-		panic(todo("%v: %v %v", n.Position(), n.Case, cc.NodeSource(n)))
+		c.w("@%s\n", n.Token.Src())
+		c.statement(n.Statement)
 	case
 		cc.LabeledStatementCaseLabel, // "case" ConstantExpression ':' Statement
 		cc.LabeledStatementDefault:   // "default" ':' Statement
@@ -258,6 +260,11 @@ func (c *ctx) jumpStatementBreak(n *cc.JumpStatement) {
 	c.w("%s\n", c.label())
 }
 
+func (c *ctx) jumpStatementContinue(n *cc.JumpStatement) {
+	c.w("%s\n\tjmp %s\n", c.label(), c.fn.continueCtx.label)
+	c.w("%s\n", c.label())
+}
+
 // "if" '(' ExpressionList ')' Statement
 func (c *ctx) selectionStatementIf(n *cc.SelectionStatement) {
 	//	jnz expr @a, @z
@@ -307,7 +314,7 @@ func (c *ctx) iterationStatement(n *cc.IterationStatement) {
 	case cc.IterationStatementFor: // "for" '(' ExpressionList ';' ExpressionList ';' ExpressionList ')' Statement
 		c.iterationStatementFor(n)
 	case cc.IterationStatementForDecl: // "for" '(' Declaration ExpressionList ';' ExpressionList ')' Statement
-		panic(todo("%v: %v %v", n.Position(), n.Case, cc.NodeSource(n)))
+		c.iterationStatementForDecl(n)
 	default:
 		panic(todo("%v: %v %s", n.Position(), n.Case, cc.NodeSource(n)))
 	}
@@ -317,15 +324,19 @@ func (c *ctx) iterationStatement(n *cc.IterationStatement) {
 func (c *ctx) iterationStatementDo(n *cc.IterationStatement) {
 	// @a
 	//	stmt
+	// @cont
 	//	jnz expr @a, @z
 	// @z
 	a := c.label()
+	cont := c.label()
 	z := c.label()
 
 	defer c.fn.newBreakCtx(z)()
+	defer c.fn.newContinueCtx(cont)()
 
 	c.w("%s\n", a)
 	c.statement(n.Statement)
+	c.w("%s\n", cont)
 	e := c.expr(n.ExpressionList, rvalue, n.ExpressionList.Type())
 	c.w("\tjnz %v, %s, %s\n", e, a, z)
 	c.w("%s\n", z)
@@ -346,12 +357,47 @@ func (c *ctx) iterationStatementWhile(n *cc.IterationStatement) {
 	z := c.label()
 
 	defer c.fn.newBreakCtx(z)()
+	defer c.fn.newContinueCtx(a)()
 
 	c.w("%s\n", a)
 	e := c.expr(n.ExpressionList, rvalue, n.ExpressionList.Type())
 	c.w("\tjnz %v, %s, %s\n", e, b, z)
 	c.w("%s\n", b)
 	c.statement(n.Statement)
+	c.w("%s\n", x)
+	c.w("\tjmp %s\n", a)
+	c.w("%s\n", z)
+}
+
+// "for" '(' Declaration ExpressionList ';' ExpressionList ')' Statement
+func (c *ctx) iterationStatementForDecl(n *cc.IterationStatement) {
+	//	decl
+	// @a
+	//	jnz expr @b, @z
+	// @b
+	//	stmt
+	//	expr2
+	// @x
+	//	jmp @a
+	// @z
+
+	a := c.label()
+	b := c.label()
+	x := c.label()
+	z := c.label()
+
+	defer c.fn.newBreakCtx(z)()
+	defer c.fn.newContinueCtx(a)()
+
+	c.blockItemDecl(n.Declaration)
+	c.w("%s\n", a)
+	if n.ExpressionList != nil {
+		e2 := c.expr(n.ExpressionList, rvalue, n.ExpressionList.Type())
+		c.w("\tjnz %v, %s, %s\n", e2, b, z)
+	}
+	c.w("%s\n", b)
+	c.statement(n.Statement)
+	c.expr(n.ExpressionList2, void, nil)
 	c.w("%s\n", x)
 	c.w("\tjmp %s\n", a)
 	c.w("%s\n", z)
@@ -375,6 +421,7 @@ func (c *ctx) iterationStatementFor(n *cc.IterationStatement) {
 	z := c.label()
 
 	defer c.fn.newBreakCtx(z)()
+	defer c.fn.newContinueCtx(a)()
 
 	c.expr(n.ExpressionList, void, nil)
 	c.w("%s\n", a)

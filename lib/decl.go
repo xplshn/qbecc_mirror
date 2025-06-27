@@ -34,21 +34,14 @@ type escaped struct {
 	offset int64 // into %.bp.
 }
 
-// declared in function scope, storage static
+// storage static
 type static struct {
 	varinfo
 	d    *cc.Declarator
 	name string
 }
 
-// declared in top-level scope, storage static
-type global struct {
-	varinfo
-	d    *cc.Declarator
-	name string
-}
-
-type breakCtx struct {
+type breakContinueCtx struct {
 	label string
 }
 
@@ -75,13 +68,14 @@ type switchCtx struct {
 
 // Function compile context
 type fnCtx struct {
-	allocs    int64
-	breakCtx  *breakCtx
-	ctx       *ctx
-	vars      map[cc.Node]variable
-	returns   cc.Type
-	static    []*cc.InitDeclarator
-	switchCtx *switchCtx
+	allocs      int64
+	breakCtx    *breakContinueCtx
+	continueCtx *breakContinueCtx
+	ctx         *ctx
+	returns     cc.Type
+	static      []*cc.InitDeclarator
+	switchCtx   *switchCtx
+	vars        map[cc.Node]variable
 
 	nextID int
 }
@@ -133,9 +127,17 @@ func (f *fnCtx) id() (r int) {
 
 func (f *fnCtx) newBreakCtx(label string) func() {
 	old := f.breakCtx
-	f.breakCtx = &breakCtx{label: label}
+	f.breakCtx = &breakContinueCtx{label: label}
 	return func() {
 		f.breakCtx = old
+	}
+}
+
+func (f *fnCtx) newContinueCtx(label string) func() {
+	old := f.breakCtx
+	f.continueCtx = &breakContinueCtx{label: label}
+	return func() {
+		f.continueCtx = old
 	}
 }
 
@@ -238,7 +240,7 @@ func (f *fnCtx) registerVar(n cc.Node) {
 			default:
 				switch {
 				case sc.Parent == nil:
-					f.vars[x] = &global{
+					f.vars[x] = &static{
 						d:    x,
 						name: fmt.Sprintf("$%s", x.Name()),
 					}
@@ -360,7 +362,9 @@ func (c *ctx) externalDeclarationFuncDef(n *cc.FunctionDefinition) {
 		c.w("data %s = align %d ", info.(*static).name, d.Type().Align())
 		switch {
 		case v.Initializer != nil:
-			panic(todo("%v: %v", d.Position(), cc.NodeSource(v.Initializer)))
+			c.w("{")
+			c.initialize(v.Initializer, info, 0, d.Type())
+			c.w("}\n\n")
 		default:
 			c.w("{ z %d }\n\n", d.Type().Size())
 		}
@@ -395,7 +399,7 @@ func (c *ctx) externalDeclarationDeclFull(n *cc.Declaration) {
 			c.w("data $%s = align %d { z %d }", d.Name(), d.Type().Align(), d.Type().Size())
 		case cc.InitDeclaratorInit: // Declarator Asm '=' Initializer
 			c.w("data $%s = align %d {", d.Name(), d.Type().Align())
-			c.initialize(n.Initializer, &global{
+			c.initialize(n.Initializer, &static{
 				d:    d,
 				name: fmt.Sprintf("$%s", d.Name()),
 			}, 0, d.Type())

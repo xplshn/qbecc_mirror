@@ -52,7 +52,7 @@ func (c *ctx) initializeExpr(n cc.ExpressionNode, v variable, off int64, t cc.Ty
 		p := c.temp("%s add %%.bp., %v\n", c.wordTag, x.offset+off)
 		e := c.expr(n, rvalue, t)
 		c.w("\tstore%s %s, %s\n", c.extType(n, t), e, p)
-	case *global:
+	case *static:
 		// 6.7.8 Initialization/4
 		//
 		// All the expressions in an initializer for an object that has static storage
@@ -105,6 +105,8 @@ func (c *ctx) initializeExpr(n cc.ExpressionNode, v variable, off int64, t cc.Ty
 			default:
 				panic(todo("%v: %T %s", n.Position(), y, cc.NodeSource(n)))
 			}
+		case cc.Int64Value:
+			c.w("%s %s", c.extType(n, t), c.value(n, rvalue, t, x))
 		default:
 			panic(todo("%v: %T %s", n.Position(), x, cc.NodeSource(n)))
 		}
