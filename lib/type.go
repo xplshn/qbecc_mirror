@@ -12,16 +12,11 @@ import (
 func (c *ctx) baseType(n cc.Node, t cc.Type) string {
 	switch t.Kind() {
 	case cc.Ptr:
-		switch t.Size() {
-		case 4:
-			return "w"
-		case 8:
-			return "l"
-		default:
-			panic(todo("%v: %s %v", n.Position(), t, t.Kind()))
-		}
+		return c.wordTag
 	case cc.Enum:
 		return c.baseType(n, t.(*cc.EnumType).UnderlyingType())
+	case cc.Function:
+		return c.wordTag
 	default:
 		switch {
 		case c.isIntegerType(t):

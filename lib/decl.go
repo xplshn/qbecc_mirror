@@ -236,7 +236,12 @@ func (f *fnCtx) registerVar(n cc.Node) {
 		case cc.Static:
 			switch sc := x.ResolvedIn(); sc {
 			case nil:
-				// dead
+				if strings.HasPrefix(x.Name(), "__builtin_") {
+					f.vars[x] = &static{
+						d:    x,
+						name: fmt.Sprintf("$%s", x.Name()[len("__builtin_"):]),
+					}
+				}
 			default:
 				switch {
 				case sc.Parent == nil:
