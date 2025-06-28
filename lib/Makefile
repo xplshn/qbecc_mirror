@@ -35,8 +35,8 @@ test:
 	go test -v -timeout 24h
 
 todo:
-	go test -v -timeout 24h 2>&1 | tee log
-	grep \
+	go test -v -timeout 24h 2>&1 | tee log || true
+	grep -a \
 		' FAIL: ~' log | \
 		sed 's/.* FAIL: \(.*\)/\1/p' | \
 		sed 's/\.c signal.*/.c/' | \

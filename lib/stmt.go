@@ -10,17 +10,25 @@ import (
 	"modernc.org/cc/v4"
 )
 
-// ExpressionStatement:
-//	ExpressionList ';'
-
+// ExpressionList ';'
 func (c *ctx) expressionStatement(n *cc.ExpressionStatement) {
 	c.expr(n.ExpressionList, void, nil)
 }
 
+// "return" ExpressionList ';'
 func (c *ctx) jumpStatementReturn(n *cc.JumpStatement) {
 	s := ""
-	if n.ExpressionList != nil {
-		s = c.expr(n.ExpressionList, rvalue, c.fn.returns)
+	switch {
+	case c.fn.returns.Kind() != cc.Void:
+		switch {
+		case n.ExpressionList != nil:
+			s = c.expr(n.ExpressionList, rvalue, c.fn.returns)
+		}
+	default:
+		switch {
+		case n.ExpressionList != nil:
+			c.expr(n.ExpressionList, void, c.fn.returns)
+		}
 	}
 	c.w("\tret %s\n", s)
 }

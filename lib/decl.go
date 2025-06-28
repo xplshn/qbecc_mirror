@@ -14,6 +14,7 @@ import (
 
 type variable interface {
 	isVarinfo()
+	String() string
 }
 
 type varinfo struct{}
@@ -27,6 +28,10 @@ type local struct {
 	name string
 }
 
+func (n *local) String() string {
+	return fmt.Sprintf("%v: %T %s %s", n.d.Position(), n, n.d.Name(), n.name)
+}
+
 // declared in function scope, storage automatic, escaped to TLSAlloc.
 type escaped struct {
 	varinfo
@@ -34,11 +39,19 @@ type escaped struct {
 	offset int64 // into %.bp.
 }
 
+func (n *escaped) String() string {
+	return fmt.Sprintf("%v: %T %s", n.d.Position(), n, n.d.Name())
+}
+
 // storage static
 type static struct {
 	varinfo
 	d    *cc.Declarator
 	name string
+}
+
+func (n *static) String() string {
+	return fmt.Sprintf("%v: %T %s %s", n.d.Position(), n, n.d.Name(), n.name)
 }
 
 type breakContinueCtx struct {
@@ -75,7 +88,7 @@ type fnCtx struct {
 	returns     cc.Type
 	static      []*cc.InitDeclarator
 	switchCtx   *switchCtx
-	vars        map[cc.Node]variable
+	vars        map[*cc.Declarator]variable
 
 	nextID int
 }
@@ -83,7 +96,7 @@ type fnCtx struct {
 func (c *ctx) newFnCtx(n *cc.FunctionDefinition) (r *fnCtx) {
 	r = &fnCtx{
 		ctx:  c,
-		vars: map[cc.Node]variable{},
+		vars: map[*cc.Declarator]variable{},
 	}
 	ignore := 0
 	walk(n, func(n cc.Node, mode int) {
@@ -230,6 +243,7 @@ func (f *fnCtx) registerVar(n cc.Node) {
 			return
 		}
 
+		// defer func() { trc("%v: %v %v", n.Position(), cc.NodeSource(n), f.vars[x]) }()
 		dt := x.Type()
 		k := dt.Kind()
 		switch x.StorageDuration() {
@@ -349,8 +363,14 @@ func (c *ctx) externalDeclarationFuncDef(n *cc.FunctionDefinition) {
 		c.w("\t%%.bp. =%s alloc8 %v\n", c.wordTag, f.allocs)
 	}
 	c.compoundStatement(n.CompoundStatement)
+	//TODO- switch {
+	//TODO- case d.Linkage() == cc.External && d.Name() == "main":
+	//TODO- 	c.w("%s\n\tret 0\n", c.label())
+	//TODO- default:
+	//TODO- 	c.w("%s\n\tret\n", c.label())
+	//TODO- }
 	switch {
-	case d.Linkage() == cc.External && d.Name() == "main":
+	case c.fn.returns.Kind() != cc.Void:
 		c.w("%s\n\tret 0\n", c.label())
 	default:
 		c.w("%s\n\tret\n", c.label())
