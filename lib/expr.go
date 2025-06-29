@@ -721,7 +721,7 @@ func (c *ctx) postfixExpressionIndex(n *cc.PostfixExpression, mode mode, t cc.Ty
 func (c *ctx) postfixExpression(n *cc.PostfixExpression, mode mode, t cc.Type) (r string) {
 	switch n.Case {
 	case cc.PostfixExpressionPrimary: // PrimaryExpression
-		panic(todo("%v: %v %s", n.Position(), n.Case, cc.NodeSource(n)))
+		return c.expr(n.PrimaryExpression, mode, t)
 	case cc.PostfixExpressionIndex: // PostfixExpression '[' ExpressionList ']'
 		return c.postfixExpressionIndex(n, mode, t)
 	case cc.PostfixExpressionCall: // PostfixExpression '(' ArgumentExpressionList ')'
@@ -965,7 +965,7 @@ func (c *ctx) unaryExpressionNot(n *cc.UnaryExpression, mode mode, t cc.Type) (r
 func (c *ctx) unaryExpression(n *cc.UnaryExpression, mode mode, t cc.Type) (r string) {
 	switch n.Case {
 	case cc.UnaryExpressionPostfix: //  PostfixExpression
-		panic(todo("%v: %v %v", n.Position(), n.Case, cc.NodeSource(n)))
+		return c.expr(n.PostfixExpression, mode, t)
 	case cc.UnaryExpressionInc: // "++" UnaryExpression
 		return c.unaryExpressionIncDec(n, mode, t, "add")
 	case cc.UnaryExpressionDec: // "--" UnaryExpression
@@ -1242,7 +1242,7 @@ func (c *ctx) logicalAndExpressionLAnd(n *cc.LogicalAndExpression, mode mode, t 
 func (c *ctx) logicalOrExpression(n *cc.LogicalOrExpression, mode mode, t cc.Type) (r string) {
 	switch n.Case {
 	case cc.LogicalOrExpressionLAnd: // LogicalAndExpression
-		panic(todo("%v: %v %s", n.Position(), n.Case, cc.NodeSource(n)))
+		return c.expr(n.LogicalAndExpression, mode, t)
 	case cc.LogicalOrExpressionLOr: // LogicalOrExpression "||" LogicalAndExpression
 		return c.logicalOrExpressionLOr(n, mode, t)
 	default:
@@ -1253,7 +1253,7 @@ func (c *ctx) logicalOrExpression(n *cc.LogicalOrExpression, mode mode, t cc.Typ
 func (c *ctx) logicalAndExpression(n *cc.LogicalAndExpression, mode mode, t cc.Type) (r string) {
 	switch n.Case {
 	case cc.LogicalAndExpressionOr: // InclusiveOrExpression
-		panic(todo("%v: %v %s", n.Position(), n.Case, cc.NodeSource(n)))
+		return c.expr(n.InclusiveOrExpression, mode, t)
 	case cc.LogicalAndExpressionLAnd: // LogicalAndExpression "&&" InclusiveOrExpression
 		return c.logicalAndExpressionLAnd(n, mode, t)
 	default:
@@ -1361,7 +1361,7 @@ func (c *ctx) castExpressionCast(n *cc.CastExpression, mode mode, t cc.Type) (r 
 func (c *ctx) castExpression(n *cc.CastExpression, mode mode, t cc.Type) (r string) {
 	switch n.Case {
 	case cc.CastExpressionUnary: // UnaryExpression
-		panic(todo("%v: %v %v", n.Position(), n.Case, cc.NodeSource(n)))
+		return c.expr(n.UnaryExpression, mode, t)
 	case cc.CastExpressionCast: // '(' TypeName ')' CastExpression
 		return c.castExpressionCast(n, mode, t)
 	default:
@@ -1408,7 +1408,7 @@ func (c *ctx) conditionalExpressionCond(n *cc.ConditionalExpression, mode mode, 
 func (c *ctx) conditionalExpression(n *cc.ConditionalExpression, mode mode, t cc.Type) (r string) {
 	switch n.Case {
 	case cc.ConditionalExpressionLOr: // LogicalOrExpression
-		panic(todo("%v: %v %s", n.Position(), n.Case, cc.NodeSource(n)))
+		return c.expr(n.LogicalOrExpression, mode, t)
 	case cc.ConditionalExpressionCond: // LogicalOrExpression '?' ExpressionList ':' ConditionalExpression
 		return c.conditionalExpressionCond(n, mode, t)
 	default:
