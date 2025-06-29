@@ -142,16 +142,6 @@ func (p *parallelTest) err(err error) {
 //	all_test.go:219: tcc-0.9.27/tests/tests2: files=88 gcc fails=8 skipped=24 failed=0 passed=56
 
 // 2025-06-28
-//	all_test.go:226: CompCert-3.6/test/c: files=24 gcc fails=8 skipped=14 failed=0 passed=2
-//	all_test.go:226: gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute: files=1506 gcc fails=26 skipped=1187 failed=0 passed=293
-//	all_test.go:226: tcc-0.9.27/tests/tests2: files=88 gcc fails=8 skipped=19 failed=0 passed=61
-
-// 2025-06-28
-//	all_test.go:229: CompCert-3.6/test/c: files=24 gcc fails=8 skipped=14 failed=0 passed=2
-//	all_test.go:229: gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute: files=1506 gcc fails=26 skipped=1087 failed=0 passed=393
-//	all_test.go:229: tcc-0.9.27/tests/tests2: files=88 gcc fails=8 skipped=19 failed=0 passed=61
-
-// 2025-06-28
 //	all_test.go:234: CompCert-3.6/test/c: files=24 gcc fails=8 skipped=13 failed=0 passed=3
 //	all_test.go:234: gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute: files=1506 gcc fails=26 skipped=1053 failed=0 passed=427
 //	all_test.go:234: tcc-0.9.27/tests/tests2: files=88 gcc fails=8 skipped=19 failed=0 passed=61
@@ -160,6 +150,11 @@ func (p *parallelTest) err(err error) {
 //	all_test.go:239: CompCert-3.6/test/c: files=24 gcc fails=8 skipped=13 failed=0 passed=3
 //	all_test.go:239: gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute: files=1506 gcc fails=26 skipped=1049 failed=0 passed=431
 //	all_test.go:239: tcc-0.9.27/tests/tests2: files=88 gcc fails=8 skipped=19 failed=0 passed=61
+
+// 2025-06-29
+//	all_test.go:249: CompCert-3.6/test/c: files=24 gcc fails=8 skipped=13 failed=0 passed=3
+//	all_test.go:249: gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute: files=1506 gcc fails=26 skipped=916 failed=0 passed=564
+//	all_test.go:249: tcc-0.9.27/tests/tests2: files=88 gcc fails=8 skipped=19 failed=0 passed=61
 
 func TestExec(t *testing.T) {
 	t.Logf("using C compiler at %s", gcc)
@@ -274,7 +269,7 @@ func testExec2(t *testing.T, p *parallelTest, suite, testNm, fn, sid, fsName str
 	}
 
 	if goos == "windows" {
-		t.Skip("windows targets are not supported")
+		t.Skip("windows targets not supported")
 	}
 
 	qbeccBin := binPath(fmt.Sprintf("%s.out", fn))
@@ -297,20 +292,20 @@ func testExec2(t *testing.T, p *parallelTest, suite, testNm, fn, sid, fsName str
 		GOMAXPROCS: 1, // Test is already parallel
 	}, args...)
 	if err != nil {
-		t.Logf("COMPILE FAIL: %s", fsName)
+		t.Logf("COMPILE FAIL: %s\nerr=%v", fsName, err)
 		p.failed.Add(1)
 		return err
 	}
 
 	if err = task.Main(); err != nil {
-		t.Logf("COMPILE FAIL: %s", fsName)
+		t.Logf("COMPILE FAIL: %s\nerr=%v", fsName, err)
 		p.failed.Add(1)
 		return err
 	}
 
 	qbeccBinOut, err := shell(gccBinTO, qbeccBin)
 	if err != nil {
-		t.Logf("EXEC FAIL: %s %v\n%s", fsName, err, qbeccBinOut)
+		t.Logf("EXEC FAIL: %s\nerr=%v\n%s", fsName, err, qbeccBinOut)
 		p.failed.Add(1)
 		return err
 	}
@@ -323,7 +318,7 @@ func testExec2(t *testing.T, p *parallelTest, suite, testNm, fn, sid, fsName str
 
 	dir := fmt.Sprintf("%s.dir", fn)
 	if err = os.Mkdir(dir, 0770); err != nil {
-		t.Logf("COMPILE FAIL: %s err=%v", fsName, err)
+		t.Logf("COMPILE FAIL: %s\nerr=%v", fsName, err)
 		p.failed.Add(1)
 		return err
 	}
@@ -355,12 +350,12 @@ func testExec2(t *testing.T, p *parallelTest, suite, testNm, fn, sid, fsName str
 		Stderr:     io.Discard,
 		GOMAXPROCS: 1, // Test is already parallel
 	}, args...); err != nil {
-		t.Logf("COMPILE FAIL: %s", fsName)
+		t.Logf("COMPILE FAIL: %s\nerr=%v", fsName, err)
 		p.failed.Add(1)
 		return err
 	}
 	if err = task.Main(); err != nil {
-		t.Logf("COMPILE FAIL: %s", fsName)
+		t.Logf("COMPILE FAIL: %s\nerr=%v", fsName, err)
 		p.failed.Add(1)
 		return err
 	}
@@ -400,7 +395,7 @@ func main() {
 		}
 	}
 	if err = os.WriteFile(mainGo, b.Bytes(), 0660); err != nil {
-		t.Logf("COMPILE FAIL: %s", fsName)
+		t.Logf("COMPILE FAIL: %s\nerr=%v", fsName, err)
 		p.failed.Add(1)
 		return err
 	}
@@ -408,7 +403,7 @@ func main() {
 	if !disableVet {
 		goOut, err := shell(goTO, "go", "vet", "./"+dir)
 		if err != nil {
-			t.Logf("GO VET FAIL: %s\n%s", fsName, goOut)
+			t.Logf("GO VET FAIL: %s\nerr=%v\n%s", fsName, err, goOut)
 			p.failed.Add(1)
 			return err
 		}
@@ -416,7 +411,7 @@ func main() {
 
 	goOut, err := shell(goTO, "go", "run", "./"+dir)
 	if err != nil {
-		t.Logf("EXEC FAIL: %s\n%s", fsName, goOut)
+		t.Logf("EXEC FAIL: %s\nerr=%v\n%s", fsName, err, goOut)
 		p.failed.Add(1)
 		return err
 	}

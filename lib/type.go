@@ -26,6 +26,7 @@ func (c *ctx) baseType(n cc.Node, t cc.Type) string {
 			case sz <= 8:
 				return "l"
 			default:
+				// COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/20020413-1.c
 				panic(todo("%v: %s %v", n.Position(), t, t.Kind()))
 			}
 		case c.isFloatingPointType(t):
@@ -38,6 +39,7 @@ func (c *ctx) baseType(n cc.Node, t cc.Type) string {
 				panic(todo("%v: %s %v", n.Position(), t, t.Kind()))
 			}
 		default:
+			// COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/20000419-1.c
 			panic(todo("%v: %s %v", n.Position(), t, t.Kind()))
 		}
 	}

@@ -224,9 +224,9 @@ func (f *fnCtx) newSwitchCtx(expr string, typ cc.Type, cases0 []*cc.LabeledState
 
 func (f *fnCtx) alloc(n cc.Node, align, size int64) (r int64) {
 	if align <= 0 || size < 0 {
-		panic(todo("%v: align=%v size=%v %s", n.Position(), align, size, cc.NodeSource(n)))
+		f.ctx.err(n, "variable sized types not supported")
+		align = 1
 	}
-
 	size = max(size, 1)
 	r = round(f.allocs, align)
 	f.allocs = r + size
@@ -291,7 +291,8 @@ func (f *fnCtx) registerVar(n cc.Node) {
 			panic(todo("", x.StorageDuration()))
 		}
 	default:
-		panic(todo("%T", x))
+		// compostite literal: COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/20000722-1.c
+		panic(todo("%v: %v %T", n.Position(), cc.NodeSource(n), x))
 	}
 }
 
@@ -410,7 +411,8 @@ func (c *ctx) externalDeclarationDeclFull(n *cc.Declaration) {
 			c.w("export ")
 		}
 		if l.InitDeclarator.Asm != nil {
-			panic(todo("%v: %s %s", n.Position(), l.InitDeclarator.Case, cc.NodeSource(n)))
+			c.err(n, "assembler not supported")
+			return
 		}
 
 		switch n := l.InitDeclarator; n.Case {

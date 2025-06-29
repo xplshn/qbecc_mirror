@@ -103,11 +103,13 @@ func (c *ctx) initializeExpr(n cc.ExpressionNode, v variable, off int64, t cc.Ty
 					panic(todo("%v: %v %s", n.Position(), y.Case, cc.NodeSource(n)))
 				}
 			default:
+				// COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/20070614-1.c
 				panic(todo("%v: %T %s", n.Position(), y, cc.NodeSource(n)))
 			}
 		case cc.Int64Value:
 			c.w("%s %s", c.extType(n, t), c.value(n, rvalue, t, x))
 		default:
+			// COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/20000314-3.c
 			panic(todo("%v: %T %s", n.Position(), x, cc.NodeSource(n)))
 		}
 	default:
@@ -120,6 +122,7 @@ func (c *ctx) initializeInitList(n *cc.InitializerList, v variable, off int64, t
 	case t.Kind() == cc.Array:
 		c.initializeInitListArray(n, v, off, t.(*cc.ArrayType))
 	default:
+		// COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/20000113-1.c
 		panic(todo("%v: %v %s", n.Position(), t, cc.NodeSource(n)))
 	}
 }
@@ -140,6 +143,7 @@ func (c *ctx) initializeInitListArray(n *cc.InitializerList, v variable, off int
 			ix++
 		}
 	default:
+		// COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/20000403-1.c
 		panic(todo("%v: %T %s", n.Position(), x, cc.NodeSource(n)))
 	}
 }

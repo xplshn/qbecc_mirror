@@ -128,6 +128,11 @@ func (t *Task) sourcesFor(file *compilerFile) (r []cc.Source, err error) {
 	return append(r, cc.Source{Name: file.name, Value: v}), nil
 }
 
+var (
+	__builtin_ = []byte("$__builtin_")
+	dlr        = []byte{'$'}
+)
+
 func (t *Task) asmFile(in string, c *ctx) (err error) {
 	ssa := bytes.TrimSpace(c.b.Bytes())
 	var enc bytes.Buffer
@@ -159,7 +164,9 @@ func (t *Task) asmFile(in string, c *ctx) (err error) {
 	}
 	asm.w("%s_end:\n", ssaSection)
 	asm.w("\n.set %s_size, %[1]s_end - %[1]s_start\n\n", ssaSection)
-	if err := libqbe.Main(t.target, fn, &c.b, &asm.b, nil); err != nil {
+	cb := c.b.Bytes()
+	cb = bytes.ReplaceAll(cb, __builtin_, dlr)
+	if err := libqbe.Main(t.target, fn, bytes.NewReader(cb), &asm.b, nil); err != nil {
 		return err
 	}
 

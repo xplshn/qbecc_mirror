@@ -39,7 +39,7 @@ func (c *ctx) jumpStatement(n *cc.JumpStatement) {
 		c.w("\tjmp @%s\n", n.Token2.Src())
 		c.w("%s\n", c.label())
 	case cc.JumpStatementGotoExpr: // "goto" '*' ExpressionList ';'
-		panic(todo("%v: %v %s", n.Position(), n.Case, cc.NodeSource(n)))
+		c.err(n, "indirect goto statements not supported")
 	case cc.JumpStatementContinue: // "continue" ';'
 		c.jumpStatementContinue(n)
 	case cc.JumpStatementBreak: // "break" ';'
@@ -66,7 +66,7 @@ func (c *ctx) statement(n *cc.Statement) {
 	case cc.StatementJump: // JumpStatement
 		c.jumpStatement(n.JumpStatement)
 	case cc.StatementAsm: // AsmStatement
-		panic(todo("%v: %v %v", n.Position(), n.Case, cc.NodeSource(n)))
+		c.err(n, "assembler statements not supported")
 	default:
 		panic(todo("%v: %v %s", n.Position(), n.Case, cc.NodeSource(n)))
 	}
@@ -83,7 +83,7 @@ func (c *ctx) labeledStatement(n *cc.LabeledStatement) {
 
 		c.labeledStatementSwitchLabel(n)
 	case cc.LabeledStatementRange: // "case" ConstantExpression "..." ConstantExpression ':' Statement
-		panic(todo("%v: %v %v", n.Position(), n.Case, cc.NodeSource(n)))
+		c.err(n, "case ranges not supported")
 	default:
 		panic(todo("%v: %v %s", n.Position(), n.Case, cc.NodeSource(n)))
 	}
@@ -493,12 +493,11 @@ func (c *ctx) blockItem(n *cc.BlockItem) {
 	case cc.BlockItemDecl: // Declaration
 		c.blockItemDecl(n.Declaration)
 	case cc.BlockItemLabel: // LabelDeclaration
-		panic(todo("%v: %v %v", n.Position(), n.Case, cc.NodeSource(n)))
+		c.err(n, "label declarations not supported")
 	case cc.BlockItemStmt: // Statement
 		c.statement(n.Statement)
 	case cc.BlockItemFuncDef: // DeclarationSpecifiers Declarator CompoundStatement
-		// c.err(n.Declarator, "nested functions not supported")
-		panic(todo("%v: %v %v", n.Position(), n.Case, cc.NodeSource(n)))
+		c.err(n, "nested functions not supported")
 	default:
 		panic(todo("%v: %v %s", n.Position(), n.Case, cc.NodeSource(n)))
 	}

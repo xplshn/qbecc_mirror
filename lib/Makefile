@@ -41,6 +41,7 @@ todo:
 		sed 's/.* FAIL: \(.*\)/\1/p' | \
 		sed 's/\.c signal.*/.c/' | \
 		sed 's/\.c exit status.*/.c/' | \
-		LC_ALL=C sort -u 2>&1 | \
-		tee log-todo
-	grep -a -o 'instruction.*' log | sort -u
+		LC_ALL=C sort -u 2>&1 > \
+		log-todo
+	grep -a -o 'instruction.*' log | sort -u 2>&1 >> log-todo
+	grep -a -o 'PANIC:.*\.go:[0-9]\+:' log | sort -u 2>&1 >> log-todo
