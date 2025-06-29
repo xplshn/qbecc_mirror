@@ -363,12 +363,6 @@ func (c *ctx) externalDeclarationFuncDef(n *cc.FunctionDefinition) {
 		c.w("\t%%.bp. =%s alloc8 %v\n", c.wordTag, f.allocs)
 	}
 	c.compoundStatement(n.CompoundStatement)
-	//TODO- switch {
-	//TODO- case d.Linkage() == cc.External && d.Name() == "main":
-	//TODO- 	c.w("%s\n\tret 0\n", c.label())
-	//TODO- default:
-	//TODO- 	c.w("%s\n\tret\n", c.label())
-	//TODO- }
 	switch {
 	case c.fn.returns.Kind() != cc.Void:
 		c.w("%s\n\tret 0\n", c.label())

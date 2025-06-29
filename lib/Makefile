@@ -43,3 +43,4 @@ todo:
 		sed 's/\.c exit status.*/.c/' | \
 		LC_ALL=C sort -u 2>&1 | \
 		tee log-todo
+	grep -a -o 'instruction.*' log | sort -u

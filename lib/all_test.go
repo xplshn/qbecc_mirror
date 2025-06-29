@@ -151,6 +151,16 @@ func (p *parallelTest) err(err error) {
 //	all_test.go:229: gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute: files=1506 gcc fails=26 skipped=1087 failed=0 passed=393
 //	all_test.go:229: tcc-0.9.27/tests/tests2: files=88 gcc fails=8 skipped=19 failed=0 passed=61
 
+// 2025-06-28
+//	all_test.go:234: CompCert-3.6/test/c: files=24 gcc fails=8 skipped=13 failed=0 passed=3
+//	all_test.go:234: gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute: files=1506 gcc fails=26 skipped=1053 failed=0 passed=427
+//	all_test.go:234: tcc-0.9.27/tests/tests2: files=88 gcc fails=8 skipped=19 failed=0 passed=61
+
+// 2025-06-29
+//	all_test.go:239: CompCert-3.6/test/c: files=24 gcc fails=8 skipped=13 failed=0 passed=3
+//	all_test.go:239: gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute: files=1506 gcc fails=26 skipped=1049 failed=0 passed=431
+//	all_test.go:239: tcc-0.9.27/tests/tests2: files=88 gcc fails=8 skipped=19 failed=0 passed=61
+
 func TestExec(t *testing.T) {
 	t.Logf("using C compiler at %s", gcc)
 	const destDir = "tmp"
@@ -260,7 +270,7 @@ func testExec2(t *testing.T, p *parallelTest, suite, testNm, fn, sid, fsName str
 	}
 
 	if trcOutput {
-		t.Logf("\n%s", gccBinOut)
+		t.Logf("gcc out:\n%s", gccBinOut)
 	}
 
 	if goos == "windows" {
