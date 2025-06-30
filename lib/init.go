@@ -35,7 +35,7 @@ func (c *ctx) initialize(n *cc.Initializer, v variable, off int64, t cc.Type) {
 	case cc.InitializerInitList: // '{' InitializerList ',' '}'
 		c.initializeInitList(n.InitializerList, v, off, t)
 	default:
-		panic(todo("%v: %v %s", n.Position(), n.Case, cc.NodeSource(n)))
+		c.err(n, "internal error %T.%s", n, n.Case)
 	}
 }
 
@@ -113,7 +113,7 @@ func (c *ctx) initializeExpr(n cc.ExpressionNode, v variable, off int64, t cc.Ty
 			panic(todo("%v: %T %s", n.Position(), x, cc.NodeSource(n)))
 		}
 	default:
-		panic(todo("%v: %T %s", n.Position(), x, cc.NodeSource(n)))
+		c.err(n, "internal error %T", n)
 	}
 }
 

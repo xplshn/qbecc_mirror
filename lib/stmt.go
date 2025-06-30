@@ -47,7 +47,7 @@ func (c *ctx) jumpStatement(n *cc.JumpStatement) {
 	case cc.JumpStatementReturn: // "return" ExpressionList ';'
 		c.jumpStatementReturn(n)
 	default:
-		panic(todo("%v: %v %s", n.Position(), n.Case, cc.NodeSource(n)))
+		c.err(n, "internal error %T.%s", n, n.Case)
 	}
 }
 
@@ -68,7 +68,7 @@ func (c *ctx) statement(n *cc.Statement) {
 	case cc.StatementAsm: // AsmStatement
 		c.err(n, "assembler statements not supported")
 	default:
-		panic(todo("%v: %v %s", n.Position(), n.Case, cc.NodeSource(n)))
+		c.err(n, "internal error %T.%s", n, n.Case)
 	}
 }
 
@@ -85,7 +85,7 @@ func (c *ctx) labeledStatement(n *cc.LabeledStatement) {
 	case cc.LabeledStatementRange: // "case" ConstantExpression "..." ConstantExpression ':' Statement
 		c.err(n, "case ranges not supported")
 	default:
-		panic(todo("%v: %v %s", n.Position(), n.Case, cc.NodeSource(n)))
+		c.err(n, "internal error %T.%s", n, n.Case)
 	}
 }
 
@@ -98,7 +98,7 @@ func (c *ctx) selectionStatement(n *cc.SelectionStatement) {
 	case cc.SelectionStatementSwitch: // "switch" '(' ExpressionList ')' Statement
 		c.selectionStatementSwitch(n)
 	default:
-		panic(todo("%v: %v %s", n.Position(), n.Case, cc.NodeSource(n)))
+		c.err(n, "internal error %T.%s", n, n.Case)
 	}
 }
 
@@ -324,7 +324,7 @@ func (c *ctx) iterationStatement(n *cc.IterationStatement) {
 	case cc.IterationStatementForDecl: // "for" '(' Declaration ExpressionList ';' ExpressionList ')' Statement
 		c.iterationStatementForDecl(n)
 	default:
-		panic(todo("%v: %v %s", n.Position(), n.Case, cc.NodeSource(n)))
+		c.err(n, "internal error %T.%s", n, n.Case)
 	}
 }
 
@@ -451,7 +451,8 @@ func (c *ctx) label() string {
 
 func (c *ctx) blockItemDeclAutomatic(n *cc.InitDeclarator) {
 	if n.Asm != nil {
-		panic(todo("%v: %v %s", n.Position(), n.Case, cc.NodeSource(n)))
+		c.err(n, "assembler statements not supported")
+		return
 	}
 
 	_, info := c.fn.variable(n.Declarator)
@@ -461,7 +462,7 @@ func (c *ctx) blockItemDeclAutomatic(n *cc.InitDeclarator) {
 	case cc.InitDeclaratorInit: // Declarator Asm '=' Initializer
 		c.initialize(n.Initializer, info, 0, n.Declarator.Type())
 	default:
-		panic(todo("%v: %v %s", n.Position(), n.Case, cc.NodeSource(n)))
+		c.err(n, "internal error %T.%s", n, n.Case)
 	}
 }
 
@@ -484,7 +485,7 @@ func (c *ctx) blockItemDecl(n *cc.Declaration) {
 	case cc.DeclarationAuto: // "__auto_type" Declarator '=' Initializer ';'
 		panic(todo("%v: %v %s", n.Position(), n.Case, cc.NodeSource(n)))
 	default:
-		panic(todo("%v: %v %s", n.Position(), n.Case, cc.NodeSource(n)))
+		c.err(n, "internal error %T.%s", n, n.Case)
 	}
 }
 
@@ -499,7 +500,7 @@ func (c *ctx) blockItem(n *cc.BlockItem) {
 	case cc.BlockItemFuncDef: // DeclarationSpecifiers Declarator CompoundStatement
 		c.err(n, "nested functions not supported")
 	default:
-		panic(todo("%v: %v %s", n.Position(), n.Case, cc.NodeSource(n)))
+		c.err(n, "internal error %T.%s", n, n.Case)
 	}
 }
 

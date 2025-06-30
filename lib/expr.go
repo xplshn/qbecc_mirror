@@ -113,40 +113,16 @@ func (c *ctx) convert(n cc.Node, dst, src cc.Type, v string) (r string) {
 				}
 			}
 		}
-	case c.isIntegerType(dst) && src.Kind() == cc.Double:
-		switch sz := dst.Size(); {
-		case sz <= 4:
-			switch {
-			case cc.IsSignedInteger(src):
-				return c.temp("w dtosi %s\n", v)
-			default:
-				return c.temp("w dtoui %s\n", v)
-			}
-		case sz == 8:
-			switch {
-			case cc.IsSignedInteger(src):
-				return c.temp("l dtosi %s\n", v)
-			default:
-				return c.temp("l dtoui %s\n", v)
-			}
+	case c.isIntegerType(dst) && c.isFloatingPointType(src):
+		sgn := "u"
+		if cc.IsSignedInteger(dst) {
+			sgn = "s"
 		}
-	case c.isIntegerType(dst) && src.Kind() == cc.Float:
-		switch sz := dst.Size(); {
-		case sz <= 4:
-			switch {
-			case cc.IsSignedInteger(src):
-				return c.temp("w stosi %s\n", v)
-			default:
-				return c.temp("w stoui %s\n", v)
-			}
-		case sz == 8:
-			switch {
-			case cc.IsSignedInteger(src):
-				return c.temp("l stosi %s\n", v)
-			default:
-				return c.temp("l stoui %s\n", v)
-			}
+		f := "s"
+		if src.Kind() == cc.Double {
+			f = "d"
 		}
+		return c.temp("%s %sto%si %s\n", c.baseType(n, dst), f, sgn, v)
 	case dst.Kind() == cc.Function && src.Kind() == cc.Ptr:
 		return v
 	case c.isIntegerType(dst) && src.Kind() == cc.Ptr:
@@ -320,7 +296,8 @@ func (c *ctx) primaryExpression(n *cc.PrimaryExpression, mode mode, t cc.Type) (
 	case cc.PrimaryExpressionGeneric: // GenericSelection
 		panic(todo("%v: %v %v", n.Position(), n.Case, cc.NodeSource(n)))
 	default:
-		panic(todo("%v: %v %s", n.Position(), n.Case, cc.NodeSource(n)))
+		c.err(n, "internal error %T.%s", n, n.Case)
+		return nothing
 	}
 }
 
@@ -492,7 +469,8 @@ func (c *ctx) assignmentExpression(n *cc.AssignmentExpression, mode mode, t cc.T
 	case cc.AssignmentExpressionOr: // UnaryExpression "|=" AssignmentExpression
 		return c.assignmentExpressionOp(n, mode, t, "or")
 	default:
-		panic(todo("%v: %v %s", n.Position(), n.Case, cc.NodeSource(n)))
+		c.err(n, "internal error %T.%s", n, n.Case)
+		return nothing
 	}
 }
 
@@ -508,7 +486,8 @@ func (c *ctx) ft(n cc.ExpressionNode) (r *cc.FunctionType) {
 	case *cc.FunctionType:
 		return x
 	default:
-		panic(todo("%v: %T %s", n.Position(), x, cc.NodeSource(n)))
+		c.err(n, "internal error %T", n)
+		return nil
 	}
 }
 
@@ -737,7 +716,8 @@ func (c *ctx) postfixExpression(n *cc.PostfixExpression, mode mode, t cc.Type) (
 	case cc.PostfixExpressionComplit: // '(' TypeName ')' '{' InitializerList ',' '}'
 		panic(todo("%v: %v %s", n.Position(), n.Case, cc.NodeSource(n)))
 	default:
-		panic(todo("%v: %v %s", n.Position(), n.Case, cc.NodeSource(n)))
+		c.err(n, "internal error %T.%s", n, n.Case)
+		return nothing
 	}
 }
 
@@ -1057,7 +1037,7 @@ func (c *ctx) unaryExpression(n *cc.UnaryExpression, mode mode, t cc.Type) (r st
 	case cc.UnaryExpressionSizeofType: // "sizeof" '(' TypeName ')'
 		return c.unaryExpressionSizeofType(n, mode, t)
 	case cc.UnaryExpressionLabelAddr: // "&&" IDENTIFIER
-		c.err(n, "taking address of a label is not supported")
+		c.err(n, "taking address of a label not supported")
 	case cc.UnaryExpressionAlignofExpr: // "_Alignof" UnaryExpression
 		return c.unaryExpressionAlignofExpr(n, mode, t)
 	case cc.UnaryExpressionAlignofType: // "_Alignof" '(' TypeName ')'
@@ -1067,7 +1047,7 @@ func (c *ctx) unaryExpression(n *cc.UnaryExpression, mode mode, t cc.Type) (r st
 	case cc.UnaryExpressionReal: // "__real__" UnaryExpression
 		return c.unaryExpressionRealImag(n, mode, t, false)
 	default:
-		panic(todo("%v: %v %s", n.Position(), n.Case, cc.NodeSource(n)))
+		c.err(n, "internal error %T.%s", n, n.Case)
 	}
 	return nothing
 }
@@ -1127,7 +1107,8 @@ func (c *ctx) relationalExpression(n *cc.RelationalExpression, mode mode, t cc.T
 	case cc.RelationalExpressionGeq: // RelationalExpression ">=" ShiftExpression
 		return c.relop(n.RelationalExpression, n.ShiftExpression, mode, t, "ge")
 	default:
-		panic(todo("%v: %v %s", n.Position(), n.Case, cc.NodeSource(n)))
+		c.err(n, "internal error %T.%s", n, n.Case)
+		return nothing
 	}
 }
 
@@ -1140,7 +1121,8 @@ func (c *ctx) equalityExpression(n *cc.EqualityExpression, mode mode, t cc.Type)
 	case cc.EqualityExpressionNeq: // EqualityExpression "!=" RelationalExpression
 		return c.relop(n.EqualityExpression, n.RelationalExpression, mode, t, "ne")
 	default:
-		panic(todo("%v: %v %s", n.Position(), n.Case, cc.NodeSource(n)))
+		c.err(n, "internal error %T.%s", n, n.Case)
+		return nothing
 	}
 }
 
@@ -1182,61 +1164,45 @@ func (c *ctx) binop(lhs, rhs cc.ExpressionNode, mode mode, t cc.Type, op string)
 	case rvalue:
 		defer func() { r = c.convert(lhs, t, ct, r) }()
 
-		switch {
-		case rmul != 1:
-			ix := c.expr(rhs, rvalue, ct)
-			ix = c.temp("%s mul %s, %v\n", c.wordTag, ix, rmul)
-			return c.temp("%s %s %s, %s\n", c.baseType(lhs, ct), op, c.expr(lhs, rvalue, ct), ix)
-		case lmul != 1:
-			ix := c.expr(lhs, rvalue, ct)
-			ix = c.temp("%s mul %s, %v\n", c.wordTag, ix, lmul)
-			return c.temp("%s %s %s, %s\n", c.baseType(lhs, ct), op, c.expr(rhs, rvalue, ct), ix)
-		case div != 1:
-			v := c.temp("%s %s %s, %s\n", c.baseType(lhs, ct), op, c.expr(lhs, rvalue, ct), c.expr(rhs, rvalue, ct))
-			return c.temp("%s udiv %s, %v\n", c.wordTag, v, div)
-		default:
-			return c.temp("%s %s %s, %s\n", c.baseType(lhs, ct), op, c.expr(lhs, rvalue, ct), c.expr(rhs, rvalue, ct))
+		lv := c.expr(lhs, rvalue, ct)
+		rv := c.expr(rhs, rvalue, ct)
+		if lmul != 1 {
+			lv = c.temp("%s mul %s, %v\n", c.baseType(lhs, ct), lv, lmul)
+		}
+		if rmul != 1 {
+			rv = c.temp("%s mul %s, %v\n", c.baseType(rhs, ct), rv, rmul)
+		}
+		r = c.temp("%s %s %s, %s\n", c.baseType(lhs, ct), op, lv, rv)
+		if div != 1 {
+			r = c.temp("%s udiv %s, %v\n", c.wordTag, r, div)
 		}
 	case lvalue:
 		// stores operation result in lhs
 		r = c.expr(lhs, lvalue, lhs.Type())
 		_, info := c.fn.variable(lhs)
 		switch x := info.(type) {
-		case nil:
-			lv := c.load(lhs, r, ct)
+		case *escaped, nil:
+			lv := c.load(lhs, r, lhs.Type())
+			lv = c.convert(lhs, ct, lhs.Type(), lv)
 			rv := c.expr(rhs, rvalue, ct)
-			switch {
-			case rmul != 1:
-				panic(todo("%v: %v %s %s %s", lhs.Position(), mode, cc.NodeSource(lhs), op, cc.NodeSource(rhs)))
-			case lmul != 1:
-				panic(todo("%v: %v %s %s %s", lhs.Position(), mode, cc.NodeSource(lhs), op, cc.NodeSource(rhs)))
-			case div != 1:
-				panic(todo("%v: %v %s %s %s", lhs.Position(), mode, cc.NodeSource(lhs), op, cc.NodeSource(rhs)))
-			default:
-				lv = c.temp("%s %s %s, %s\n", c.baseType(lhs, ct), op, lv, rv)
+			if lmul != 1 {
+				lv = c.temp("%s mul %s, %v\n", c.baseType(lhs, ct), lv, lmul)
 			}
-			c.w("\tstore%s %s, %s\n", c.extType(lhs, lhs.Type()), lv, r)
-		case *escaped:
-			lv := c.load(lhs, r, ct)
-			rv := c.expr(rhs, rvalue, ct)
-			switch {
-			case rmul != 1:
-				panic(todo("%v: %v %s %s %s", lhs.Position(), mode, cc.NodeSource(lhs), op, cc.NodeSource(rhs)))
-			case lmul != 1:
-				panic(todo("%v: %v %s %s %s", lhs.Position(), mode, cc.NodeSource(lhs), op, cc.NodeSource(rhs)))
-			case div != 1:
-				panic(todo("%v: %v %s %s %s", lhs.Position(), mode, cc.NodeSource(lhs), op, cc.NodeSource(rhs)))
-			default:
-				lv = c.temp("%s %s %s, %s\n", c.baseType(lhs, ct), op, lv, rv)
+			if rmul != 1 {
+				rv = c.temp("%s mul %s, %v\n", c.baseType(rhs, ct), rv, rmul)
 			}
-			c.w("\tstore%s %s, %s\n", c.extType(lhs, lhs.Type()), lv, r)
+			v := c.temp("%s %s %s, %s\n", c.baseType(lhs, ct), op, lv, rv)
+			if div != 1 {
+				v = c.temp("%s udiv %s, %v\n", c.wordTag, v, div)
+			}
+			c.w("\tstore%s %s, %s\n", c.extType(lhs, lhs.Type()), v, r)
 		default:
 			panic(todo("%v: %T", lhs.Position(), x))
 		}
-		return r
 	default:
 		panic(todo("%v: %v %s %s %s", lhs.Position(), mode, cc.NodeSource(lhs), op, cc.NodeSource(rhs)))
 	}
+	return r
 }
 
 func (c *ctx) additiveExpression(n *cc.AdditiveExpression, mode mode, t cc.Type) (r string) {
@@ -1248,7 +1214,8 @@ func (c *ctx) additiveExpression(n *cc.AdditiveExpression, mode mode, t cc.Type)
 	case cc.AdditiveExpressionSub: // AdditiveExpression '-' MultiplicativeExpression
 		return c.binop(n.AdditiveExpression, n.MultiplicativeExpression, mode, t, "sub")
 	default:
-		panic(todo("%v: %v %s", n.Position(), n.Case, cc.NodeSource(n)))
+		c.err(n, "internal error %T.%s", n, n.Case)
+		return nothing
 	}
 }
 
@@ -1369,7 +1336,8 @@ func (c *ctx) logicalOrExpression(n *cc.LogicalOrExpression, mode mode, t cc.Typ
 	case cc.LogicalOrExpressionLOr: // LogicalOrExpression "||" LogicalAndExpression
 		return c.logicalOrExpressionLOr(n, mode, t)
 	default:
-		panic(todo("%v: %v %s", n.Position(), n.Case, cc.NodeSource(n)))
+		c.err(n, "internal error %T.%s", n, n.Case)
+		return nothing
 	}
 }
 
@@ -1380,7 +1348,8 @@ func (c *ctx) logicalAndExpression(n *cc.LogicalAndExpression, mode mode, t cc.T
 	case cc.LogicalAndExpressionLAnd: // LogicalAndExpression "&&" InclusiveOrExpression
 		return c.logicalAndExpressionLAnd(n, mode, t)
 	default:
-		panic(todo("%v: %v %s", n.Position(), n.Case, cc.NodeSource(n)))
+		c.err(n, "internal error %T.%s", n, n.Case)
+		return nothing
 	}
 }
 
@@ -1395,7 +1364,8 @@ func (c *ctx) multiplicativeExpression(n *cc.MultiplicativeExpression, mode mode
 	case cc.MultiplicativeExpressionMod: // MultiplicativeExpression '%' CastExpression
 		return c.binop(n.MultiplicativeExpression, n.CastExpression, mode, t, "rem")
 	default:
-		panic(todo("%v: %v %s", n.Position(), n.Case, cc.NodeSource(n)))
+		c.err(n, "internal error %T.%s", n, n.Case)
+		return nothing
 	}
 }
 
@@ -1406,7 +1376,8 @@ func (c *ctx) inclusiveOrExpression(n *cc.InclusiveOrExpression, mode mode, t cc
 	case cc.InclusiveOrExpressionOr: // InclusiveOrExpression '|' ExclusiveOrExpression
 		return c.binop(n.InclusiveOrExpression, n.ExclusiveOrExpression, mode, t, "or")
 	default:
-		panic(todo("%v: %v %s", n.Position(), n.Case, cc.NodeSource(n)))
+		c.err(n, "internal error %T.%s", n, n.Case)
+		return nothing
 	}
 }
 
@@ -1417,7 +1388,8 @@ func (c *ctx) exclusiveOrExpression(n *cc.ExclusiveOrExpression, mode mode, t cc
 	case cc.ExclusiveOrExpressionXor: // ExclusiveOrExpression '^' AndExpression
 		return c.binop(n.ExclusiveOrExpression, n.AndExpression, mode, t, "xor")
 	default:
-		panic(todo("%v: %v %s", n.Position(), n.Case, cc.NodeSource(n)))
+		c.err(n, "internal error %T.%s", n, n.Case)
+		return nothing
 	}
 }
 
@@ -1428,7 +1400,8 @@ func (c *ctx) andExpression(n *cc.AndExpression, mode mode, t cc.Type) (r string
 	case cc.AndExpressionAnd: // AndExpression '&' EqualityExpression
 		return c.binop(n.AndExpression, n.EqualityExpression, mode, t, "and")
 	default:
-		panic(todo("%v: %v %s", n.Position(), n.Case, cc.NodeSource(n)))
+		c.err(n, "internal error %T.%s", n, n.Case)
+		return nothing
 	}
 }
 
@@ -1460,7 +1433,8 @@ func (c *ctx) shiftExpression(n *cc.ShiftExpression, mode mode, t cc.Type) (r st
 	case cc.ShiftExpressionRsh: // ShiftExpression ">>" AdditiveExpression
 		return c.shiftop(n.ShiftExpression, n.AdditiveExpression, mode, t, "shr")
 	default:
-		panic(todo("%v: %v %s", n.Position(), n.Case, cc.NodeSource(n)))
+		c.err(n, "internal error %T.%s", n, n.Case)
+		return nothing
 	}
 }
 

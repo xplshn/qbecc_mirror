@@ -443,7 +443,7 @@ func (c *ctx) externalDeclarationDecl(n *cc.Declaration) {
 	case cc.DeclarationAuto: // "__auto_type" Declarator '=' Initializer ';'
 		panic(todo("%v: %v %s", n.Position(), n.Case, cc.NodeSource(n)))
 	default:
-		panic(todo("%v: %v %s", n.Position(), n.Case, cc.NodeSource(n)))
+		c.err(n, "internal error %T.%s", n, n.Case)
 	}
 }
 
@@ -456,9 +456,9 @@ func (c *ctx) externalDeclaration(n *cc.ExternalDeclaration) {
 	case cc.ExternalDeclarationAsmStmt: // AsmStatement
 		c.err(n, "assembler statements not supported")
 	case cc.ExternalDeclarationEmpty: // ';'
-		panic(todo("%v: %v %s", n.Position(), n.Case, cc.NodeSource(n)))
+		// ok
 	default:
-		panic(todo("%v: %v %s", n.Position(), n.Case, cc.NodeSource(n)))
+		c.err(n, "internal error %T.%s", n, n.Case)
 	}
 }
 
