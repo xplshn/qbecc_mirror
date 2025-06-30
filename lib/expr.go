@@ -240,8 +240,8 @@ func (c *ctx) primaryExpressionIdent(n *cc.PrimaryExpression, mode mode, t cc.Ty
 			case cc.Array:
 				return c.temp("%s add %%.bp., %v\n", c.wordTag, x.offset)
 			default:
-				// COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/20000412-3.c
-				panic(todo("%v: %v %v %v", n.Position(), d.Type(), d.Type().Kind(), cc.NodeSource(n)))
+				p := c.temp("%s add %%.bp., %v\n", c.wordTag, x.offset)
+				return c.load(n, p, d.Type())
 			}
 		case *static:
 			switch d.Type().Kind() {
@@ -260,7 +260,6 @@ func (c *ctx) primaryExpressionIdent(n *cc.PrimaryExpression, mode mode, t cc.Ty
 	case void:
 		return nothing
 	default:
-		// COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/20020404-1.c
 		panic(todo("%v: mode=%v %v", n.Position(), mode, cc.NodeSource(n)))
 	}
 }
@@ -550,8 +549,9 @@ func (c *ctx) postfixExpressionCall(n *cc.PostfixExpression, mode mode, t cc.Typ
 			switch n.Type().Size() {
 			case 4, 8:
 				r = c.temp("%s call %s(", c.baseType(n, n.Type()), c.expr(callee, rvalue, ct))
+			case 1, 2:
+				r = c.temp("w call %s(", c.expr(callee, rvalue, ct))
 			default:
-				// COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/20011114-1.c
 				panic(todo("%v: %v %s", n.Position(), n.Type().Size(), cc.NodeSource(n)))
 			}
 		default:
@@ -839,8 +839,7 @@ func (c *ctx) unaryExpressionSizeofExpr(n *cc.UnaryExpression, mode mode, t cc.T
 	case rvalue:
 		defer func() { r = c.convert(n, t, n.Type(), r) }()
 
-		et := n.UnaryExpression.Type()
-		return fmt.Sprint(et.Size())
+		return fmt.Sprint(n.UnaryExpression.Type().Size())
 	default:
 		panic(todo("%v: %s %s", n.Position(), mode, cc.NodeSource(n)))
 	}
@@ -853,10 +852,35 @@ func (c *ctx) unaryExpressionSizeofType(n *cc.UnaryExpression, mode mode, t cc.T
 	case rvalue:
 		defer func() { r = c.convert(n, t, n.Type(), r) }()
 
-		et := n.TypeName.Type()
-		return fmt.Sprint(et.Size())
+		return fmt.Sprint(n.TypeName.Type().Size())
 	default:
 		panic(todo("%v: %s %s", n.Position(), mode, cc.NodeSource(n)))
+	}
+	return r
+}
+
+// "_Alignof" UnaryExpression
+func (c *ctx) unaryExpressionAlignofExpr(n *cc.UnaryExpression, mode mode, t cc.Type) (r string) {
+	switch mode {
+	case rvalue:
+		defer func() { r = c.convert(n, t, n.Type(), r) }()
+
+		return fmt.Sprint(n.UnaryExpression.Type().Align())
+	default:
+		panic(todo("%v: %v %s", n.Position(), mode, cc.NodeSource(n)))
+	}
+	return r
+}
+
+// "_Alignof" '(' TypeName ')'
+func (c *ctx) unaryExpressionAlignofType(n *cc.UnaryExpression, mode mode, t cc.Type) (r string) {
+	switch mode {
+	case rvalue:
+		defer func() { r = c.convert(n, t, n.Type(), r) }()
+
+		return fmt.Sprint(n.TypeName.Type().Align())
+	default:
+		panic(todo("%v: %v %s", n.Position(), mode, cc.NodeSource(n)))
 	}
 	return r
 }
@@ -887,10 +911,6 @@ func (c *ctx) unaryExpressionIncDec(n *cc.UnaryExpression, mode mode, t cc.Type,
 
 		switch x := info.(type) {
 		case *local:
-			// r = c.expr(n.PostfixExpression, rvalue, n.PostfixExpression.Type())
-			// s := c.expr(n.PostfixExpression, lvalue, n.PostfixExpression.Type())
-			// c.w("\t%s =%s %s %[1]s, %[4]v\n", s, c.baseType(n, n.PostfixExpression.Type()), op, delta)
-
 			v := c.expr(n.UnaryExpression, rvalue, n.UnaryExpression.Type())
 			c.w("\t%s =%s %s %s, %v\n", x.name, c.baseType(n, n.UnaryExpression.Type()), op, v, delta)
 			r = c.expr(n.UnaryExpression, rvalue, n.UnaryExpression.Type())
@@ -962,6 +982,56 @@ func (c *ctx) unaryExpressionNot(n *cc.UnaryExpression, mode mode, t cc.Type) (r
 	return r
 }
 
+// "__real__" UnaryExpression
+// "__imag__" UnaryExpression
+func (c *ctx) unaryExpressionRealImag(n *cc.UnaryExpression, mode mode, t cc.Type, imag bool) (r string) {
+	_, info := c.fn.variable(n.UnaryExpression)
+	var et cc.Type
+	switch n.UnaryExpression.Type().Kind() {
+	case cc.ComplexDouble:
+		et = c.ast.Double
+	case cc.ComplexFloat:
+		et = c.ast.Float
+	default:
+		panic(todo("%v: %v %s", n.Position(), n.UnaryExpression.Type(), cc.NodeSource(n)))
+	}
+	var off int64
+	if imag {
+		off = et.Size()
+	}
+	switch mode {
+	case lvalue:
+		switch x := info.(type) {
+		case *escaped:
+			p := c.expr(n.UnaryExpression, lvalue, c.ast.PVoid)
+			return c.temp("%s add %s, %v\n", c.wordTag, p, off)
+		default:
+			panic(todo("%v: %T", n.Position(), x))
+		}
+	case rvalue:
+		defer func() { r = c.convert(n, t, n.Type(), r) }()
+
+		switch x := info.(type) {
+		case *escaped:
+			p := c.expr(n.UnaryExpression, lvalue, c.ast.PVoid)
+			p = c.temp("%s add %s, %v\n", c.wordTag, p, off)
+			switch n.UnaryExpression.Type().Kind() {
+			case cc.ComplexDouble:
+				return c.load(n, p, c.ast.Double)
+			case cc.ComplexFloat:
+				return c.load(n, p, c.ast.Float)
+			default:
+				panic(todo("%v: %v %s", n.Position(), n.UnaryExpression.Type(), cc.NodeSource(n)))
+			}
+		default:
+			panic(todo("%v: %T", n.Position(), x))
+		}
+	default:
+		panic(todo("%v: %v %s", n.Position(), mode, cc.NodeSource(n)))
+	}
+	return r
+}
+
 func (c *ctx) unaryExpression(n *cc.UnaryExpression, mode mode, t cc.Type) (r string) {
 	switch n.Case {
 	case cc.UnaryExpressionPostfix: //  PostfixExpression
@@ -987,18 +1057,15 @@ func (c *ctx) unaryExpression(n *cc.UnaryExpression, mode mode, t cc.Type) (r st
 	case cc.UnaryExpressionSizeofType: // "sizeof" '(' TypeName ')'
 		return c.unaryExpressionSizeofType(n, mode, t)
 	case cc.UnaryExpressionLabelAddr: // "&&" IDENTIFIER
-		// COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/920501-5.c
 		c.err(n, "taking address of a label is not supported")
 	case cc.UnaryExpressionAlignofExpr: // "_Alignof" UnaryExpression
-		panic(todo("%v: %v %v", n.Position(), n.Case, cc.NodeSource(n)))
+		return c.unaryExpressionAlignofExpr(n, mode, t)
 	case cc.UnaryExpressionAlignofType: // "_Alignof" '(' TypeName ')'
-		// COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/20000223-1.c
-		panic(todo("%v: %v %v", n.Position(), n.Case, cc.NodeSource(n)))
+		return c.unaryExpressionAlignofType(n, mode, t)
 	case cc.UnaryExpressionImag: // "__imag__" UnaryExpression
-		panic(todo("%v: %v %v", n.Position(), n.Case, cc.NodeSource(n)))
+		return c.unaryExpressionRealImag(n, mode, t, true)
 	case cc.UnaryExpressionReal: // "__real__" UnaryExpression
-		// COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/20030910-1.c
-		panic(todo("%v: %v %v", n.Position(), n.Case, cc.NodeSource(n)))
+		return c.unaryExpressionRealImag(n, mode, t, false)
 	default:
 		panic(todo("%v: %v %s", n.Position(), n.Case, cc.NodeSource(n)))
 	}
@@ -1149,6 +1216,20 @@ func (c *ctx) binop(lhs, rhs cc.ExpressionNode, mode mode, t cc.Type, op string)
 				lv = c.temp("%s %s %s, %s\n", c.baseType(lhs, ct), op, lv, rv)
 			}
 			c.w("\tstore%s %s, %s\n", c.extType(lhs, lhs.Type()), lv, r)
+		case *escaped:
+			lv := c.load(lhs, r, ct)
+			rv := c.expr(rhs, rvalue, ct)
+			switch {
+			case rmul != 1:
+				panic(todo("%v: %v %s %s %s", lhs.Position(), mode, cc.NodeSource(lhs), op, cc.NodeSource(rhs)))
+			case lmul != 1:
+				panic(todo("%v: %v %s %s %s", lhs.Position(), mode, cc.NodeSource(lhs), op, cc.NodeSource(rhs)))
+			case div != 1:
+				panic(todo("%v: %v %s %s %s", lhs.Position(), mode, cc.NodeSource(lhs), op, cc.NodeSource(rhs)))
+			default:
+				lv = c.temp("%s %s %s, %s\n", c.baseType(lhs, ct), op, lv, rv)
+			}
+			c.w("\tstore%s %s, %s\n", c.extType(lhs, lhs.Type()), lv, r)
 		default:
 			panic(todo("%v: %T", lhs.Position(), x))
 		}
@@ -1198,8 +1279,29 @@ func (c *ctx) logicalOrExpressionLOr(n *cc.LogicalOrExpression, mode mode, t cc.
 		c.w("%s\n", b)
 		c.w("\t%s =w copy 0\n", r)
 		c.w("%s\n", z)
+	case void:
+		//	%e = orExpr
+		//	%r = 1
+		//	jnz %e, @z, @a
+		// @a
+		//	%e2 = andExpr
+		//	jnz %e2, @z, @b
+		// @b
+		//	%r = 0
+		// @z
+		a := c.label()
+		b := c.label()
+		z := c.label()
+		e := c.expr(n.LogicalOrExpression, rvalue, n.LogicalOrExpression.Type())
+		r = c.temp("w copy 1\n")
+		c.w("\tjnz %s, %s, %s\n", e, z, a)
+		c.w("%s\n", a)
+		e2 := c.expr(n.LogicalAndExpression, rvalue, n.LogicalAndExpression.Type())
+		c.w("\tjnz %s, %s, %s\n", e2, z, b)
+		c.w("%s\n", b)
+		c.w("\t%s =w copy 0\n", r)
+		c.w("%s\n", z)
 	default:
-		// COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/pr64756.c
 		panic(todo("%v: %v %s", n.Position(), mode, cc.NodeSource(n)))
 	}
 	return r
@@ -1232,8 +1334,29 @@ func (c *ctx) logicalAndExpressionLAnd(n *cc.LogicalAndExpression, mode mode, t 
 		c.w("%s\n", b)
 		c.w("\t%s =w copy 1\n", r)
 		c.w("%s\n", z)
+	case void:
+		//	%e = andExpr
+		//	%r = 0
+		//	jnz %e, @a, @z
+		// @a
+		//	%e2 = inExpr
+		//	jnz %e2, @b, @z
+		// @b
+		//	%r = 1
+		// @z
+		a := c.label()
+		b := c.label()
+		z := c.label()
+		e := c.expr(n.LogicalAndExpression, rvalue, n.LogicalAndExpression.Type())
+		r = c.temp("w copy 0\n")
+		c.w("\tjnz %s, %s, %s\n", e, a, z)
+		c.w("%s\n", a)
+		e2 := c.expr(n.InclusiveOrExpression, rvalue, n.InclusiveOrExpression.Type())
+		c.w("\tjnz %s, %s, %s\n", e2, b, z)
+		c.w("%s\n", b)
+		c.w("\t%s =w copy 1\n", r)
+		c.w("%s\n", z)
 	default:
-		// COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/pr58385.c
 		panic(todo("%v: %v %s", n.Position(), mode, cc.NodeSource(n)))
 	}
 	return r
@@ -1418,10 +1541,14 @@ func (c *ctx) conditionalExpression(n *cc.ConditionalExpression, mode mode, t cc
 
 // ExpressionList ',' AssignmentExpression
 func (c *ctx) expressionList(n *cc.ExpressionList, mode mode, t cc.Type) (r string) {
-	if n.ExpressionList != nil {
-		c.expr(n.ExpressionList, void, n.ExpressionList.Type())
+	for ; n != nil; n = n.ExpressionList {
+		m := mode
+		if n.ExpressionList != nil {
+			m = void
+		}
+		r = c.expr(n.AssignmentExpression, m, t)
 	}
-	return c.expr(n.AssignmentExpression, mode, n.AssignmentExpression.Type())
+	return r
 }
 
 func (c *ctx) expr(n cc.ExpressionNode, mode mode, t cc.Type) (r string) {

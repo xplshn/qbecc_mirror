@@ -330,11 +330,6 @@ func (c *ctx) signature(l []*cc.Parameter) {
 //	DeclarationSpecifiers Declarator DeclarationList CompoundStatement
 
 func (c *ctx) externalDeclarationFuncDef(n *cc.FunctionDefinition) {
-	if n.DeclarationList != nil {
-		c.err(n.DeclarationList, "unsupported declaration list style")
-		return
-	}
-
 	f := c.newFnCtx(n)
 	c.fn = f
 
@@ -362,6 +357,13 @@ func (c *ctx) externalDeclarationFuncDef(n *cc.FunctionDefinition) {
 	c.w("@start.0\n")
 	if f.allocs != 0 {
 		c.w("\t%%.bp. =%s alloc8 %v\n", c.wordTag, f.allocs)
+	}
+	for _, v := range ft.Parameters() {
+		switch d, info := f.variable(v.Declarator); x := info.(type) {
+		case *escaped:
+			c.w("\t%%._l =%s add %%.bp., %v\n", c.wordTag, x.offset)
+			c.w("\tstore%s %%%s, %%._l\n", c.baseType(d, d.Type()), d.Name())
+		}
 	}
 	c.compoundStatement(n.CompoundStatement)
 	switch {
@@ -452,7 +454,7 @@ func (c *ctx) externalDeclaration(n *cc.ExternalDeclaration) {
 	case cc.ExternalDeclarationDecl: // Declaration
 		c.externalDeclarationDecl(n.Declaration)
 	case cc.ExternalDeclarationAsmStmt: // AsmStatement
-		panic(todo("%v: %v %s", n.Position(), n.Case, cc.NodeSource(n)))
+		c.err(n, "assembler statements not supported")
 	case cc.ExternalDeclarationEmpty: // ';'
 		panic(todo("%v: %v %s", n.Position(), n.Case, cc.NodeSource(n)))
 	default:
