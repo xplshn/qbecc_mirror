@@ -455,7 +455,7 @@ func (c *ctx) blockItemDeclAutomatic(n *cc.InitDeclarator) {
 		return
 	}
 
-	_, info := c.fn.variable(n.Declarator)
+	_, info := c.variable(n.Declarator)
 	switch n.Case {
 	case cc.InitDeclaratorDecl: // Declarator Asm
 		c.declare(n, info)

@@ -31,25 +31,37 @@ type compilerFile struct {
 
 // Translation unit compile context
 type ctx struct {
-	ast     *cc.AST
-	buf     // QBE SSA
-	file    *compilerFile
-	fn      *fnCtx
-	nextID  int
-	strings map[string]string // value: name
-	t       *Task
-	wordTag string
+	ast       *cc.AST
+	buf       // QBE SSA
+	file      *compilerFile
+	fn        *fnCtx
+	nextID    int
+	strings   map[string]string // value: name
+	t         *Task
+	variables variables
+	wordTag   string
 
 	failed bool
 }
 
-func (t *Task) newCtx(ast *cc.AST, file *compilerFile) *ctx {
-	return &ctx{
+func (t *Task) newCtx(ast *cc.AST, file *compilerFile) (r *ctx) {
+	r = &ctx{
 		ast:     ast,
 		file:    file,
 		t:       t,
 		wordTag: t.wordTag,
 	}
+	for _, v := range ast.Scope.Nodes {
+		switch x := v[0].(type) {
+		case *cc.Declarator:
+			if x.IsTypename() { // typedef int i;
+				break
+			}
+
+			r.variables.register(x, nil)
+		}
+	}
+	return r
 }
 
 func (c *ctx) err(n cc.Node, s string, args ...any) {
@@ -63,6 +75,26 @@ func (c *ctx) temp(s string, args ...any) (r string) {
 	c.w("\t%s =", r)
 	c.w(s, args...)
 	return r
+}
+
+func (c *ctx) variable(n cc.Node) (d *cc.Declarator, v variable) {
+	// defer func() {
+	// 	trc("%v: %s %T -> %p %v (fn=%p)", n.Position(), cc.NodeSource(n), n, d, v, c.fn)
+	// }()
+	switch x := n.(type) {
+	case *cc.Declarator:
+		d = x
+	case cc.ExpressionNode:
+		d = c.declaratorOf(x)
+	default:
+		panic(todo("%T", x))
+	}
+	switch {
+	case c.fn != nil:
+		return d, c.fn.variables[d]
+	default:
+		return d, c.variables[d]
+	}
 }
 
 func (c *ctx) translationUnit(n *cc.TranslationUnit) (ok bool) {

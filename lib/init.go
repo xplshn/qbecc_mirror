@@ -5,13 +5,10 @@
 package qbecc // import "modernc.org/qbecc/lib"
 
 import (
+	"strconv"
+
 	"modernc.org/cc/v4"
 )
-
-// local
-// escaped
-// static
-// global
 
 func (c *ctx) declare(n cc.Node, v variable) {
 	switch x := v.(type) {
@@ -59,57 +56,37 @@ func (c *ctx) initializeExpr(n cc.ExpressionNode, v variable, off int64, t cc.Ty
 		// duration shall be constant expressions or string literals.
 		switch x := n.Value().(type) {
 		case *cc.UnknownValue:
-			switch y := n.(type) {
-			case *cc.UnaryExpression:
-				switch y.Case {
-				case cc.UnaryExpressionPostfix: //  PostfixExpression
-					panic(todo("%v: %v %v", n.Position(), y.Case, cc.NodeSource(n)))
-				case cc.UnaryExpressionInc: // "++" UnaryExpression
-					panic(todo("%v: %v %v", n.Position(), y.Case, cc.NodeSource(n)))
-				case cc.UnaryExpressionDec: // "--" UnaryExpression
-					panic(todo("%v: %v %v", n.Position(), y.Case, cc.NodeSource(n)))
-				case cc.UnaryExpressionAddrof: // '&' CastExpression
-					switch d := c.declaratorOf(y.CastExpression); {
-					case d != nil:
-						c.w("%s $%s,\n", c.wordTag, d.Name())
-					default:
-						panic(todo("%v: %v %v", n.Position(), y.Case, cc.NodeSource(n)))
-					}
-				case cc.UnaryExpressionDeref: // '*' CastExpression
-					panic(todo("%v: %v %v", n.Position(), y.Case, cc.NodeSource(n)))
-				case cc.UnaryExpressionPlus: // '+' CastExpression
-					panic(todo("%v: %v %v", n.Position(), y.Case, cc.NodeSource(n)))
-				case cc.UnaryExpressionMinus: // '-' CastExpression
-					panic(todo("%v: %v %v", n.Position(), y.Case, cc.NodeSource(n)))
-				case cc.UnaryExpressionCpl: // '~' CastExpression
-					panic(todo("%v: %v %v", n.Position(), y.Case, cc.NodeSource(n)))
-				case cc.UnaryExpressionNot: // '!' CastExpression
-					panic(todo("%v: %v %v", n.Position(), y.Case, cc.NodeSource(n)))
-				case cc.UnaryExpressionSizeofExpr: // "sizeof" UnaryExpression
-					panic(todo("%v: %v %v", n.Position(), y.Case, cc.NodeSource(n)))
-				case cc.UnaryExpressionSizeofType: // "sizeof" '(' TypeName ')'
-					panic(todo("%v: %v %v", n.Position(), y.Case, cc.NodeSource(n)))
-				case cc.UnaryExpressionLabelAddr: // "&&" IDENTIFIER
-					panic(todo("%v: %v %v", n.Position(), y.Case, cc.NodeSource(n)))
-				case cc.UnaryExpressionAlignofExpr: // "_Alignof" UnaryExpression
-					panic(todo("%v: %v %v", n.Position(), y.Case, cc.NodeSource(n)))
-				case cc.UnaryExpressionAlignofType: // "_Alignof" '(' TypeName ')'
-					panic(todo("%v: %v %v", n.Position(), y.Case, cc.NodeSource(n)))
-				case cc.UnaryExpressionImag: // "__imag__" UnaryExpression
-					panic(todo("%v: %v %v", n.Position(), y.Case, cc.NodeSource(n)))
-				case cc.UnaryExpressionReal: // "__real__" UnaryExpression
-					panic(todo("%v: %v %v", n.Position(), y.Case, cc.NodeSource(n)))
-				default:
-					panic(todo("%v: %v %s", n.Position(), y.Case, cc.NodeSource(n)))
-				}
-			default:
-				// COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/20070614-1.c
-				panic(todo("%v: %T %s", n.Position(), y, cc.NodeSource(n)))
-			}
+			c.w("%s %s", c.extType(n, t), c.expr(n, rvalue, t))
 		case cc.Int64Value:
 			c.w("%s %s", c.extType(n, t), c.value(n, rvalue, t, x))
+		case cc.UInt64Value:
+			c.w("%s %s", c.extType(n, t), c.value(n, rvalue, t, x))
+		case cc.StringValue:
+			switch t.Kind() {
+			case cc.Array:
+				at := t.(*cc.ArrayType)
+				al := int(at.Len())
+				if al < 0 {
+					panic(todo("%v: %T %s", n.Position(), x, cc.NodeSource(n)))
+				}
+
+				et := at.Elem()
+				if len(x) > al {
+					x = x[:al]
+				}
+				switch et.Kind() {
+				case cc.Char, cc.SChar, cc.UChar:
+					c.w(" b %s,", strconv.QuoteToASCII(string(x)))
+					if len(x) < al {
+						c.w(" z %v, ", al-len(x))
+					}
+				default:
+					panic(todo("", t))
+				}
+			default:
+				panic(todo("", t))
+			}
 		default:
-			// COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/20000314-3.c
 			panic(todo("%v: %T %s", n.Position(), x, cc.NodeSource(n)))
 		}
 	default:
@@ -142,8 +119,16 @@ func (c *ctx) initializeInitListArray(n *cc.InitializerList, v variable, off int
 			c.initialize(n.Initializer, v, off+esz*ix, et)
 			ix++
 		}
+	case *static:
+		var ix int64
+		for ; n != nil; n = n.InitializerList {
+			if n.Designation != nil {
+				panic(todo("%v: %T %s", n.Position(), x, cc.NodeSource(n)))
+			}
+			c.initialize(n.Initializer, v, off+esz*ix, et)
+			ix++
+		}
 	default:
-		// COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/20000403-1.c
 		panic(todo("%v: %T %s", n.Position(), x, cc.NodeSource(n)))
 	}
 }

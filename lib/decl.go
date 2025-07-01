@@ -50,6 +50,75 @@ type static struct {
 	name string
 }
 
+type variables map[*cc.Declarator]variable
+
+func (v *variables) register(n cc.Node, f *fnCtx) {
+	m := *v
+	if m == nil {
+		m = variables{}
+		*v = m
+	}
+	switch x := n.(type) {
+	case nil:
+		return
+	case *cc.Declarator:
+		if x == nil || m[x] != nil {
+			return
+		}
+
+		// defer func() { trc("%v: %v %v", n.Position(), cc.NodeSource(n), m[x]) }()
+		dt := x.Type()
+		k := dt.Kind()
+		switch x.StorageDuration() {
+		case cc.Static:
+			switch sc := x.ResolvedIn(); sc {
+			case nil:
+				if strings.HasPrefix(x.Name(), "__builtin_") {
+					m[x] = &static{
+						d:    x,
+						name: fmt.Sprintf("$%s", x.Name()[len("__builtin_"):]),
+					}
+				}
+			default:
+				switch {
+				case sc.Parent == nil:
+					m[x] = &static{
+						d:    x,
+						name: fmt.Sprintf("$%s", x.Name()),
+					}
+				default:
+					m[x] = &static{
+						d:    x,
+						name: fmt.Sprintf("$.%s.%v.", x.Name(), f.ctx.id()),
+					}
+				}
+			}
+		case cc.Automatic:
+			switch {
+			case x.AddressTaken() || k == cc.Array || k == cc.Struct || k == cc.Union:
+				m[x] = &escaped{
+					d:      x,
+					offset: f.alloc(x, int64(dt.Align()), dt.Size()),
+				}
+			default:
+				suff := ""
+				if !x.IsParam() {
+					suff = fmt.Sprintf(".%d", f.id())
+				}
+				m[x] = &local{
+					d:    x,
+					name: fmt.Sprintf("%%%s%s", x.Name(), suff),
+				}
+			}
+		default:
+			panic(todo("", x.StorageDuration()))
+		}
+	default:
+		// compostite literal: COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/20000722-1.c
+		panic(todo("%v: %v %T", n.Position(), cc.NodeSource(n), x))
+	}
+}
+
 func (n *static) String() string {
 	return fmt.Sprintf("%v: %T %s %s", n.d.Position(), n, n.d.Name(), n.name)
 }
@@ -88,15 +157,14 @@ type fnCtx struct {
 	returns     cc.Type
 	static      []*cc.InitDeclarator
 	switchCtx   *switchCtx
-	vars        map[*cc.Declarator]variable
+	variables   variables
 
 	nextID int
 }
 
 func (c *ctx) newFnCtx(n *cc.FunctionDefinition) (r *fnCtx) {
 	r = &fnCtx{
-		ctx:  c,
-		vars: map[*cc.Declarator]variable{},
+		ctx: c,
 	}
 	ignore := 0
 	walk(n, func(n cc.Node, mode int) {
@@ -107,18 +175,18 @@ func (c *ctx) newFnCtx(n *cc.FunctionDefinition) (r *fnCtx) {
 				ignore++
 			case *cc.Declarator:
 				if ignore == 0 {
-					r.registerVar(x)
+					r.variables.register(x, r)
 				}
 			case *cc.PostfixExpression:
 				switch x.Case {
 				case cc.PostfixExpressionComplit:
-					r.registerVar(x)
+					r.variables.register(x, r)
 				}
 			case *cc.PrimaryExpression:
 				switch x.Case {
 				case cc.PrimaryExpressionIdent:
 					if d, ok := x.ResolvedTo().(*cc.Declarator); ok {
-						r.registerVar(d)
+						r.variables.register(d, r)
 					}
 				}
 			}
@@ -234,80 +302,6 @@ func (f *fnCtx) alloc(n cc.Node, align, size int64) (r int64) {
 	return r
 }
 
-func (f *fnCtx) registerVar(n cc.Node) {
-	switch x := n.(type) {
-	case nil:
-		return
-	case *cc.Declarator:
-		if x == nil || f.vars[x] != nil {
-			return
-		}
-
-		// defer func() { trc("%v: %v %v", n.Position(), cc.NodeSource(n), f.vars[x]) }()
-		dt := x.Type()
-		k := dt.Kind()
-		switch x.StorageDuration() {
-		case cc.Static:
-			switch sc := x.ResolvedIn(); sc {
-			case nil:
-				if strings.HasPrefix(x.Name(), "__builtin_") {
-					f.vars[x] = &static{
-						d:    x,
-						name: fmt.Sprintf("$%s", x.Name()[len("__builtin_"):]),
-					}
-				}
-			default:
-				switch {
-				case sc.Parent == nil:
-					f.vars[x] = &static{
-						d:    x,
-						name: fmt.Sprintf("$%s", x.Name()),
-					}
-				default:
-					f.vars[x] = &static{
-						d:    x,
-						name: fmt.Sprintf("$.%s.%v.", x.Name(), f.ctx.id()),
-					}
-				}
-			}
-		case cc.Automatic:
-			switch {
-			case x.AddressTaken() || k == cc.Array || k == cc.Struct || k == cc.Union:
-				f.vars[x] = &escaped{
-					d:      x,
-					offset: f.alloc(x, int64(dt.Align()), dt.Size()),
-				}
-			default:
-				suff := ""
-				if !x.IsParam() {
-					suff = fmt.Sprintf(".%d", f.id())
-				}
-				f.vars[x] = &local{
-					d:    x,
-					name: fmt.Sprintf("%%%s%s", x.Name(), suff),
-				}
-			}
-		default:
-			panic(todo("", x.StorageDuration()))
-		}
-	default:
-		// compostite literal: COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/20000722-1.c
-		panic(todo("%v: %v %T", n.Position(), cc.NodeSource(n), x))
-	}
-}
-
-func (f *fnCtx) variable(n cc.Node) (d *cc.Declarator, v variable) {
-	switch x := n.(type) {
-	case *cc.Declarator:
-		d = x
-	case cc.ExpressionNode:
-		d = f.ctx.declaratorOf(x)
-	default:
-		panic(todo("%T", x))
-	}
-	return d, f.vars[d]
-}
-
 func (c *ctx) signature(l []*cc.Parameter) {
 	c.w("(")
 	for _, v := range l {
@@ -359,7 +353,7 @@ func (c *ctx) externalDeclarationFuncDef(n *cc.FunctionDefinition) {
 		c.w("\t%%.bp. =%s alloc8 %v\n", c.wordTag, f.allocs)
 	}
 	for _, v := range ft.Parameters() {
-		switch d, info := f.variable(v.Declarator); x := info.(type) {
+		switch d, info := c.variable(v.Declarator); x := info.(type) {
 		case *escaped:
 			c.w("\t%%._l =%s add %%.bp., %v\n", c.wordTag, x.offset)
 			c.w("\tstore%s %%%s, %%._l\n", c.baseType(d, d.Type()), d.Name())
@@ -380,7 +374,7 @@ func (c *ctx) externalDeclarationFuncDef(n *cc.FunctionDefinition) {
 			continue
 		}
 
-		_, info := c.fn.variable(d)
+		_, info := c.variable(d)
 		c.w("data %s = align %d ", info.(*static).name, d.Type().Align())
 		switch {
 		case v.Initializer != nil:
@@ -393,6 +387,7 @@ func (c *ctx) externalDeclarationFuncDef(n *cc.FunctionDefinition) {
 	}
 }
 
+// DeclarationSpecifiers InitDeclaratorList AttributeSpecifierList ';'
 func (c *ctx) externalDeclarationDeclFull(n *cc.Declaration) {
 	for l := n.InitDeclaratorList; l != nil; l = l.InitDeclaratorList {
 		d := l.InitDeclarator.Declarator
@@ -434,6 +429,7 @@ func (c *ctx) externalDeclarationDeclFull(n *cc.Declaration) {
 	}
 }
 
+// Declaration
 func (c *ctx) externalDeclarationDecl(n *cc.Declaration) {
 	switch n.Case {
 	case cc.DeclarationDecl: // DeclarationSpecifiers InitDeclaratorList AttributeSpecifierList ';'

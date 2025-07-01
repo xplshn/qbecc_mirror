@@ -1334,6 +1334,18 @@ func RewriteSource(rewriter func(s string) string, nodes ...Node) string {
 		nodeSource(n, &a)
 	}
 	sort.Slice(a, func(i, j int) bool { return a[i].Off() < a[j].Off() })
+	w := 0
+	off := int32(-1)
+	for _, v := range a {
+		if v.Off() == off {
+			continue
+		}
+
+		a[w] = v
+		w++
+		off = v.Off()
+	}
+	a = a[:w]
 	var b strings.Builder
 	for _, t := range a {
 		b.Write(t.Sep())
