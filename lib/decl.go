@@ -379,7 +379,7 @@ func (c *ctx) externalDeclarationFuncDef(n *cc.FunctionDefinition) {
 		switch {
 		case v.Initializer != nil:
 			c.w("{")
-			c.initializeOuter(v.Initializer, info, d.Type())
+			c.initializer(v.Initializer, info, d.Type())
 			c.w("}\n\n")
 		default:
 			c.w("{ z %d }\n\n", d.Type().Size())
@@ -417,7 +417,7 @@ func (c *ctx) externalDeclarationDeclFull(n *cc.Declaration) {
 			c.w("data $%s = align %d { z %d }", d.Name(), d.Type().Align(), d.Type().Size())
 		case cc.InitDeclaratorInit: // Declarator Asm '=' Initializer
 			c.w("data $%s = align %d {", d.Name(), d.Type().Align())
-			c.initializeOuter(n.Initializer, &static{
+			c.initializer(n.Initializer, &static{
 				d:    d,
 				name: fmt.Sprintf("$%s", d.Name()),
 			}, d.Type())

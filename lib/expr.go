@@ -135,6 +135,7 @@ func (c *ctx) convert(n cc.Node, dst, src cc.Type, v string) (r string) {
 			return v
 		}
 	}
+	// ~/src/modernc.org/ccorpus2/assets/CompCert-3.6/test/c/aes.c
 	panic(todo("%v: %s(%v, %v) <- %s(%v, %v) %v", n.Position(), dst, dst.Kind(), dst.Size(), src, src.Kind(), src.Size(), cc.NodeSource(n)))
 }
 
@@ -190,7 +191,6 @@ func (c *ctx) value(n cc.Node, mode mode, t cc.Type, v cc.Value) (r string) {
 			panic(todo("%T", x))
 		}
 	default:
-		// COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/pr58662.c
 		panic(todo("%v: %s %s", n.Position(), mode, cc.NodeSource(n)))
 	}
 }
@@ -207,6 +207,7 @@ func (c *ctx) primaryExpressionIdent(n *cc.PrimaryExpression, mode mode, t cc.Ty
 		case *static:
 			return c.temp("%s copy %s\n", c.wordTag, x.name)
 		default:
+			// ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/20000412-3.c
 			panic(todo("%v: %T", n.Position(), x))
 		}
 	case rvalue:
@@ -252,17 +253,17 @@ func (c *ctx) primaryExpressionString(n *cc.PrimaryExpression, mode mode, t cc.T
 		switch t.Kind() {
 		case cc.Ptr:
 			switch e := t.(*cc.PointerType).Elem().Kind(); e {
-			case cc.Char, cc.Void:
+			case cc.Char, cc.SChar, cc.UChar, cc.Void:
 				return c.addString(string(n.Value().(cc.StringValue)))
 			default:
-				// COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/920429-1.c
 				panic(todo("%v: e=%s %v", n.Position(), e, cc.NodeSource(n)))
 			}
 		default:
 			panic(todo("%v: t=%s %v", n.Position(), t, cc.NodeSource(n)))
 		}
+	case lvalue:
+		return c.addString(string(n.Value().(cc.StringValue)))
 	default:
-		// COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/921218-1.c
 		panic(todo("%v: mode=%v %v", n.Position(), mode, cc.NodeSource(n)))
 	}
 }
@@ -273,6 +274,7 @@ func (c *ctx) primaryExpressionStmt(n *cc.CompoundStatement, mode mode, t cc.Typ
 		c.compoundStatement(n)
 		return nothing
 	default:
+		// ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/20001203-2.c
 		panic(todo("%v: mode=%v %v", n.Position(), mode, cc.NodeSource(n)))
 	}
 }
@@ -298,6 +300,7 @@ func (c *ctx) primaryExpression(n *cc.PrimaryExpression, mode mode, t cc.Type) (
 	case cc.PrimaryExpressionStmt: // '(' CompoundStatement ')'
 		return c.primaryExpressionStmt(n.CompoundStatement, mode, t)
 	case cc.PrimaryExpressionGeneric: // GenericSelection
+		// ~/src/modernc.org/ccorpus2/assets/tcc-0.9.27/tests/tests2/94_generic.c
 		panic(todo("%v: %v %v", n.Position(), n.Case, cc.NodeSource(n)))
 	default:
 		c.err(n, "internal error %T.%s", n, n.Case)
@@ -329,10 +332,9 @@ func (c *ctx) assignmentExpressionAssign(n *cc.AssignmentExpression, mode mode, 
 		switch x := info.(type) {
 		case *local:
 			return x.name
-		case nil:
+		case *static, nil:
 			return c.load(n, lhs, n.UnaryExpression.Type())
 		default:
-			// COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/pr57861.c
 			panic(todo("%T", x))
 		}
 	default:
@@ -701,6 +703,7 @@ func (c *ctx) postfixExpressionIndex(n *cc.PostfixExpression, mode mode, t cc.Ty
 
 		return c.load(n, p, n.Type())
 	default:
+		// ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/pr66556.c
 		panic(todo("%v: %s %s", n.Position(), mode, cc.NodeSource(n)))
 	}
 }
@@ -722,6 +725,7 @@ func (c *ctx) postfixExpression(n *cc.PostfixExpression, mode mode, t cc.Type) (
 	case cc.PostfixExpressionDec: // PostfixExpression "--"
 		return c.postfixExpressionIncDec(n, mode, t, "sub")
 	case cc.PostfixExpressionComplit: // '(' TypeName ')' '{' InitializerList ',' '}'
+		// ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/20050929-1.c
 		panic(todo("%v: %v %s", n.Position(), n.Case, cc.NodeSource(n)))
 	default:
 		c.err(n, "internal error %T.%s", n, n.Case)
@@ -772,6 +776,7 @@ func (c *ctx) unaryExpressionAddrof(n *cc.UnaryExpression, mode mode, t cc.Type)
 			panic(todo("%v: %T", n.Position(), x))
 		}
 	default:
+		// ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/980929-1.c
 		panic(todo("%v: %s %s", n.Position(), mode, cc.NodeSource(n)))
 	}
 }
@@ -789,9 +794,12 @@ func (c *ctx) unaryExpressionDeref(n *cc.UnaryExpression, mode mode, t cc.Type) 
 				switch y := x.Elem().(type) {
 				case *cc.FunctionType:
 					return c.expr(n.CastExpression, rvalue, x)
-				default:
-					// COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/20070824-1.c
+				case *cc.ArrayType:
+					// ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/pr64979.c
 					panic(todo("%v: %T %s", n.Position(), y, cc.NodeSource(n.CastExpression)))
+				default:
+					p := c.expr(n.CastExpression, rvalue, n.CastExpression.Type())
+					return c.load(n, p, et)
 				}
 			default:
 				panic(todo("%v: %T %s", n.Position(), x, cc.NodeSource(n.CastExpression)))
@@ -829,6 +837,7 @@ func (c *ctx) unaryExpressionSizeofExpr(n *cc.UnaryExpression, mode mode, t cc.T
 
 		return fmt.Sprint(n.UnaryExpression.Type().Size())
 	default:
+		// ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/pr58831.c
 		panic(todo("%v: %s %s", n.Position(), mode, cc.NodeSource(n)))
 	}
 	return r
@@ -1094,6 +1103,7 @@ func (c *ctx) relop(lhs, rhs cc.ExpressionNode, mode mode, t cc.Type, op string)
 
 		return c.temp("w c%s%s %s, %s\n", op, c.baseType(lhs, ct), c.expr(lhs, rvalue, ct), c.expr(rhs, rvalue, ct))
 	default:
+		//	~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/pr85529-1.c
 		panic(todo("%v: %v %s %s %s", lhs.Position(), mode, cc.NodeSource(lhs), op, cc.NodeSource(rhs)))
 	}
 }
@@ -1215,6 +1225,7 @@ func (c *ctx) arithmeticOp(lhs, rhs cc.ExpressionNode, mode mode, t cc.Type, op 
 			}
 			c.w("\t%s =%s copy %s\n", x.name, c.baseType(lhs, lhs.Type()), v)
 		default:
+			// ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/const-addr-expr-1.c
 			panic(todo("%v: %T", lhs.Position(), x))
 		}
 	default:

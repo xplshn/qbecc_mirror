@@ -460,7 +460,7 @@ func (c *ctx) blockItemDeclAutomatic(n *cc.InitDeclarator) {
 	case cc.InitDeclaratorDecl: // Declarator Asm
 		c.declare(n, info)
 	case cc.InitDeclaratorInit: // Declarator Asm '=' Initializer
-		c.initializeOuter(n.Initializer, info, n.Declarator.Type())
+		c.initializer(n.Initializer, info, n.Declarator.Type())
 	default:
 		c.err(n, "internal error %T.%s", n, n.Case)
 	}
