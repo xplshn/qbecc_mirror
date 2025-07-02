@@ -140,6 +140,10 @@
 //
 // # ==== CC compatible supported flags
 //
+// # -I dir
+//
+// Add the directory dir to the list of directories to be searched for header files.
+//
 // # -S: Produce/keep assembler code
 //
 // Stop after the stage of compilation proper; do not assemble.
@@ -147,6 +151,21 @@
 // # -c: Do not link
 //
 // Compile or assemble the source files, but do not link. Ignored with --abi0.
+//
+// # -idirafter dir
+//
+// Add the directory dir at the end of the list of directories to be searched
+// for header files during preprocessing.
+//
+// # -iquote dir
+//
+// Add the directory dir to the list of directories to be searched for the
+// #include "foo.h" directive.
+//
+// # -isystem dir
+//
+// Add the directory dir to the list of directories to be searched for both
+// #include "foo.h" and #include <bar.h> directives.
 //
 // # -llibrary or -l library
 //

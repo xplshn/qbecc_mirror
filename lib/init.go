@@ -5,66 +5,116 @@
 package qbecc // import "modernc.org/qbecc/lib"
 
 import (
+	"fmt"
+	"slices"
 	"strconv"
 
 	"modernc.org/cc/v4"
 )
 
-func (c *ctx) declare(n cc.Node, v variable) {
-	switch x := v.(type) {
-	case *local:
-		c.w("\t%s =%s copy 0\n", x.name, c.baseType(n, x.d.Type()))
-	case *escaped:
-		// nop
-	default:
-		panic(todo("%v: %T %s", n.Position(), x, cc.NodeSource(n)))
-	}
+// initializer list reader
+type initListReader struct {
+	n *cc.InitializerList
 }
 
-// func (c *ctx) zero(n cc.Node, v variable) {
-// 	panic(todo(""))
-// }
-
-func (c *ctx) initialize(n *cc.Initializer, v variable, off int64, t cc.Type) {
-	switch n.Case {
-	case cc.InitializerExpr: // AssignmentExpression
-		c.initializeExpr(n.AssignmentExpression, v, off, t)
-	case cc.InitializerInitList: // '{' InitializerList ',' '}'
-		c.initializeInitList(n.InitializerList, v, off, t)
-	default:
-		c.err(n, "internal error %T.%s", n, n.Case)
-	}
+func newInitListReader(n *cc.InitializerList) (r *initListReader) {
+	return &initListReader{n}
 }
 
-func (c *ctx) initializeExpr(n cc.ExpressionNode, v variable, off int64, t cc.Type) {
+func (lr *initListReader) next() (r *cc.InitializerList) {
+	if r = lr.n; r != nil {
+		lr.n = lr.n.InitializerList
+	}
+	return r
+}
+
+type initMapItem struct {
+	expr cc.ExpressionNode
+	t    cc.Type
+}
+
+func (n *initMapItem) String() string {
+	return fmt.Sprintf("%v: %s %s", n.expr.Position(), cc.NodeSource(n.expr), n.t)
+}
+
+// initializer renderer
+type initMap map[int64]*initMapItem // offset: item
+
+func (c *ctx) initializeOuter(n *cc.Initializer, v variable, t cc.Type) {
+	// trc("", n.Position(), cc.NodeSource(n), v, t)
+	m := initMap{}
+	c.initialize(n, 0, t, m)
+	var offs []int64
+	for k := range m {
+		offs = append(offs, k)
+	}
+	slices.Sort(offs)
 	switch x := v.(type) {
 	case *local:
-		if off != 0 {
-			panic(todo("%v: %v %s", n.Position(), off, cc.NodeSource(n)))
-		}
-
-		e := c.expr(n, rvalue, x.d.Type())
-		c.w("\t%s =%s copy %s\n", x.name, c.baseType(n, x.d.Type()), e)
+		c.initializeLocal(n, x, t, m, offs)
 	case *escaped:
-		p := c.temp("%s add %%.bp., %v\n", c.wordTag, x.offset+off)
-		e := c.expr(n, rvalue, t)
-		c.w("\tstore%s %s, %s\n", c.extType(n, t), e, p)
+		c.initializeEscaped(n, x, t, m, offs)
 	case *static:
-		// 6.7.8 Initialization/4
-		//
-		// All the expressions in an initializer for an object that has static storage
-		// duration shall be constant expressions or string literals.
-		switch x := n.Value().(type) {
+		c.initializeStatic(n, x, t, m, offs)
+	default:
+		panic(todo("", n.Position(), cc.NodeSource(n), x, t, m))
+	}
+}
+
+func (c *ctx) initializeLocal(n cc.Node, v *local, t cc.Type, m initMap, offs []int64) {
+	switch t.Kind() {
+	case cc.Struct, cc.Union, cc.Array:
+		c.w("\t%s =%s copy 0\n", v.name, c.baseType(n, v.d.Type()))
+	}
+	switch len(m) {
+	case 1:
+		item := m[offs[0]]
+		e := c.expr(item.expr, rvalue, v.d.Type())
+		c.w("\t%s =%s copy %s\n", v.name, c.baseType(n, v.d.Type()), e)
+	default:
+		panic(todo("", n.Position(), cc.NodeSource(n), v, t, m))
+	}
+}
+
+func (c *ctx) initializeEscaped(n cc.Node, v *escaped, t cc.Type, m initMap, offs []int64) {
+	switch t.Kind() {
+	case cc.Struct, cc.Union, cc.Array:
+		p := c.temp("%s add %%.bp., %v\n", c.wordTag, v.offset)
+		c.w("\tcall $memset(%s %s, w 0, %[1]s %[3]v)\n", c.wordTag, p, t.Size())
+	}
+	for _, off := range offs {
+		item := m[off]
+		p := c.temp("%s add %%.bp., %v\n", c.wordTag, v.offset+off)
+		e := c.expr(item.expr, rvalue, item.t)
+		c.w("\tstore%s %s, %s\n", c.extType(n, item.t), e, p)
+	}
+}
+
+func (c *ctx) initializeStatic(n cc.Node, v variable, t cc.Type, m initMap, offs []int64) {
+	noff := int64(-1)
+	var sz int64
+	for _, off := range offs {
+		item := m[off]
+		sz = off + item.t.Size()
+		if noff >= 0 && off > noff {
+			c.w("\tz %v,\n", off-noff)
+		}
+		switch x := item.expr.Value().(type) {
 		case *cc.UnknownValue:
-			c.w("%s %s", c.extType(n, t), c.expr(n, rvalue, t))
+			if item.expr == oneByte {
+				c.w("\tb 0,\n")
+				return
+			}
+
+			c.w("\t%s %s,\n", c.extType(n, item.t), c.expr(item.expr, rvalue, item.t))
 		case cc.Int64Value:
-			c.w("%s %s", c.extType(n, t), c.value(n, rvalue, t, x))
+			c.w("\t%s %s,\n", c.extType(n, item.t), c.value(item.expr, rvalue, item.t, x))
 		case cc.UInt64Value:
-			c.w("%s %s", c.extType(n, t), c.value(n, rvalue, t, x))
+			c.w("\t%s %s,\n", c.extType(n, item.t), c.value(item.expr, rvalue, item.t, x))
 		case cc.StringValue:
-			switch t.Kind() {
+			switch item.t.Kind() {
 			case cc.Array:
-				at := t.(*cc.ArrayType)
+				at := item.t.(*cc.ArrayType)
 				al := int(at.Len())
 				if al < 0 {
 					panic(todo("%v: %T %s", n.Position(), x, cc.NodeSource(n)))
@@ -76,59 +126,100 @@ func (c *ctx) initializeExpr(n cc.ExpressionNode, v variable, off int64, t cc.Ty
 				}
 				switch et.Kind() {
 				case cc.Char, cc.SChar, cc.UChar:
-					c.w(" b %s,", strconv.QuoteToASCII(string(x)))
+					c.w("\tb %s,\n", strconv.QuoteToASCII(string(x)))
 					if len(x) < al {
-						c.w(" z %v, ", al-len(x))
+						c.w("\tz %v,\n", al-len(x))
 					}
 				default:
-					panic(todo("", t))
+					panic(todo("", item.t))
 				}
 			default:
-				panic(todo("", t))
+				panic(todo("", item.t))
 			}
 		default:
-			panic(todo("%v: %T %s", n.Position(), x, cc.NodeSource(n)))
+			panic(todo("%v: %s %T", n.Position(), cc.NodeSource(n), x))
 		}
-	default:
-		c.err(n, "internal error %T", n)
+		noff = off + item.t.Size()
+	}
+	if n := t.Size() - sz; n != 0 {
+		c.w("\tz %v,\n", n)
 	}
 }
 
-func (c *ctx) initializeInitList(n *cc.InitializerList, v variable, off int64, t cc.Type) {
-	switch {
-	case t.Kind() == cc.Array:
-		c.initializeInitListArray(n, v, off, t.(*cc.ArrayType))
+func (c *ctx) initialize(n *cc.Initializer, off int64, t cc.Type, m initMap) {
+	switch n.Case {
+	case cc.InitializerExpr: // AssignmentExpression
+		m[off] = &initMapItem{n.AssignmentExpression, t}
+	case cc.InitializerInitList: // '{' InitializerList ',' '}'
+		c.initializeList(newInitListReader(n.InitializerList), off, t, m)
 	default:
-		// COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/20000113-1.c
-		panic(todo("%v: %v %s", n.Position(), t, cc.NodeSource(n)))
+		c.err(n, "internal error %T.%s", n, n.Case)
 	}
 }
 
-func (c *ctx) initializeInitListArray(n *cc.InitializerList, v variable, off int64, t *cc.ArrayType) {
+func (c *ctx) initializeList(n *initListReader, off int64, t cc.Type, m initMap) {
+	switch t.Kind() {
+	case cc.Array:
+		c.initializeListArray(n, off, t.(*cc.ArrayType), m)
+	case cc.Struct:
+		c.initializeListStruct(n, off, t.(*cc.StructType), m)
+	case cc.Union:
+		panic(todo("%v: %s off=%v t=%v m=%v kind=%v", n.n.Position(), cc.NodeSource(n.n), off, t, m, t.Kind()))
+	default:
+		panic(todo("%v: %s off=%v t=%v m=%v kind=%v", n.n.Position(), cc.NodeSource(n.n), off, t, m, t.Kind()))
+	}
+}
+
+var oneByte = &cc.PrimaryExpression{}
+
+func (c *ctx) initializeListArray(n *initListReader, off int64, t *cc.ArrayType, m initMap) {
+	l := t.Len()
+	if l < 0 {
+		switch {
+		case n.n == nil:
+			// int d[][8] = {};
+			m[off] = &initMapItem{expr: oneByte, t: c.ast.Char}
+			return
+		default:
+			panic(todo("%v: %s off=%v t=%v m=%v kind=%v", n.n.Position(), cc.NodeSource(n.n), off, t, m, t.Kind()))
+		}
+	}
+
 	et := t.Elem()
-	esz := et.Size()
-	switch x := v.(type) {
-	case *escaped:
-		p := c.temp("%s add %%.bp., %v\n", c.wordTag, x.offset+off)
-		c.w("\tcall $memset(%s %s, w 0, %[1]s %[3]v)\n", c.wordTag, p, t.Size())
-		var ix int64
-		for ; n != nil; n = n.InitializerList {
-			if n.Designation != nil {
-				panic(todo("%v: %T %s", n.Position(), x, cc.NodeSource(n)))
-			}
-			c.initialize(n.Initializer, v, off+esz*ix, et)
-			ix++
+	sz := et.Size()
+	var ix int64
+	for item := n.next(); item != nil; item = n.next() {
+		switch {
+		case item.Designation != nil:
+			panic(todo("", n.n.Position(), cc.NodeSource(n.n), off, t, m, t.Kind()))
+		default:
+			// ok
 		}
-	case *static:
-		var ix int64
-		for ; n != nil; n = n.InitializerList {
-			if n.Designation != nil {
-				panic(todo("%v: %T %s", n.Position(), x, cc.NodeSource(n)))
-			}
-			c.initialize(n.Initializer, v, off+esz*ix, et)
-			ix++
+
+		c.initialize(item.Initializer, off+ix*sz, et, m)
+		ix++
+		if ix == l {
+			return
 		}
-	default:
-		panic(todo("%v: %T %s", n.Position(), x, cc.NodeSource(n)))
+	}
+}
+
+func (c *ctx) initializeListStruct(n *initListReader, off int64, t *cc.StructType, m initMap) {
+	nf := t.NumFields()
+	var ix int
+	var f *cc.Field
+	for item := n.next(); item != nil; item = n.next() {
+		switch {
+		case item.Designation != nil:
+			panic(todo("", n.n.Position(), cc.NodeSource(n.n), off, t, m, t.Kind()))
+		default:
+			f = t.FieldByIndex(ix)
+		}
+
+		c.initialize(item.Initializer, off+f.Offset(), f.Type(), m)
+		ix++
+		if ix == nf {
+			return
+		}
 	}
 }

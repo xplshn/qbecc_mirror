@@ -379,7 +379,7 @@ func (c *ctx) externalDeclarationFuncDef(n *cc.FunctionDefinition) {
 		switch {
 		case v.Initializer != nil:
 			c.w("{")
-			c.initialize(v.Initializer, info, 0, d.Type())
+			c.initializeOuter(v.Initializer, info, d.Type())
 			c.w("}\n\n")
 		default:
 			c.w("{ z %d }\n\n", d.Type().Size())
@@ -417,10 +417,10 @@ func (c *ctx) externalDeclarationDeclFull(n *cc.Declaration) {
 			c.w("data $%s = align %d { z %d }", d.Name(), d.Type().Align(), d.Type().Size())
 		case cc.InitDeclaratorInit: // Declarator Asm '=' Initializer
 			c.w("data $%s = align %d {", d.Name(), d.Type().Align())
-			c.initialize(n.Initializer, &static{
+			c.initializeOuter(n.Initializer, &static{
 				d:    d,
 				name: fmt.Sprintf("$%s", d.Name()),
-			}, 0, d.Type())
+			}, d.Type())
 			c.w(" }")
 		default:
 			panic(todo("%v: %v %s", n.Position(), n.Case, cc.NodeSource(n)))
@@ -465,4 +465,16 @@ func (c *ctx) isHeader(n cc.Node) bool {
 
 	return strings.HasSuffix(n.Position().Filename, ".h") ||
 		c.t.goos == "windows" && strings.HasSuffix(n.Position().Filename, ".inl")
+}
+
+// v has no initializer
+func (c *ctx) declare(n cc.Node, v variable) {
+	switch x := v.(type) {
+	case *local:
+		c.w("\t%s =%s copy 0\n", x.name, c.baseType(n, x.d.Type()))
+	case *escaped:
+		// nop
+	default:
+		panic(todo("%v: %T %s", n.Position(), x, cc.NodeSource(n)))
+	}
 }

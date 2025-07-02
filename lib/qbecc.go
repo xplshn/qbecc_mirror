@@ -113,18 +113,22 @@ type Task struct {
 	parallel      *parallel
 	wordTag       string // 32b: "w", 64b: "l"
 
-	c         bool   // -c, compile or assemble the source files, but do not link.
-	cc        string // --cc=<string>, C compiler to use for linking.
-	dumpSSA   bool   // --dump-ssa
-	goabi0    bool   // --goabi0, produce Go asm file.
-	goarch    string // --goarch=<string>, target GOARCH
-	goos      string // --goos=<string>, target GOOS
-	o         string // -o=<file>, Place the primary output in file <file>.
-	optE      bool   // -E, stop after the preprocessing stage; do not run the compiler proper.
-	optS      bool   // -S, stop after the stage of compilation proper; do not assemble.
-	positions int    // --positions={base,full}, annotate SSA with source position info
-	ssaHeader string // --ssa-header=<string>, injected into SSA
-	target    string // --target=<string>, QBE target string, like amd64_sysv.
+	c         bool     // -c, compile or assemble the source files, but do not link.
+	cc        string   // --cc=<string>, C compiler to use for linking.
+	dumpSSA   bool     // --dump-ssa
+	goabi0    bool     // --goabi0, produce Go asm file.
+	goarch    string   // --goarch=<string>, target GOARCH
+	goos      string   // --goos=<string>, target GOOS
+	idirafter []string // -idirafter
+	iquote    []string // -iquote, #include "foo.h" search path
+	isystem   []string // -isystem, #include <foo.h> search path
+	o         string   // -o=<file>, Place the primary output in file <file>.
+	optE      bool     // -E, stop after the preprocessing stage; do not run the compiler proper.
+	optI      []string // -I, include files search path
+	optS      bool     // -S, stop after the stage of compilation proper; do not assemble.
+	positions int      // --positions={base,full}, annotate SSA with source position info
+	ssaHeader string   // --ssa-header=<string>, injected into SSA
+	target    string   // --target=<string>, QBE target string, like amd64_sysv.
 }
 
 // NewTask returns a newly created Task. args[0] is the command name. For example
@@ -154,8 +158,12 @@ func (t *Task) err(n cc.Node, s string, args ...any) {
 func (t *Task) Main() (err error) {
 	hasLC := false // -lc
 	set := opt.NewSet()
+	set.Arg("I", true, func(arg, val string) error { t.optI = append(t.optI, val); return nil })
 	set.Arg("-goarch", false, func(opt, arg string) error { t.goarch = arg; return nil })
 	set.Arg("-goos", false, func(opt, arg string) error { t.goos = arg; return nil })
+	set.Arg("idirafter", true, func(arg, val string) error { t.idirafter = append(t.idirafter, val); return nil })
+	set.Arg("iquote", true, func(arg, val string) error { t.iquote = append(t.iquote, val); return nil })
+	set.Arg("isystem", true, func(arg, val string) error { t.isystem = append(t.isystem, val); return nil })
 	set.Arg("o", false, func(opt, arg string) error { t.o = arg; return nil })
 	set.Arg("-positions", false, func(opt, arg string) error {
 		switch arg {
@@ -226,9 +234,73 @@ func (t *Task) Main() (err error) {
 		return fmt.Errorf("cannot specify -o with -c, -S or -E and multiple input files")
 	}
 
-	if t.cfg, err = cc.NewConfig(t.goos, t.goarch); err != nil {
+	cfg, err := cc.NewConfig(t.goos, t.goarch)
+	if err != nil {
 		return err
 	}
+
+	t.cfg = cfg
+	if err = cfg.AdjustLongDouble(); err != nil {
+		return err
+	}
+
+	// --------------------------------------------------------------------
+	// https://gcc.gnu.org/onlinedocs/gcc/Directory-Options.html
+	//
+	// Directories specified with -iquote apply only to the quote form of the
+	// directive, #include "file". Directories specified with -I, -isystem, or
+	// -idirafter apply to lookup for both the #include "file" and #include <file>
+	// directives.
+	//
+	// You can specify any number or combination of these options on the command
+	// line to search for header files in several directories. The lookup order is
+	// as follows:
+
+	cfg.IncludePaths = nil
+	cfg.SysIncludePaths = nil
+
+	// 1 For the quote form of the include directive, the directory of the current
+	//   file is searched first.
+	cfg.IncludePaths = append(cfg.IncludePaths, "")
+
+	// 2 For the quote form of the include directive, the directories specified by
+	//   -iquote options are searched in left-to-right order, as they appear on the
+	//   command line.
+	cfg.IncludePaths = append(cfg.IncludePaths, t.iquote...)
+
+	// 3 Directories specified with -I options are scanned in left-to-right order.
+	cfg.IncludePaths = append(cfg.IncludePaths, t.optI...)
+	cfg.SysIncludePaths = append(cfg.SysIncludePaths, t.optI...)
+
+	// 4 Directories specified with -isystem options are scanned in left-to-right
+	//   order.
+	//
+	// More info from https://gcc.gnu.org/onlinedocs/gcc/Directory-Options.html
+	//
+	// -isystem dir
+	//
+	// Search dir for header files, after all directories specified by -I but
+	// before the standard system directories. Mark it as a system directory, so
+	// that it gets the same special treatment as is applied to the standard system
+	// directories. If dir begins with =, then the = will be replaced by the
+	// sysroot prefix; see --sysroot and -isysroot.
+	cfg.IncludePaths = append(cfg.IncludePaths, t.isystem...)
+	// ... but before the standard directories.
+	cfg.SysIncludePaths = append(append([]string(nil), t.isystem...), cfg.SysIncludePaths...)
+
+	// 5 Standard system directories are scanned.
+	cfg.IncludePaths = append(cfg.IncludePaths, cfg.HostIncludePaths...)
+	cfg.IncludePaths = append(cfg.IncludePaths, cfg.HostSysIncludePaths...)
+	cfg.SysIncludePaths = append(cfg.SysIncludePaths, cfg.HostIncludePaths...)
+	cfg.SysIncludePaths = append(cfg.SysIncludePaths, cfg.HostSysIncludePaths...)
+
+	// 6 Directories specified with -idirafter options are scanned in left-to-right
+	//   order.
+	cfg.IncludePaths = append(cfg.IncludePaths, t.idirafter...)
+	cfg.SysIncludePaths = append(cfg.SysIncludePaths, t.idirafter...)
+	// --------------------------------------------------------------------
+	// trc("IncludePaths=%v", cfg.IncludePaths)
+	// trc("SysIncludePaths=%v", cfg.SysIncludePaths)
 
 	if !t.compile() {
 		return t.errs.Err()

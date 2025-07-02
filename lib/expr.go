@@ -39,7 +39,7 @@ func (c *ctx) convert(n cc.Node, dst, src cc.Type, v string) (r string) {
 			cc.Short, cc.UShort,
 			cc.Long, cc.ULong,
 			cc.LongLong, cc.ULongLong,
-			cc.Float, cc.Double:
+			cc.Float, cc.Double, cc.LongDouble:
 
 			return v
 		}
@@ -71,7 +71,7 @@ func (c *ctx) convert(n cc.Node, dst, src cc.Type, v string) (r string) {
 		}
 	case dst.Kind() == cc.Float:
 		switch k := src.Kind(); {
-		case k == cc.Double:
+		case k == cc.Double || k == cc.LongDouble:
 			return c.temp("s truncd %s\n", v)
 		case c.isIntegerType(src):
 			switch src.Size() {
@@ -91,7 +91,11 @@ func (c *ctx) convert(n cc.Node, dst, src cc.Type, v string) (r string) {
 				}
 			}
 		}
-	case dst.Kind() == cc.Double:
+	case dst.Kind() == cc.Double || dst.Kind() == cc.LongDouble:
+		if src.Kind() == cc.Double || src.Kind() == cc.LongDouble {
+			return v
+		}
+
 		switch k := src.Kind(); {
 		case k == cc.Float:
 			return c.temp("d exts %s\n", v)
@@ -119,7 +123,7 @@ func (c *ctx) convert(n cc.Node, dst, src cc.Type, v string) (r string) {
 			sgn = "s"
 		}
 		f := "s"
-		if src.Kind() == cc.Double {
+		if src.Kind() == cc.Double || src.Kind() == cc.LongDouble {
 			f = "d"
 		}
 		return c.temp("%s %sto%si %s\n", c.baseType(n, dst), f, sgn, v)
@@ -344,9 +348,7 @@ func (c *ctx) isIntegerType(t cc.Type) bool {
 		cc.Char,
 		cc.Enum,
 		cc.Int,
-		cc.Int128,
 		cc.Long,
-		cc.LongDouble,
 		cc.LongLong,
 		cc.SChar,
 		cc.Short,
@@ -367,7 +369,8 @@ func (c *ctx) isFloatingPointType(t cc.Type) bool {
 	switch t.Kind() {
 	case
 		cc.Double,
-		cc.Float:
+		cc.Float,
+		cc.LongDouble:
 
 		return true
 	default:
