@@ -161,6 +161,11 @@ func (p *parallelTest) err(err error) {
 //	all_test.go:244: gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute: files=1506 gcc fails=26 skipped=676 failed=0 passed=804
 //	all_test.go:244: tcc-0.9.27/tests/tests2: files=88 gcc fails=8 skipped=18 failed=0 passed=62
 
+// 2025-07-03
+//	all_test.go:265: CompCert-3.6/test/c: files=24 gcc fails=8 skipped=10 failed=0 passed=6
+//	all_test.go:265: gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute: files=1506 gcc fails=26 skipped=627 failed=0 passed=853
+//	all_test.go:265: tcc-0.9.27/tests/tests2: files=88 gcc fails=8 skipped=18 failed=0 passed=62
+
 func TestExec(t *testing.T) {
 	t.Logf("using C compiler at %s", gcc)
 	const destDir = "tmp"
@@ -385,8 +390,11 @@ func main() {
 		sort.Strings(a)
 		for _, k := range a {
 			in := v.signatures[k]
-			out := in[len(in)-1]
+			out := renameGParam(in[len(in)-1])
 			in = in[:len(in)-1]
+			for i, v := range in {
+				in[i] = renameGParam(v)
+			}
 			switch k {
 			case "main":
 				fmt.Fprintf(b, "func __qbe_main(%s) int32", strings.Join(in, ", "))
@@ -432,4 +440,17 @@ func main() {
 	}
 	p.passed.Add(1)
 	return nil
+}
+
+func renameGParam(s string) string {
+	a := strings.Fields(s)
+	if len(a) == 0 {
+		return s
+	}
+	switch a[0] {
+	case "g":
+		return "__qbe_g " + a[1]
+	default:
+		return s
+	}
 }

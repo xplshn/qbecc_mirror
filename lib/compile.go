@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strconv"
+	"strings"
 	"sync/atomic"
 
 	"modernc.org/ace/lib"
@@ -111,8 +112,14 @@ func (c *ctx) translationUnit(n *cc.TranslationUnit) (ok bool) {
 	}
 	sort.Strings(a)
 	c.w("\n")
+	var s []string
 	for _, k := range a {
-		c.w("data %s = { b %s }\n", c.strings[k], strconv.QuoteToASCII(k))
+		// c.w("data %s = { b %s }\n", c.strings[k], strconv.QuoteToASCII(k))
+		s = s[:0]
+		for i := 0; i < len(k); i++ {
+			s = append(s, fmt.Sprintf("b %v", k[i]))
+		}
+		c.w("data %s = align 1 { %s }\n", c.strings[k], strings.Join(s, ", "))
 	}
 	return true
 }

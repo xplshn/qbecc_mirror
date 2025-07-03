@@ -384,6 +384,7 @@ func (c *ctx) iterationStatementForDecl(n *cc.IterationStatement) {
 	//	jnz expr @b, @z
 	// @b
 	//	stmt
+	// @cont
 	//	expr2
 	// @x
 	//	jmp @a
@@ -391,11 +392,12 @@ func (c *ctx) iterationStatementForDecl(n *cc.IterationStatement) {
 
 	a := c.label()
 	b := c.label()
+	cont := c.label()
 	x := c.label()
 	z := c.label()
 
 	defer c.fn.newBreakCtx(z)()
-	defer c.fn.newContinueCtx(a)()
+	defer c.fn.newContinueCtx(cont)()
 
 	c.blockItemDecl(n.Declaration)
 	c.w("%s\n", a)
@@ -405,6 +407,7 @@ func (c *ctx) iterationStatementForDecl(n *cc.IterationStatement) {
 	}
 	c.w("%s\n", b)
 	c.statement(n.Statement)
+	c.w("%s\n", cont)
 	c.expr(n.ExpressionList2, void, nil)
 	c.w("%s\n", x)
 	c.w("\tjmp %s\n", a)
@@ -418,6 +421,7 @@ func (c *ctx) iterationStatementFor(n *cc.IterationStatement) {
 	//	jnz expr2 @b, @z
 	// @b
 	//	stmt
+	// @cont
 	//	expr3
 	// @x
 	//	jmp @a
@@ -425,11 +429,12 @@ func (c *ctx) iterationStatementFor(n *cc.IterationStatement) {
 
 	a := c.label()
 	b := c.label()
+	cont := c.label()
 	x := c.label()
 	z := c.label()
 
 	defer c.fn.newBreakCtx(z)()
-	defer c.fn.newContinueCtx(a)()
+	defer c.fn.newContinueCtx(cont)()
 
 	c.expr(n.ExpressionList, void, nil)
 	c.w("%s\n", a)
@@ -439,6 +444,7 @@ func (c *ctx) iterationStatementFor(n *cc.IterationStatement) {
 	}
 	c.w("%s\n", b)
 	c.statement(n.Statement)
+	c.w("%s\n", cont)
 	c.expr(n.ExpressionList3, void, nil)
 	c.w("%s\n", x)
 	c.w("\tjmp %s\n", a)

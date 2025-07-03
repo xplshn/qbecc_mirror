@@ -551,6 +551,9 @@ func (c *ctx) postfixExpressionCall(n *cc.PostfixExpression, mode mode, t cc.Typ
 		}
 		c.w("%s %s,", c.baseType(args[i], types[i]), expr)
 	}
+	if ct.IsVariadic() && len(exprs) == len(params) {
+		c.w("...,w 0")
+	}
 	c.w(")\n")
 	return r
 }
@@ -578,10 +581,11 @@ func (c *ctx) unparen(n cc.ExpressionNode) cc.ExpressionNode {
 // PostfixExpression "--"
 func (c *ctx) postfixExpressionIncDec(n *cc.PostfixExpression, mode mode, t cc.Type, op string) (r string) {
 	_, info := c.variable(n.PostfixExpression)
-	delta := int64(1)
+	idelta := int64(1)
 	if x, ok := n.PostfixExpression.Type().(*cc.PointerType); ok {
-		delta = x.Elem().Size()
+		idelta = x.Elem().Size()
 	}
+	delta := c.value(n, rvalue, n.PostfixExpression.Type(), cc.Int64Value(idelta))
 	switch mode {
 	case void:
 		switch x := info.(type) {
@@ -689,8 +693,19 @@ func (c *ctx) postfixExpressionIndex(n *cc.PostfixExpression, mode mode, t cc.Ty
 		et = n.PostfixExpression.Type().(*cc.PointerType).Elem()
 		ix := c.expr(n.ExpressionList, rvalue, c.ast.PVoid)
 		ix2 := c.temp("%s mul %s, %v\n", c.wordTag, ix, et.Size())
-		p0 := c.expr(n.PostfixExpression, lvalue, c.ast.PVoid)
-		p = c.temp("%s add %s, %s\n", c.wordTag, p0, ix2)
+		switch x := n.PostfixExpression.Type().(type) {
+		case *cc.PointerType:
+			switch x.Undecay().Kind() {
+			case cc.Array:
+				p0 := c.expr(n.PostfixExpression, lvalue, c.ast.PVoid)
+				p = c.temp("%s add %s, %s\n", c.wordTag, p0, ix2)
+			default:
+				p0 := c.expr(n.PostfixExpression, rvalue, c.ast.PVoid)
+				p = c.temp("%s add %s, %s\n", c.wordTag, p0, ix2)
+			}
+		default:
+			panic(todo("%v: %s %s", n.Position(), mode, cc.NodeSource(n)))
+		}
 	default:
 		// COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/pr22061-1.c
 		panic(todo("%v: %v %s", n.Position(), n.Case, cc.NodeSource(n)))
@@ -834,6 +849,12 @@ func (c *ctx) unaryExpressionSizeofExpr(n *cc.UnaryExpression, mode mode, t cc.T
 	switch mode {
 	case rvalue:
 		defer func() { r = c.convert(n, t, n.Type(), r) }()
+
+		if x, ok := n.UnaryExpression.Type().(*cc.PointerType); ok {
+			if y, ok := x.Undecay().(*cc.ArrayType); ok {
+				return fmt.Sprint(y.Len() * y.Elem().Size())
+			}
+		}
 
 		return fmt.Sprint(n.UnaryExpression.Type().Size())
 	default:
@@ -1412,29 +1433,30 @@ func (c *ctx) andExpression(n *cc.AndExpression, mode mode, t cc.Type) (r string
 
 func (c *ctx) shiftop(lhs, rhs cc.ExpressionNode, mode mode, t cc.Type, op string) (r string) {
 	lt, rt := lhs.Type(), rhs.Type()
-	ct := c.usualArithmeticConversions(lt, rt)
+	plt := cc.IntegerPromotion(lt)
+	prt := cc.IntegerPromotion(rt)
 	switch op {
 	case "shr":
-		if cc.IsSignedInteger(ct) {
+		if cc.IsSignedInteger(plt) {
 			op = "sar"
 		}
 	}
 	switch mode {
 	case rvalue:
-		defer func() { r = c.convert(lhs, t, c.ast.Int, r) }()
+		defer func() { r = c.convert(lhs, t, plt, r) }()
 
-		return c.temp("%s %s %s, %s\n", c.baseType(lhs, ct), op, c.expr(lhs, rvalue, ct), c.expr(rhs, rvalue, ct))
+		return c.temp("%s %s %s, %s\n", c.baseType(lhs, plt), op, c.expr(lhs, rvalue, plt), c.expr(rhs, rvalue, prt))
 	case lvalue:
 		// stores operation result in lhs
 		r = c.expr(lhs, lvalue, lhs.Type())
 		_, info := c.variable(lhs)
 		switch x := info.(type) {
 		case *escaped, nil:
-			lv := c.load(lhs, r, lhs.Type())
-			lv = c.convert(lhs, ct, lhs.Type(), lv)
-			rv := c.expr(rhs, rvalue, ct)
-			v := c.temp("%s %s %s, %s\n", c.baseType(lhs, ct), op, lv, rv)
-			c.w("\tstore%s %s, %s\n", c.extType(lhs, lhs.Type()), v, r)
+			lv := c.load(lhs, r, lt)
+			lv = c.convert(lhs, plt, lt, lv)
+			rv := c.expr(rhs, rvalue, prt)
+			v := c.temp("%s %s %s, %s\n", c.baseType(lhs, plt), op, lv, rv)
+			c.w("\tstore%s %s, %s\n", c.extType(lhs, lt), v, r)
 		default:
 			panic(todo("%v: %T", lhs.Position(), x))
 		}

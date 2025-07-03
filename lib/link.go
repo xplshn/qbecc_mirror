@@ -163,8 +163,11 @@ func (l *linkerObject) goabi0(w io.Writer, ssa []byte, nm string, externs map[st
 	}
 
 	rewritten := parser.RewriteSource(func(nm string) (r string) {
+		if nm == "%g" {
+			return "%__qbe_g"
+		}
 		cname := nm[1:]
-		// defer func() { trc("(nm=%s cname=%s)->%s", nm, cname, r) }()
+		//defer func() { trc("(nm=%s cname=%s)->%s", nm, cname, r) }()
 		if !isQBEExported(nm) {
 			return nm
 		}

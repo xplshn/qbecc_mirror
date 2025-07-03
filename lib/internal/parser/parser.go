@@ -1350,9 +1350,9 @@ func RewriteSource(rewriter func(s string) string, nodes ...Node) string {
 	for _, t := range a {
 		b.Write(t.Sep())
 		src := string(t.Src())
-		if isQBEExported(src) {
-			src = rewriter(src)
-		}
+		// if isQBEExported(src) {
+		src = rewriter(src)
+		// }
 		b.WriteString(src)
 	}
 	return b.String()
@@ -1419,6 +1419,7 @@ func nodeSource(n any, a *[]tokener) {
 			nodeSource(v.Index(i).Interface(), a)
 		}
 	default:
+		// ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/20030216-1.c
 		panic(todo("", t.Kind()))
 	}
 }
