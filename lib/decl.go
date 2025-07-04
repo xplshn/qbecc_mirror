@@ -66,7 +66,9 @@ func (v *variables) register(n cc.Node, f *fnCtx) {
 			return
 		}
 
-		// defer func() { trc("%v: %v %v", n.Position(), cc.NodeSource(n), m[x]) }()
+		// if !strings.Contains(n.Position().String(), "<") {
+		// 	defer func() { trc("%v: %s %v %v", n.Position(), x.Type(), cc.NodeSource(n), m[x]) }()
+		// }
 		dt := x.Type()
 		k := dt.Kind()
 		switch x.StorageDuration() {
@@ -81,7 +83,7 @@ func (v *variables) register(n cc.Node, f *fnCtx) {
 				}
 			default:
 				switch {
-				case sc.Parent == nil:
+				case sc.Parent == nil || x.Type().Kind() == cc.Function:
 					m[x] = &static{
 						d:    x,
 						name: fmt.Sprintf("$%s", x.Name()),
@@ -292,7 +294,7 @@ func (f *fnCtx) newSwitchCtx(expr string, typ cc.Type, cases0 []*cc.LabeledState
 
 func (f *fnCtx) alloc(n cc.Node, align, size int64) (r int64) {
 	if align <= 0 || size < 0 {
-		f.ctx.err(n, "incomplete types not supported")
+		f.ctx.err(n, "unsupported type")
 		align = 1
 	}
 	size = max(size, 1)

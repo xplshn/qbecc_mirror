@@ -30,20 +30,18 @@ var blacklist = map[string]struct{}{
 	// wontfix: platform specific FP handling
 	"20031003-1.c": {},
 
-	// wontfix: incomplete type
+	// wontfix: unsupported type
+	"20010904-1.c": {},
+	"20010904-2.c": {},
 	"20040308-1.c": {},
 	"20040423-1.c": {},
 	"20041218-2.c": {},
-	"align-nest.c": {},
-
-	//TODO
-	"20090113-2.c": {}, // +
-	"930603-1.c":   {},
-	"930628-1.c":   {},
-	"950221-1.c":   {},
 	"970217-1.c":   {},
 	"align-3.c":    {},
-	"conversion.c": {},
+	"align-nest.c": {},
+	"pr65369.c":    {},
+
+	//TODO
 	"pr20187-1.c":  {},
 	"pr39100.c":    {},
 	"pr41750.c":    {},
@@ -54,9 +52,11 @@ var blacklist = map[string]struct{}{
 	"pr79121.c":    {},
 	"pr82210.c":    {},
 	"scope-1.c":    {},
+	"20090113-2.c": {}, // 160 lines
 
 	// GO COMPILE FAIL
 	"20030216-1.c": {},
+	"conversion.c": {},
 
 	// GO EXEC FAIL
 	"20071030-1.c":    {},

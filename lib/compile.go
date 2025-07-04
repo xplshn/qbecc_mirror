@@ -32,16 +32,16 @@ type compilerFile struct {
 
 // Translation unit compile context
 type ctx struct {
-	ast        *cc.AST
-	buf        // QBE SSA
-	file       *compilerFile
-	fn         *fnCtx
-	incomplete map[cc.Type]bool
-	nextID     int
-	strings    map[string]string // value: name
-	t          *Task
-	variables  variables
-	wordTag    string
+	ast              *cc.AST
+	buf              // QBE SSA
+	file             *compilerFile
+	fn               *fnCtx
+	unsupportedTypes map[cc.Type]bool
+	nextID           int
+	strings          map[string]string // value: name
+	t                *Task
+	variables        variables
+	wordTag          string
 
 	failed bool
 }
@@ -60,47 +60,53 @@ func (t *Task) newCtx(ast *cc.AST, file *compilerFile) (r *ctx) {
 				break
 			}
 
+			if r.isUnsupportedType(x.Type()) {
+				r.err(x, "unsupported type")
+			}
 			r.variables.register(x, nil)
 		}
 	}
 	return r
 }
 
-func (c *ctx) isIncomplete(t cc.Type) (r bool) {
-	r, ok := c.incomplete[t]
+func (c *ctx) isUnsupportedType(t cc.Type) (r bool) {
+	r, ok := c.unsupportedTypes[t]
 	if ok {
 		return r
 	}
 
 	switch x := t.(type) {
 	case *cc.ArrayType:
-		r = x.Len() < 0 || c.isIncomplete(x.Elem())
+		r = x.Len() < 0 || c.isUnsupportedType(x.Elem()) || x.SizeExpression() != nil && x.SizeExpression().Value() == nil
 	case *cc.StructType:
 		for i := 0; i < x.NumFields(); i++ {
-			if c.isIncomplete(x.FieldByIndex(i).Type()) {
+			if c.isUnsupportedType(x.FieldByIndex(i).Type()) {
 				r = true
 				break
 			}
 		}
 	case *cc.UnionType:
 		for i := 0; i < x.NumFields(); i++ {
-			if c.isIncomplete(x.FieldByIndex(i).Type()) {
+			if c.isUnsupportedType(x.FieldByIndex(i).Type()) {
 				r = true
 				break
 			}
 		}
 	}
-	if c.incomplete == nil {
-		c.incomplete = map[cc.Type]bool{}
+	if c.unsupportedTypes == nil {
+		c.unsupportedTypes = map[cc.Type]bool{}
 	}
-	c.incomplete[t] = r
+	if t.Align() < 0 || t.Align() > 8 {
+		r = true
+	}
+	c.unsupportedTypes[t] = r
 	return r
 }
 
 func (c *ctx) sizeof(n cc.Node, t cc.Type) int64 {
-	if c.isIncomplete(t) {
+	if c.isUnsupportedType(t) {
 		if n != nil {
-			c.err(n, "incomplete type")
+			c.err(n, "unsupported type")
 			return 1
 		}
 	}

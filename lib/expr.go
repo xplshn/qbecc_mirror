@@ -739,7 +739,7 @@ func (c *ctx) postfixExpressionPSelect(n *cc.PostfixExpression, mode mode, t cc.
 			t := c.temp("%s add %s, %v\n", c.wordTag, p, f.Offset())
 			return c.load(n, t, f.Type())
 		case lvalue:
-			p := c.expr(n.PostfixExpression, lvalue, c.ast.PVoid)
+			p := c.expr(n.PostfixExpression, rvalue, c.ast.PVoid)
 			return c.temp("%s add %s, %v\n", c.wordTag, p, f.Offset())
 		default:
 			panic(todo("%v: %s %s", n.Position(), mode, cc.NodeSource(n)))

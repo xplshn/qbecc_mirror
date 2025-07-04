@@ -479,7 +479,9 @@ func (c *ctx) blockItemDecl(n *cc.Declaration) {
 		for l := n.InitDeclaratorList; l != nil; l = l.InitDeclaratorList {
 			switch l.InitDeclarator.Declarator.StorageDuration() {
 			case cc.Static:
-				c.fn.static = append(c.fn.static, l.InitDeclarator)
+				if l.InitDeclarator.Declarator.Type().Kind() != cc.Function {
+					c.fn.static = append(c.fn.static, l.InitDeclarator)
+				}
 			case cc.Automatic:
 				c.blockItemDeclAutomatic(l.InitDeclarator)
 			default:
