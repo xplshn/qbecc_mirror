@@ -77,13 +77,31 @@ func (c *ctx) initLocalVar(n cc.Node, v *local, t cc.Type, m initMap, offs []int
 }
 
 func (c *ctx) initEscapedVar(n cc.Node, v *escaped, t cc.Type, m initMap, offs []int64) {
+	zeroed := false
 	switch t.Kind() {
 	case cc.Struct, cc.Union, cc.Array:
 		p := c.temp("%s add %%.bp., %v\n", c.wordTag, v.offset)
-		c.w("\tcall $memset(%s %s, w 0, %[1]s %[3]v)\n", c.wordTag, p, t.Size())
+		c.w("\tcall $memset(%s %s, w 0, %[1]s %[3]v)\n", c.wordTag, p, c.sizeof(n, t))
+		zeroed = true
 	}
 	for _, off := range offs {
 		item := m[off]
+		if zeroed {
+			switch x := item.expr.Value().(type) {
+			case cc.Int64Value:
+				if x == 0 {
+					continue
+				}
+			case cc.UInt64Value:
+				if x == 0 {
+					continue
+				}
+			case cc.Float64Value:
+				if x == 0 {
+					continue
+				}
+			}
+		}
 		p := c.temp("%s add %%.bp., %v\n", c.wordTag, v.offset+off)
 		e := c.expr(item.expr, rvalue, item.t)
 		c.w("\tstore%s %s, %s\n", c.extType(n, item.t), e, p)
@@ -95,17 +113,22 @@ func (c *ctx) initStaticVar(n cc.Node, v variable, t cc.Type, m initMap, offs []
 	var sz int64
 	for _, off := range offs {
 		item := m[off]
-		sz = off + item.t.Size()
+		sz = off + c.sizeof(item.expr, item.t)
 		if noff >= 0 && off > noff {
 			c.w("\tz %v,\n", off-noff)
 		}
 		switch x := item.expr.Value().(type) {
 		case *cc.UnknownValue:
-			c.w("\t%s %s,\n", c.extType(n, item.t), c.expr(item.expr, rvalue, item.t))
+			c.w("\t%s %s,\n", c.extType(n, item.t), c.expr(item.expr, constRvalue, item.t))
 		case cc.Int64Value:
 			c.w("\t%s %s,\n", c.extType(n, item.t), c.value(item.expr, rvalue, item.t, x))
 		case cc.UInt64Value:
-			c.w("\t%s %s,\n", c.extType(n, item.t), c.value(item.expr, rvalue, item.t, x))
+			switch {
+			case item.t.Kind() == cc.Ptr && x != 0:
+				c.w("\t%s %s,\n", c.extType(n, item.t), c.expr(item.expr, constRvalue, item.t))
+			default:
+				c.w("\t%s %s,\n", c.extType(n, item.t), c.value(item.expr, rvalue, item.t, x))
+			}
 		case cc.StringValue:
 			s := string(x)
 			switch item.t.Kind() {
@@ -140,9 +163,9 @@ func (c *ctx) initStaticVar(n cc.Node, v variable, t cc.Type, m initMap, offs []
 		default:
 			panic(todo("%v: %s %T", n.Position(), cc.NodeSource(n), x))
 		}
-		noff = off + item.t.Size()
+		noff = off + c.sizeof(item.expr, item.t)
 	}
-	if n := t.Size() - sz; n != 0 {
+	if n := c.sizeof(n, t) - sz; n != 0 {
 		c.w("\tz %v,\n", n)
 	}
 }
@@ -153,6 +176,7 @@ func (c *ctx) init(n *cc.Initializer, off int64, t cc.Type, m initMap) {
 		m[off] = &initMapItem{n.AssignmentExpression, t}
 	case cc.InitializerInitList: // '{' InitializerList ',' '}'
 		c.initList(newInitListReader(n.InitializerList), off, t, m)
+		//TODO check list exhausted
 	default:
 		c.err(n, "internal error %T.%s", n, n.Case)
 	}
@@ -180,7 +204,7 @@ func (c *ctx) initArray(n *initListReader, off int64, t *cc.ArrayType, m initMap
 	}
 
 	et := t.Elem()
-	sz := et.Size()
+	sz := c.sizeof(n.n, et)
 	for ix, elem := int64(0), n.next(); elem != nil && ix < limit; ix, elem = ix+1, n.next() {
 		switch {
 		case elem.Designation != nil:
@@ -193,6 +217,9 @@ func (c *ctx) initArray(n *initListReader, off int64, t *cc.ArrayType, m initMap
 	}
 }
 
+// 6.7.8/9: unnamed members of objects of structure and union type do not
+// participate in initialization.
+
 func (c *ctx) initStruct(n *initListReader, off int64, t *cc.StructType, m initMap) {
 	limit := t.NumFields()
 	var f *cc.Field
@@ -202,8 +229,6 @@ func (c *ctx) initStruct(n *initListReader, off int64, t *cc.StructType, m initM
 			// ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/20000801-3.c
 			panic(todo("", n.n.Position(), cc.NodeSource(n.n), off, t, m, t.Kind()))
 		default:
-			// 6.7.8/9: unnamed members of objects of structure and union type do not
-			// participate in initialization.
 			for f = t.FieldByIndex(ix); f.Name() == ""; f = t.FieldByIndex(ix) {
 				if ix = ix + 1; ix == limit {
 					c.err(elem, "unused initializer element")
@@ -224,8 +249,6 @@ func (c *ctx) initUnion(n *initListReader, off int64, t *cc.UnionType, m initMap
 			// ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/991228-1.c
 			panic(todo("", n.n.Position(), cc.NodeSource(n.n), off, t, m, t.Kind()))
 		default:
-			// 6.7.8/9: unnamed members of objects of structure and union type do not
-			// participate in initialization.
 			for f = t.FieldByIndex(ix); f.Name() == ""; f = t.FieldByIndex(ix) {
 				if ix = ix + 1; ix == limit {
 					c.err(elem, "unused initializer element")

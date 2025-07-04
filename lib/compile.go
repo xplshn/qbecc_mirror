@@ -32,15 +32,16 @@ type compilerFile struct {
 
 // Translation unit compile context
 type ctx struct {
-	ast       *cc.AST
-	buf       // QBE SSA
-	file      *compilerFile
-	fn        *fnCtx
-	nextID    int
-	strings   map[string]string // value: name
-	t         *Task
-	variables variables
-	wordTag   string
+	ast        *cc.AST
+	buf        // QBE SSA
+	file       *compilerFile
+	fn         *fnCtx
+	incomplete map[cc.Type]bool
+	nextID     int
+	strings    map[string]string // value: name
+	t          *Task
+	variables  variables
+	wordTag    string
 
 	failed bool
 }
@@ -65,6 +66,48 @@ func (t *Task) newCtx(ast *cc.AST, file *compilerFile) (r *ctx) {
 	return r
 }
 
+func (c *ctx) isIncomplete(t cc.Type) (r bool) {
+	r, ok := c.incomplete[t]
+	if ok {
+		return r
+	}
+
+	switch x := t.(type) {
+	case *cc.ArrayType:
+		r = x.Len() < 0 || c.isIncomplete(x.Elem())
+	case *cc.StructType:
+		for i := 0; i < x.NumFields(); i++ {
+			if c.isIncomplete(x.FieldByIndex(i).Type()) {
+				r = true
+				break
+			}
+		}
+	case *cc.UnionType:
+		for i := 0; i < x.NumFields(); i++ {
+			if c.isIncomplete(x.FieldByIndex(i).Type()) {
+				r = true
+				break
+			}
+		}
+	}
+	if c.incomplete == nil {
+		c.incomplete = map[cc.Type]bool{}
+	}
+	c.incomplete[t] = r
+	return r
+}
+
+func (c *ctx) sizeof(n cc.Node, t cc.Type) int64 {
+	if c.isIncomplete(t) {
+		if n != nil {
+			c.err(n, "incomplete type")
+			return 1
+		}
+	}
+
+	return t.Size()
+}
+
 func (c *ctx) err(n cc.Node, s string, args ...any) {
 	c.failed = true
 	c.t.err(n, s, args...)
@@ -72,7 +115,14 @@ func (c *ctx) err(n cc.Node, s string, args ...any) {
 
 // define a new temp var, return its name
 func (c *ctx) temp(s string, args ...any) (r string) {
-	r = fmt.Sprintf("%%.%v", c.fn.id())
+	var id int
+	switch {
+	case c.fn != nil:
+		id = c.fn.id()
+	default:
+		id = c.id()
+	}
+	r = fmt.Sprintf("%%.%v", id)
 	c.w("\t%s =", r)
 	c.w(s, args...)
 	return r

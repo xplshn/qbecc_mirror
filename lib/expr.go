@@ -6,6 +6,8 @@ package qbecc // import "modernc.org/qbecc/lib"
 
 import (
 	"fmt"
+	"math"
+	"strconv"
 
 	"modernc.org/cc/v4"
 )
@@ -16,22 +18,26 @@ const (
 	void mode = iota
 	lvalue
 	rvalue
+	constLvalue
+	constRvalue
 )
 
 const nothing = "<void>"
 
-func (c *ctx) convert(n cc.Node, dst, src cc.Type, v string) (r string) {
-	if dst.Kind() == cc.Enum {
-		dst = dst.(*cc.EnumType).UnderlyingType()
+func (c *ctx) convertConst(n cc.Node, dstType, srcType cc.Type, v string) (r string) {
+	if dstType.Kind() == cc.Enum {
+		dstType = dstType.(*cc.EnumType).UnderlyingType()
 	}
-	if src.Kind() == cc.Enum {
-		src = src.(*cc.EnumType).UnderlyingType()
+	if srcType.Kind() == cc.Enum {
+		srcType = srcType.(*cc.EnumType).UnderlyingType()
 	}
+	dstSize := c.sizeof(n, dstType)
+	srcSize := c.sizeof(n, srcType)
 	switch {
-	case dst == src:
+	case dstType == srcType:
 		return v
-	case dst.Kind() == src.Kind():
-		switch dst.Kind() {
+	case dstType.Kind() == srcType.Kind():
+		switch dstType.Kind() {
 		case
 			cc.Ptr,
 			cc.Int, cc.UInt,
@@ -43,14 +49,47 @@ func (c *ctx) convert(n cc.Node, dst, src cc.Type, v string) (r string) {
 
 			return v
 		}
-	case dst.Kind() == cc.Ptr && c.isIntegerType(src):
+	case dstType.Kind() == cc.Ptr && c.isIntegerType(srcType):
+		return v
+	}
+
+	trc("%v: %s(%v, %v) <- %s(%v, %v) %v", n.Position(), dstType, dstType.Kind(), dstSize, srcType, srcType.Kind(), srcSize, cc.NodeSource(n))
+	panic(todo("%v: %s(%v, %v) <- %s(%v, %v) %v", n.Position(), dstType, dstType.Kind(), dstSize, srcType, srcType.Kind(), srcSize, cc.NodeSource(n)))
+}
+
+func (c *ctx) convert(n cc.Node, dstType, srcType cc.Type, v string) (r string) {
+	if dstType.Kind() == cc.Enum {
+		dstType = dstType.(*cc.EnumType).UnderlyingType()
+	}
+	if srcType.Kind() == cc.Enum {
+		srcType = srcType.(*cc.EnumType).UnderlyingType()
+	}
+	dstSize := c.sizeof(n, dstType)
+	srcSize := c.sizeof(n, srcType)
+	switch {
+	case dstType == srcType:
+		return v
+	case dstType.Kind() == srcType.Kind():
+		switch dstType.Kind() {
+		case
+			cc.Ptr,
+			cc.Int, cc.UInt,
+			cc.Char, cc.SChar, cc.UChar,
+			cc.Short, cc.UShort,
+			cc.Long, cc.ULong,
+			cc.LongLong, cc.ULongLong,
+			cc.Float, cc.Double, cc.LongDouble:
+
+			return v
+		}
+	case dstType.Kind() == cc.Ptr && c.isIntegerType(srcType):
 		s := "s"
-		if !cc.IsSignedInteger(src) {
+		if !cc.IsSignedInteger(srcType) {
 			s = "u"
 		}
-		switch src.Size() {
+		switch srcSize {
 		case 4:
-			if dst.Size() == 4 {
+			if dstSize == 4 {
 				return v
 			}
 
@@ -58,89 +97,89 @@ func (c *ctx) convert(n cc.Node, dst, src cc.Type, v string) (r string) {
 		case 8:
 			return v
 		}
-	case c.isIntegerType(dst) && c.isIntegerType(src):
+	case c.isIntegerType(dstType) && c.isIntegerType(srcType):
 		s := "s"
-		if !cc.IsSignedInteger(src) {
+		if !cc.IsSignedInteger(srcType) {
 			s = "u"
 		}
 		switch {
-		case dst.Size() <= src.Size():
+		case dstSize <= srcSize:
 			return v
 		default:
-			return c.temp("%s ext%s%s %s\n", c.baseType(n, dst), s, c.extType(n, src), v)
+			return c.temp("%s ext%s%s %s\n", c.baseType(n, dstType), s, c.extType(n, srcType), v)
 		}
-	case dst.Kind() == cc.Float:
-		switch k := src.Kind(); {
+	case dstType.Kind() == cc.Float:
+		switch k := srcType.Kind(); {
 		case k == cc.Double || k == cc.LongDouble:
 			return c.temp("s truncd %s\n", v)
-		case c.isIntegerType(src):
-			switch src.Size() {
+		case c.isIntegerType(srcType):
+			switch srcSize {
 			case 4:
 				switch {
-				case cc.IsSignedInteger(src):
+				case cc.IsSignedInteger(srcType):
 					return c.temp("s swtof %s\n", v)
 				default:
 					return c.temp("s uwtof %s\n", v)
 				}
 			case 8:
 				switch {
-				case cc.IsSignedInteger(src):
+				case cc.IsSignedInteger(srcType):
 					return c.temp("s sltof %s\n", v)
 				default:
 					return c.temp("s ultof %s\n", v)
 				}
 			}
 		}
-	case dst.Kind() == cc.Double || dst.Kind() == cc.LongDouble:
-		if src.Kind() == cc.Double || src.Kind() == cc.LongDouble {
+	case dstType.Kind() == cc.Double || dstType.Kind() == cc.LongDouble:
+		if srcType.Kind() == cc.Double || srcType.Kind() == cc.LongDouble {
 			return v
 		}
 
-		switch k := src.Kind(); {
+		switch k := srcType.Kind(); {
 		case k == cc.Float:
 			return c.temp("d exts %s\n", v)
-		case c.isIntegerType(src):
-			switch src.Size() {
+		case c.isIntegerType(srcType):
+			switch srcSize {
 			case 4:
 				switch {
-				case cc.IsSignedInteger(src):
+				case cc.IsSignedInteger(srcType):
 					return c.temp("d swtof %s\n", v)
 				default:
 					return c.temp("d uwtof %s\n", v)
 				}
 			case 8:
 				switch {
-				case cc.IsSignedInteger(src):
+				case cc.IsSignedInteger(srcType):
 					return c.temp("d sltof %s\n", v)
 				default:
 					return c.temp("d ultof %s\n", v)
 				}
 			}
 		}
-	case c.isIntegerType(dst) && c.isFloatingPointType(src):
+	case c.isIntegerType(dstType) && c.isFloatingPointType(srcType):
 		sgn := "u"
-		if cc.IsSignedInteger(dst) {
+		if cc.IsSignedInteger(dstType) {
 			sgn = "s"
 		}
 		f := "s"
-		if src.Kind() == cc.Double || src.Kind() == cc.LongDouble {
+		if srcType.Kind() == cc.Double || srcType.Kind() == cc.LongDouble {
 			f = "d"
 		}
-		return c.temp("%s %sto%si %s\n", c.baseType(n, dst), f, sgn, v)
-	case dst.Kind() == cc.Function && src.Kind() == cc.Ptr:
+		return c.temp("%s %sto%si %s\n", c.baseType(n, dstType), f, sgn, v)
+	case dstType.Kind() == cc.Function && srcType.Kind() == cc.Ptr:
 		return v
-	case c.isIntegerType(dst) && src.Kind() == cc.Ptr:
+	case c.isIntegerType(dstType) && srcType.Kind() == cc.Ptr:
 		switch {
-		case dst.Size() <= src.Size():
+		case dstSize <= srcSize:
 			return v
 		}
 	}
 	// ~/src/modernc.org/ccorpus2/assets/CompCert-3.6/test/c/aes.c
-	panic(todo("%v: %s(%v, %v) <- %s(%v, %v) %v", n.Position(), dst, dst.Kind(), dst.Size(), src, src.Kind(), src.Size(), cc.NodeSource(n)))
+	panic(todo("%v: %s(%v, %v) <- %s(%v, %v) %v", n.Position(), dstType, dstType.Kind(), dstSize, srcType, srcType.Kind(), srcSize, cc.NodeSource(n)))
 }
 
 func (c *ctx) load(n cc.Node, p string, et cc.Type) (r string) {
-	switch et.Size() {
+	switch c.sizeof(n, et) {
 	case 1:
 		switch {
 		case cc.IsSignedInteger(et):
@@ -186,7 +225,18 @@ func (c *ctx) value(n cc.Node, mode mode, t cc.Type, v cc.Value) (r string) {
 			return fmt.Sprint(uint64(x))
 		case cc.Float64Value:
 			vt = c.ast.Double
-			return fmt.Sprintf("d_%v", float64(x))
+			return fmt.Sprintf("%v", math.Float64bits(float64(x)))
+		default:
+			panic(todo("%T", x))
+		}
+	case constRvalue:
+		var vt cc.Type
+		defer func() { r = c.convertConst(n, t, vt, r) }()
+
+		switch x := v.(type) {
+		case cc.Int64Value:
+			vt = c.ast.LongLong
+			return fmt.Sprint(int64(x))
 		default:
 			panic(todo("%T", x))
 		}
@@ -240,6 +290,20 @@ func (c *ctx) primaryExpressionIdent(n *cc.PrimaryExpression, mode mode, t cc.Ty
 		}
 	case void:
 		return nothing
+	case constLvalue:
+		switch x := info.(type) {
+		case *static:
+			return x.name
+		default:
+			panic(todo("%v: %T", n.Position(), x))
+		}
+	case constRvalue:
+		switch x := info.(type) {
+		case *static:
+			return x.name
+		default:
+			panic(todo("%v: %T", n.Position(), x))
+		}
 	default:
 		panic(todo("%v: mode=%v %v", n.Position(), mode, cc.NodeSource(n)))
 	}
@@ -261,7 +325,7 @@ func (c *ctx) primaryExpressionString(n *cc.PrimaryExpression, mode mode, t cc.T
 		default:
 			panic(todo("%v: t=%s %v", n.Position(), t, cc.NodeSource(n)))
 		}
-	case lvalue:
+	case lvalue, constLvalue:
 		return c.addString(string(n.Value().(cc.StringValue)))
 	default:
 		panic(todo("%v: mode=%v %v", n.Position(), mode, cc.NodeSource(n)))
@@ -530,13 +594,13 @@ func (c *ctx) postfixExpressionCall(n *cc.PostfixExpression, mode mode, t cc.Typ
 
 		switch {
 		case c.isIntegerType(n.Type()) || c.isFloatingPointType(n.Type()) || n.Type().Kind() == cc.Ptr:
-			switch n.Type().Size() {
+			switch c.sizeof(n, n.Type()) {
 			case 4, 8:
 				r = c.temp("%s call %s(", c.baseType(n, n.Type()), c.expr(callee, rvalue, ct))
 			case 1, 2:
 				r = c.temp("w call %s(", c.expr(callee, rvalue, ct))
 			default:
-				panic(todo("%v: %v %s", n.Position(), n.Type().Size(), cc.NodeSource(n)))
+				panic(todo("%v: %v %s", n.Position(), c.sizeof(n, n.Type()), cc.NodeSource(n)))
 			}
 		default:
 			// COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/990525-2.c
@@ -583,7 +647,7 @@ func (c *ctx) postfixExpressionIncDec(n *cc.PostfixExpression, mode mode, t cc.T
 	_, info := c.variable(n.PostfixExpression)
 	idelta := int64(1)
 	if x, ok := n.PostfixExpression.Type().(*cc.PointerType); ok {
-		idelta = x.Elem().Size()
+		idelta = c.sizeof(n.PostfixExpression, x.Elem())
 	}
 	delta := c.value(n, rvalue, n.PostfixExpression.Type(), cc.Int64Value(idelta))
 	switch mode {
@@ -688,27 +752,34 @@ func (c *ctx) postfixExpressionPSelect(n *cc.PostfixExpression, mode mode, t cc.
 func (c *ctx) postfixExpressionIndex(n *cc.PostfixExpression, mode mode, t cc.Type) (r string) {
 	var p string
 	var et cc.Type
-	switch {
-	case c.isIntegerType(n.ExpressionList.Type()):
-		et = n.PostfixExpression.Type().(*cc.PointerType).Elem()
-		ix := c.expr(n.ExpressionList, rvalue, c.ast.PVoid)
-		ix2 := c.temp("%s mul %s, %v\n", c.wordTag, ix, et.Size())
-		switch x := n.PostfixExpression.Type().(type) {
-		case *cc.PointerType:
-			switch x.Undecay().Kind() {
-			case cc.Array:
-				p0 := c.expr(n.PostfixExpression, lvalue, c.ast.PVoid)
-				p = c.temp("%s add %s, %s\n", c.wordTag, p0, ix2)
+	load := true
+	switch mode {
+	case lvalue, rvalue:
+		switch {
+		case c.isIntegerType(n.ExpressionList.Type()):
+			et = n.PostfixExpression.Type().(*cc.PointerType).Elem()
+			ix := c.expr(n.ExpressionList, rvalue, c.ast.PVoid)
+			ix2 := c.temp("%s mul %s, %v\n", c.wordTag, ix, c.sizeof(n.PostfixExpression, et))
+			switch x := n.PostfixExpression.Type().(type) {
+			case *cc.PointerType:
+				switch et := x.Undecay().(type) {
+				case *cc.ArrayType:
+					p0 := c.expr(n.PostfixExpression, lvalue, c.ast.PVoid)
+					p = c.temp("%s add %s, %s\n", c.wordTag, p0, ix2)
+					if et.Elem().Kind() == cc.Array {
+						load = false
+					}
+				default:
+					p0 := c.expr(n.PostfixExpression, rvalue, c.ast.PVoid)
+					p = c.temp("%s add %s, %s\n", c.wordTag, p0, ix2)
+				}
 			default:
-				p0 := c.expr(n.PostfixExpression, rvalue, c.ast.PVoid)
-				p = c.temp("%s add %s, %s\n", c.wordTag, p0, ix2)
+				panic(todo("%v: %s %s", n.Position(), mode, cc.NodeSource(n)))
 			}
 		default:
-			panic(todo("%v: %s %s", n.Position(), mode, cc.NodeSource(n)))
+			// COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/pr22061-1.c
+			panic(todo("%v: %v %s", n.Position(), n.Case, cc.NodeSource(n)))
 		}
-	default:
-		// COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/pr22061-1.c
-		panic(todo("%v: %v %s", n.Position(), n.Case, cc.NodeSource(n)))
 	}
 	switch mode {
 	case lvalue:
@@ -716,7 +787,22 @@ func (c *ctx) postfixExpressionIndex(n *cc.PostfixExpression, mode mode, t cc.Ty
 	case rvalue:
 		defer func() { r = c.convert(n, t, n.Type(), r) }()
 
-		return c.load(n, p, n.Type())
+		if load {
+			return c.load(n, p, n.Type())
+		}
+
+		return p
+	case constLvalue:
+		switch {
+		case c.isIntegerType(n.ExpressionList.Type()):
+			p := c.expr(n.PostfixExpression, mode, c.ast.PVoid)
+			ix := c.expr(n.ExpressionList, constRvalue, c.ast.PVoid)
+			off, _ := strconv.ParseUint(ix, 10, 64)
+			off *= uint64(c.sizeof(n.PostfixExpression, n.PostfixExpression.Type().(*cc.PointerType).Elem()))
+			return fmt.Sprintf("%s+%v", p, off)
+		default:
+			panic(todo("%v: %v %s", n.Position(), n.Case, cc.NodeSource(n)))
+		}
 	default:
 		// ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/pr66556.c
 		panic(todo("%v: %s %s", n.Position(), mode, cc.NodeSource(n)))
@@ -790,6 +876,10 @@ func (c *ctx) unaryExpressionAddrof(n *cc.UnaryExpression, mode mode, t cc.Type)
 		default:
 			panic(todo("%v: %T", n.Position(), x))
 		}
+	case constRvalue:
+		defer func() { r = c.convertConst(n, t, n.Type(), r) }()
+
+		return c.expr(n.CastExpression, constLvalue, n.Type())
 	default:
 		// ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/980929-1.c
 		panic(todo("%v: %s %s", n.Position(), mode, cc.NodeSource(n)))
@@ -828,7 +918,7 @@ func (c *ctx) unaryExpressionDeref(n *cc.UnaryExpression, mode mode, t cc.Type) 
 	case lvalue:
 		switch et := n.Type(); {
 		case c.isIntegerType(et) || c.isFloatingPointType(et) || et.Kind() == cc.Ptr:
-			switch sz := et.Size(); {
+			switch sz := c.sizeof(n, et); {
 			case sz <= 8:
 				return c.expr(n.CastExpression, rvalue, n.CastExpression.Type())
 			default:
@@ -852,11 +942,11 @@ func (c *ctx) unaryExpressionSizeofExpr(n *cc.UnaryExpression, mode mode, t cc.T
 
 		if x, ok := n.UnaryExpression.Type().(*cc.PointerType); ok {
 			if y, ok := x.Undecay().(*cc.ArrayType); ok {
-				return fmt.Sprint(y.Len() * y.Elem().Size())
+				return fmt.Sprint(y.Len() * c.sizeof(n.UnaryExpression, y.Elem()))
 			}
 		}
 
-		return fmt.Sprint(n.UnaryExpression.Type().Size())
+		return fmt.Sprint(c.sizeof(n.UnaryExpression, n.UnaryExpression.Type()))
 	default:
 		// ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/pr58831.c
 		panic(todo("%v: %s %s", n.Position(), mode, cc.NodeSource(n)))
@@ -870,7 +960,7 @@ func (c *ctx) unaryExpressionSizeofType(n *cc.UnaryExpression, mode mode, t cc.T
 	case rvalue:
 		defer func() { r = c.convert(n, t, n.Type(), r) }()
 
-		return fmt.Sprint(n.TypeName.Type().Size())
+		return fmt.Sprint(c.sizeof(n.TypeName, n.TypeName.Type()))
 	default:
 		panic(todo("%v: %s %s", n.Position(), mode, cc.NodeSource(n)))
 	}
@@ -909,7 +999,7 @@ func (c *ctx) unaryExpressionIncDec(n *cc.UnaryExpression, mode mode, t cc.Type,
 	_, info := c.variable(n.UnaryExpression)
 	delta := int64(1)
 	if x, ok := n.UnaryExpression.Type().(*cc.PointerType); ok {
-		delta = x.Elem().Size()
+		delta = c.sizeof(n.UnaryExpression, x.Elem())
 	}
 	switch mode {
 	case void:
@@ -958,7 +1048,7 @@ func (c *ctx) unaryExpressionCpl(n *cc.UnaryExpression, mode mode, t cc.Type) (r
 		case nil:
 			v := c.expr(n.CastExpression, rvalue, n.Type())
 			k := ^int64(0)
-			if n.Type().Size() < 8 {
+			if c.sizeof(n, n.Type()) < 8 {
 				k = 0xffffffff
 			}
 			r = c.temp("%s xor %s, %v\n", c.baseType(n, n.Type()), v, k)
@@ -1012,7 +1102,7 @@ func (c *ctx) unaryExpressionRealImag(n *cc.UnaryExpression, mode mode, t cc.Typ
 	}
 	var off int64
 	if imag {
-		off = et.Size()
+		off = c.sizeof(n.UnaryExpression, et)
 	}
 	switch mode {
 	case lvalue:
@@ -1171,16 +1261,16 @@ func (c *ctx) arithmeticOp(lhs, rhs cc.ExpressionNode, mode mode, t cc.Type, op 
 	case "add":
 		switch {
 		case lt.Kind() == cc.Ptr:
-			rmul = lt.(*cc.PointerType).Elem().Size()
+			rmul = c.sizeof(lhs, lt.(*cc.PointerType).Elem())
 		case rt.Kind() == cc.Ptr:
-			lmul = rt.(*cc.PointerType).Elem().Size()
+			lmul = c.sizeof(rhs, rt.(*cc.PointerType).Elem())
 		}
 	case "sub":
 		switch {
 		case lt.Kind() == cc.Ptr && rt.Kind() == cc.Ptr:
-			div = lt.(*cc.PointerType).Elem().Size()
+			div = c.sizeof(lhs, lt.(*cc.PointerType).Elem())
 		case lt.Kind() == cc.Ptr:
-			rmul = lt.(*cc.PointerType).Elem().Size()
+			rmul = c.sizeof(lhs, lt.(*cc.PointerType).Elem())
 		}
 	case "div":
 		if c.isIntegerType(ct) && !cc.IsSignedInteger(ct) {
@@ -1492,6 +1582,10 @@ func (c *ctx) castExpressionCast(n *cc.CastExpression, mode mode, t cc.Type) (r 
 		c.expr(n.CastExpression, mode, n.Type())
 	case lvalue:
 		return c.expr(n.CastExpression, rvalue, c.ast.PVoid)
+	case constRvalue:
+		defer func() { r = c.convertConst(n, t, n.Type(), r) }()
+
+		r = c.expr(n.CastExpression, mode, n.Type())
 	default:
 		panic(todo("%v: %s %s", n.Position(), mode, cc.NodeSource(n)))
 	}

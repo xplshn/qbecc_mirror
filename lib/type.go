@@ -10,6 +10,7 @@ import (
 
 // BASETY := 'w' | 'l' | 's' | 'd' # Base types
 func (c *ctx) baseType(n cc.Node, t cc.Type) string {
+	sz := c.sizeof(n, t)
 	switch t.Kind() {
 	case cc.Ptr:
 		return c.wordTag
@@ -20,7 +21,7 @@ func (c *ctx) baseType(n cc.Node, t cc.Type) string {
 	default:
 		switch {
 		case c.isIntegerType(t):
-			switch sz := t.Size(); {
+			switch {
 			case sz <= 4:
 				return "w"
 			case sz <= 8:
@@ -30,7 +31,7 @@ func (c *ctx) baseType(n cc.Node, t cc.Type) string {
 				panic(todo("%v: %s %v", n.Position(), t, t.Kind()))
 			}
 		case c.isFloatingPointType(t):
-			switch t.Size() {
+			switch sz {
 			case 4:
 				return "s"
 			case 8:
@@ -47,13 +48,14 @@ func (c *ctx) baseType(n cc.Node, t cc.Type) string {
 
 // EXTTY  := BASETY | 'b' | 'h'    # Extended types
 func (c *ctx) extType(n cc.Node, t cc.Type) string {
-	if t.Size() >= 4 {
+	sz := c.sizeof(n, t)
+	if sz >= 4 {
 		return c.baseType(n, t)
 	}
 
 	switch {
 	case c.isIntegerType(t):
-		switch sz := t.Size(); {
+		switch {
 		case sz == 1:
 			return "b"
 		case sz <= 2:
@@ -67,7 +69,7 @@ func (c *ctx) extType(n cc.Node, t cc.Type) string {
 }
 
 func (c *ctx) loadType(n cc.Node, et cc.Type) string {
-	switch et.Size() {
+	switch c.sizeof(n, et) {
 	case 1, 2, 4:
 		return "w"
 	case 8:

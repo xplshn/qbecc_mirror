@@ -98,7 +98,7 @@ func (v *variables) register(n cc.Node, f *fnCtx) {
 			case x.AddressTaken() || k == cc.Array || k == cc.Struct || k == cc.Union:
 				m[x] = &escaped{
 					d:      x,
-					offset: f.alloc(x, int64(dt.Align()), dt.Size()),
+					offset: f.alloc(x, int64(dt.Align()), f.ctx.sizeof(x, dt)),
 				}
 			default:
 				suff := ""
@@ -292,7 +292,7 @@ func (f *fnCtx) newSwitchCtx(expr string, typ cc.Type, cases0 []*cc.LabeledState
 
 func (f *fnCtx) alloc(n cc.Node, align, size int64) (r int64) {
 	if align <= 0 || size < 0 {
-		f.ctx.err(n, "variable sized types not supported")
+		f.ctx.err(n, "incomplete types not supported")
 		align = 1
 	}
 	size = max(size, 1)
@@ -382,7 +382,7 @@ func (c *ctx) externalDeclarationFuncDef(n *cc.FunctionDefinition) {
 			c.initializer(v.Initializer, info, d.Type())
 			c.w("}\n\n")
 		default:
-			c.w("{ z %d }\n\n", d.Type().Size())
+			c.w("{ z %d }\n\n", c.sizeof(d, d.Type()))
 		}
 	}
 }
@@ -414,7 +414,7 @@ func (c *ctx) externalDeclarationDeclFull(n *cc.Declaration) {
 
 		switch n := l.InitDeclarator; n.Case {
 		case cc.InitDeclaratorDecl: // Declarator Asm
-			c.w("data $%s = align %d { z %d }", d.Name(), d.Type().Align(), d.Type().Size())
+			c.w("data $%s = align %d { z %d }", d.Name(), d.Type().Align(), c.sizeof(d, d.Type()))
 		case cc.InitDeclaratorInit: // Declarator Asm '=' Initializer
 			c.w("data $%s = align %d {", d.Name(), d.Type().Align())
 			c.initializer(n.Initializer, &static{
