@@ -83,7 +83,7 @@ func (v *variables) register(n cc.Node, f *fnCtx) {
 				}
 			default:
 				switch {
-				case sc.Parent == nil || x.Type().Kind() == cc.Function:
+				case sc.Parent == nil || x.Type().Kind() == cc.Function || x.IsExtern():
 					m[x] = &static{
 						d:    x,
 						name: fmt.Sprintf("$%s", x.Name()),
@@ -314,7 +314,7 @@ func (c *ctx) signature(l []*cc.Parameter) {
 		c.w("%s ", c.baseType(v, v.Type()))
 		switch nm := v.Name(); nm {
 		case "":
-			c.w("TODO, ")
+			c.w("%%.param.%d, ", c.id())
 		default:
 			c.w("%%%s, ", nm)
 		}
@@ -355,6 +355,11 @@ func (c *ctx) externalDeclarationFuncDef(n *cc.FunctionDefinition) {
 		c.w("\t%%.bp. =%s alloc8 %v\n", c.wordTag, f.allocs)
 	}
 	for _, v := range ft.Parameters() {
+		if d := v.Declarator; d != nil && c.isVLA(d.Type()) {
+			f.ctx.err(v.Declarator, "unsupported type")
+			return
+		}
+
 		switch d, info := c.variable(v.Declarator); x := info.(type) {
 		case *escaped:
 			c.w("\t%%._l =%s add %%.bp., %v\n", c.wordTag, x.offset)
@@ -416,14 +421,14 @@ func (c *ctx) externalDeclarationDeclFull(n *cc.Declaration) {
 
 		switch n := l.InitDeclarator; n.Case {
 		case cc.InitDeclaratorDecl: // Declarator Asm
-			c.w("data $%s = align %d { z %d }", d.Name(), d.Type().Align(), c.sizeof(d, d.Type()))
+			c.w("data $%s = align %d { z %d }", d.Name(), d.Type().Align(), max(c.sizeof(d, d.Type()), 1))
 		case cc.InitDeclaratorInit: // Declarator Asm '=' Initializer
-			c.w("data $%s = align %d {", d.Name(), d.Type().Align())
+			c.w("data $%s = align %d {\n", d.Name(), d.Type().Align())
 			c.initializer(n.Initializer, &static{
 				d:    d,
 				name: fmt.Sprintf("$%s", d.Name()),
 			}, d.Type())
-			c.w(" }")
+			c.w("}\n")
 		default:
 			panic(todo("%v: %v %s", n.Position(), n.Case, cc.NodeSource(n)))
 		}

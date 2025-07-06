@@ -121,13 +121,13 @@ func (c *ctx) initStaticVar(n cc.Node, v variable, t cc.Type, m initMap, offs []
 		case *cc.UnknownValue:
 			c.w("\t%s %s,\n", c.extType(n, item.t), c.expr(item.expr, constRvalue, item.t))
 		case cc.Int64Value:
-			c.w("\t%s %s,\n", c.extType(n, item.t), c.value(item.expr, rvalue, item.t, x))
+			c.w("\t%s %s,\n", c.extType(n, item.t), c.value(item.expr, constRvalue, item.t, x))
 		case cc.UInt64Value:
 			switch {
 			case item.t.Kind() == cc.Ptr && x != 0:
 				c.w("\t%s %s,\n", c.extType(n, item.t), c.expr(item.expr, constRvalue, item.t))
 			default:
-				c.w("\t%s %s,\n", c.extType(n, item.t), c.value(item.expr, rvalue, item.t, x))
+				c.w("\t%s %s,\n", c.extType(n, item.t), c.value(item.expr, constRvalue, item.t, x))
 			}
 		case cc.StringValue:
 			s := string(x)
@@ -159,7 +159,7 @@ func (c *ctx) initStaticVar(n cc.Node, v variable, t cc.Type, m initMap, offs []
 				panic(todo("", item.t))
 			}
 		case cc.Float64Value:
-			c.w("\t%s %s,\n", c.extType(n, item.t), c.value(item.expr, rvalue, item.t, x))
+			c.w("\t%s %s,\n", c.extType(n, item.t), c.value(item.expr, constRvalue, item.t, x))
 		default:
 			panic(todo("%v: %s %T", n.Position(), cc.NodeSource(n), x))
 		}

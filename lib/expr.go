@@ -51,6 +51,18 @@ func (c *ctx) convertConst(n cc.Node, dstType, srcType cc.Type, v string) (r str
 		}
 	case dstType.Kind() == cc.Ptr && c.isIntegerType(srcType):
 		return v
+	case c.isIntegerType(dstType) && c.isIntegerType(srcType):
+		switch {
+		case dstSize < srcSize:
+			num, err := strconv.ParseUint(v, 10, 64)
+			if err != nil {
+				c.err(n, "internal error: %v", err)
+			}
+			m := uint64(1)<<(8*(srcSize-dstSize)) - 1
+			return fmt.Sprint(num & m)
+		default:
+			return v
+		}
 	}
 
 	trc("%v: %s(%v, %v) <- %s(%v, %v) %v", n.Position(), dstType, dstType.Kind(), dstSize, srcType, srcType.Kind(), srcSize, cc.NodeSource(n))
@@ -66,6 +78,9 @@ func (c *ctx) convert(n cc.Node, dstType, srcType cc.Type, v string) (r string) 
 	}
 	dstSize := c.sizeof(n, dstType)
 	srcSize := c.sizeof(n, srcType)
+	// defer func() {
+	// 	trc("%v: %s(%v, %v) <- %s(%v, %v) '%v': %v", n.Position(), dstType, dstType.Kind(), dstSize, srcType, srcType.Kind(), srcSize, cc.NodeSource(n), r)
+	// }()
 	switch {
 	case dstType == srcType:
 		return v
@@ -83,9 +98,12 @@ func (c *ctx) convert(n cc.Node, dstType, srcType cc.Type, v string) (r string) 
 			return v
 		}
 	case dstType.Kind() == cc.Ptr && c.isIntegerType(srcType):
-		s := "s"
-		if !cc.IsSignedInteger(srcType) {
-			s = "u"
+		//	D S
+		//	u u	u
+		//	u s	s
+		s := "u"
+		if cc.IsSignedInteger(srcType) {
+			s = "s"
 		}
 		switch srcSize {
 		case 4:
@@ -98,12 +116,24 @@ func (c *ctx) convert(n cc.Node, dstType, srcType cc.Type, v string) (r string) 
 			return v
 		}
 	case c.isIntegerType(dstType) && c.isIntegerType(srcType):
-		s := "s"
-		if !cc.IsSignedInteger(srcType) {
-			s = "u"
+		//	D S
+		//	u u	u
+		//	u s	s
+		//	s u	u
+		//	s s	s
+		s := "u"
+		if cc.IsSignedInteger(srcType) {
+			s = "s"
 		}
 		switch {
-		case dstSize <= srcSize:
+		case dstSize < srcSize:
+			switch {
+			case dstSize < 4:
+				return c.temp("%s ext%s%s %s\n", c.baseType(n, dstType), s, c.extType(n, dstType), v)
+			default:
+				return v
+			}
+		case dstSize == srcSize:
 			return v
 		default:
 			return c.temp("%s ext%s%s %s\n", c.baseType(n, dstType), s, c.extType(n, srcType), v)
@@ -219,13 +249,13 @@ func (c *ctx) value(n cc.Node, mode mode, t cc.Type, v cc.Value) (r string) {
 		switch x := v.(type) {
 		case cc.Int64Value:
 			vt = c.ast.LongLong
-			return fmt.Sprint(int64(x))
+			return fmt.Sprint(uint64(x))
 		case cc.UInt64Value:
 			vt = c.ast.ULongLong
 			return fmt.Sprint(uint64(x))
 		case cc.Float64Value:
 			vt = c.ast.Double
-			return fmt.Sprintf("%v", math.Float64bits(float64(x)))
+			return fmt.Sprint(math.Float64bits(float64(x)))
 		default:
 			panic(todo("%T", x))
 		}
@@ -236,7 +266,13 @@ func (c *ctx) value(n cc.Node, mode mode, t cc.Type, v cc.Value) (r string) {
 		switch x := v.(type) {
 		case cc.Int64Value:
 			vt = c.ast.LongLong
-			return fmt.Sprint(int64(x))
+			return fmt.Sprint(uint64(x))
+		case cc.UInt64Value:
+			vt = c.ast.ULongLong
+			return fmt.Sprint(uint64(x))
+		case cc.Float64Value:
+			vt = c.ast.Double
+			return fmt.Sprint(math.Float64bits(float64(x)))
 		default:
 			panic(todo("%T", x))
 		}
@@ -564,6 +600,10 @@ func (c *ctx) postfixExpressionCall(n *cc.PostfixExpression, mode mode, t cc.Typ
 	callee := n.PostfixExpression
 	ct := c.ft(callee)
 	params := ct.Parameters()
+	switch {
+	case len(params) == 1 && params[0].Type().Kind() == cc.Void:
+		params = nil
+	}
 	var args []cc.ExpressionNode
 	var exprs []string
 	var types []cc.Type
@@ -584,6 +624,9 @@ func (c *ctx) postfixExpressionCall(n *cc.PostfixExpression, mode mode, t cc.Typ
 		}
 		exprs = append(exprs, c.expr(e, rvalue, et))
 		types = append(types, et)
+	}
+	if len(exprs) > len(params) && (len(params) == 0 || !ct.IsVariadic()) {
+		c.err(n, "arguments '%s' do not match '%s'", cc.NodeSource(n.ArgumentExpressionList), ct)
 	}
 	r = nothing
 	switch mode {
@@ -797,7 +840,10 @@ func (c *ctx) postfixExpressionIndex(n *cc.PostfixExpression, mode mode, t cc.Ty
 		case c.isIntegerType(n.ExpressionList.Type()):
 			p := c.expr(n.PostfixExpression, mode, c.ast.PVoid)
 			ix := c.expr(n.ExpressionList, constRvalue, c.ast.PVoid)
-			off, _ := strconv.ParseUint(ix, 10, 64)
+			off, err := strconv.ParseUint(ix, 10, 64)
+			if err != nil {
+				c.err(n, "internal error: %v", err)
+			}
 			off *= uint64(c.sizeof(n.PostfixExpression, n.PostfixExpression.Type().(*cc.PointerType).Elem()))
 			return fmt.Sprintf("%s+%v", p, off)
 		default:
@@ -1307,9 +1353,9 @@ func (c *ctx) arithmeticOp(lhs, rhs cc.ExpressionNode, mode mode, t cc.Type, op 
 		switch x := info.(type) {
 		case *escaped, nil:
 			r = c.expr(lhs, lvalue, lhs.Type())
+			rv := c.expr(rhs, rvalue, ct)
 			lv := c.load(lhs, r, lhs.Type())
 			lv = c.convert(lhs, ct, lhs.Type(), lv)
-			rv := c.expr(rhs, rvalue, ct)
 			if lmul != 1 {
 				lv = c.temp("%s mul %s, %v\n", c.baseType(lhs, ct), lv, lmul)
 			}
@@ -1322,8 +1368,8 @@ func (c *ctx) arithmeticOp(lhs, rhs cc.ExpressionNode, mode mode, t cc.Type, op 
 			}
 			c.w("\tstore%s %s, %s\n", c.extType(lhs, lhs.Type()), v, r)
 		case *local:
-			lv := c.convert(lhs, ct, lhs.Type(), x.name)
 			rv := c.expr(rhs, rvalue, ct)
+			lv := c.convert(lhs, ct, lhs.Type(), x.name)
 			if lmul != 1 {
 				lv = c.temp("%s mul %s, %v\n", c.baseType(lhs, ct), lv, lmul)
 			}
@@ -1542,9 +1588,9 @@ func (c *ctx) shiftop(lhs, rhs cc.ExpressionNode, mode mode, t cc.Type, op strin
 		_, info := c.variable(lhs)
 		switch x := info.(type) {
 		case *escaped, nil:
+			rv := c.expr(rhs, rvalue, prt)
 			lv := c.load(lhs, r, lt)
 			lv = c.convert(lhs, plt, lt, lv)
-			rv := c.expr(rhs, rvalue, prt)
 			v := c.temp("%s %s %s, %s\n", c.baseType(lhs, plt), op, lv, rv)
 			c.w("\tstore%s %s, %s\n", c.extType(lhs, lt), v, r)
 		default:

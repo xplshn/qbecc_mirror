@@ -19,18 +19,19 @@ var blacklist = map[string]struct{}{
 	"qsort.c": {},
 
 	// ------------------------------------------ "tcc-0.9.27/tests/tests2",
+	"81_types.c": {}, // invalid number of arguments 'i' for: 'function() returning int'
 
 	// -------------------- "gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute"
 
 	// C EXEC FAIL
 
-	// wontfix: linker specific resolution order
+	// linker specific resolution order
 	"20021127-1.c": {},
 
-	// wontfix: platform specific FP handling
+	// platform specific FP handling
 	"20031003-1.c": {},
 
-	// wontfix: unsupported type
+	// unsupported type
 	"20010904-1.c": {},
 	"20010904-2.c": {},
 	"20040308-1.c": {},
@@ -40,41 +41,31 @@ var blacklist = map[string]struct{}{
 	"align-3.c":    {},
 	"align-nest.c": {},
 	"pr65369.c":    {},
-
-	//TODO
-	"pr20187-1.c":  {},
-	"pr39100.c":    {},
-	"pr41750.c":    {},
-	"pr42570.c":    {},
-	"pr47538.c":    {},
-	"pr58943.c":    {},
 	"pr77767.c":    {},
-	"pr79121.c":    {},
 	"pr82210.c":    {},
-	"scope-1.c":    {},
-	"20090113-2.c": {}, // 160 lines
 
-	// GO COMPILE FAIL
-	"20030216-1.c": {},
-	"conversion.c": {},
+	"20090113-2.c": {}, // https://g.co/gemini/share/bcd5c858c626
+	"gofast.c":     {}, // https://g.co/gemini/share/77ed63a54c6d
 
 	// GO EXEC FAIL
-	"20071030-1.c":    {},
-	"20100416-1.c":    {},
-	"20101011-1.c":    {},
-	"920501-1.c":      {},
-	"930614-1.c":      {},
-	"930930-2.c":      {},
-	"931018-1.c":      {},
-	"floatunsisf-1.c": {},
-	"gofast.c":        {},
-	"pr28289.c":       {},
-	"pr28982a.c":      {},
-	"pr34456.c":       {},
-	"pr34982.c":       {},
-	"pr39501.c":       {},
-	"pr67929_1.c":     {},
-	"printf-1.c":      {},
+	"20101011-1.c":    {}, // crash on signal handling we do not support
+	"920501-1.c":      {}, // arguments do not match signature
+	"921202-1.c":      {}, // arguments do not match signature
+	"921208-2.c":      {}, // arguments do not match signature
+	"930111-1.c":      {}, // arguments do not match signature
+	"931018-1.c":      {}, // arguments do not match signature
+	"floatunsisf-1.c": {}, // platform specific FP handling
+	"pr67037.c":       {}, // arguments do not match signature
+
+	"conversion.c": {}, //TODO crash
+
+	"pr28289.c":   {},
+	"pr28982a.c":  {},
+	"pr34456.c":   {},
+	"pr34982.c":   {},
+	"pr39501.c":   {},
+	"pr67929_1.c": {},
+	"printf-1.c":  {},
 
 	// ====================================================================
 

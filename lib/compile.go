@@ -69,6 +69,16 @@ func (t *Task) newCtx(ast *cc.AST, file *compilerFile) (r *ctx) {
 	return r
 }
 
+func (c *ctx) isVLA(t cc.Type) (r bool) {
+	switch x := t.Undecay().(type) {
+	case *cc.ArrayType:
+		if x.SizeExpression() != nil && x.SizeExpression().Value() == nil {
+			return true
+		}
+	}
+	return false
+}
+
 func (c *ctx) isUnsupportedType(t cc.Type) (r bool) {
 	r, ok := c.unsupportedTypes[t]
 	if ok {
@@ -77,7 +87,7 @@ func (c *ctx) isUnsupportedType(t cc.Type) (r bool) {
 
 	switch x := t.(type) {
 	case *cc.ArrayType:
-		r = x.Len() < 0 || c.isUnsupportedType(x.Elem()) || x.SizeExpression() != nil && x.SizeExpression().Value() == nil
+		r = x.Len() < 0 || c.isUnsupportedType(x.Elem()) || c.isVLA(x)
 	case *cc.StructType:
 		for i := 0; i < x.NumFields(); i++ {
 			if c.isUnsupportedType(x.FieldByIndex(i).Type()) {
