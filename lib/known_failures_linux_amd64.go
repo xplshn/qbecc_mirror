@@ -8,15 +8,10 @@ var blacklist = map[string]struct{}{
 	// ---------------------------------------------- "CompCert-3.6/test/c"
 
 	// C EXEC FAIL
-	"bisect.c":     {},
-	"chomp.c":      {},
 	"mandelbrot.c": {},
 
-	// C EQUAL FAIL:
-	"sha3.c": {},
-
 	// GO EXEC FAIL
-	"qsort.c": {},
+	"qsort.c": {}, //TODO must adjust callback func ptrs
 
 	// ------------------------------------------ "tcc-0.9.27/tests/tests2",
 	"81_types.c": {}, // invalid number of arguments 'i' for: 'function() returning int'
@@ -55,17 +50,13 @@ var blacklist = map[string]struct{}{
 	"930111-1.c":      {}, // arguments do not match signature
 	"931018-1.c":      {}, // arguments do not match signature
 	"floatunsisf-1.c": {}, // platform specific FP handling
+	"pr28289.c":       {}, // arguments do not match signature
 	"pr67037.c":       {}, // arguments do not match signature
+	"pr34982.c":       {}, // arguments do not match signature
 
 	"conversion.c": {}, //TODO crash
-
-	"pr28289.c":   {},
-	"pr28982a.c":  {},
-	"pr34456.c":   {},
-	"pr34982.c":   {},
-	"pr39501.c":   {},
-	"pr67929_1.c": {},
-	"printf-1.c":  {},
+	"pr34456.c":    {}, //TODO must adjust callback func ptrs
+	"pr58831.c":    {}, //TODO __assert_fail not defined
 
 	// ====================================================================
 
@@ -107,7 +98,6 @@ var blacklist = map[string]struct{}{
 	"20000707-1.c":                 {},
 	"20000717-1.c":                 {},
 	"20000717-5.c":                 {},
-	"20000722-1.c":                 {},
 	"20000801-3.c":                 {},
 	"20000801-4.c":                 {},
 	"20000808-1.c":                 {},
@@ -122,7 +112,6 @@ var blacklist = map[string]struct{}{
 	"20001203-2.c":                 {},
 	"20001229-1.c":                 {},
 	"20010122-1.c":                 {},
-	"20010123-1.c":                 {},
 	"20010209-1.c":                 {},
 	"20010224-1.c":                 {},
 	"20010325-1.c":                 {},
@@ -329,7 +318,6 @@ var blacklist = map[string]struct{}{
 	"980604-1.c":                   {},
 	"980618-1.c":                   {},
 	"980716-1.c":                   {},
-	"980929-1.c":                   {},
 	"981130-1.c":                   {},
 	"990127-1.c":                   {},
 	"990130-1.c":                   {},
@@ -520,15 +508,12 @@ var blacklist = map[string]struct{}{
 	"pr57344-3.c":                  {},
 	"pr57344-4.c":                  {},
 	"pr57568.c":                    {},
-	"pr57875.c":                    {},
 	"pr58277-1.c":                  {},
 	"pr58277-2.c":                  {},
 	"pr58365.c":                    {},
 	"pr58419.c":                    {},
-	"pr58431.c":                    {},
 	"pr58570.c":                    {},
 	"pr58726.c":                    {},
-	"pr58831.c":                    {},
 	"pr58984.c":                    {},
 	"pr59101.c":                    {},
 	"pr59358.c":                    {},

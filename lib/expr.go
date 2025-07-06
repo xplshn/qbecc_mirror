@@ -538,8 +538,19 @@ func (c *ctx) assignmentExpressionOp(n *cc.AssignmentExpression, mode mode, t cc
 			v = c.convert(n, lt, ct, v)
 			c.w("\t%s =%s copy %s\n", x.name, c.baseType(n, lt), v)
 			return c.temp("%s copy %s\n", c.baseType(n, lt), x.name)
+		case *static:
+			ct := c.usualArithmeticConversions(lt, rt)
+			var v string
+			switch op {
+			case "shl", "shr":
+				v = c.shiftop(lhs, rhs, rvalue, ct, op)
+			default:
+				v = c.arithmeticOp(lhs, rhs, rvalue, ct, op)
+			}
+			v = c.convert(n, lt, ct, v)
+			c.w("\tstore%s %s, %s\n", c.extType(n, lt), v, x.name)
+			return c.temp("%s copy %s\n", c.baseType(n, lt), x.name)
 		default:
-			// COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/pr58431.c
 			panic(todo("%v: %v %T %v", n.Position(), mode, x, cc.NodeSource(n)))
 		}
 	default:
@@ -626,7 +637,7 @@ func (c *ctx) postfixExpressionCall(n *cc.PostfixExpression, mode mode, t cc.Typ
 		types = append(types, et)
 	}
 	if len(exprs) > len(params) && (len(params) == 0 || !ct.IsVariadic()) {
-		c.err(n, "arguments '%s' do not match '%s'", cc.NodeSource(n.ArgumentExpressionList), ct)
+		c.err(n, "arguments '%s' do not match signature '%s' (missing prototype?)", cc.NodeSource(n.ArgumentExpressionList), ct)
 	}
 	r = nothing
 	switch mode {
@@ -665,7 +676,7 @@ func (c *ctx) postfixExpressionCall(n *cc.PostfixExpression, mode mode, t cc.Typ
 	return r
 }
 
-func (c *ctx) unparen(n cc.ExpressionNode) cc.ExpressionNode {
+func unparen(n cc.ExpressionNode) cc.ExpressionNode {
 	for {
 		switch x := n.(type) {
 		case *cc.ExpressionList:
@@ -709,7 +720,6 @@ func (c *ctx) postfixExpressionIncDec(n *cc.PostfixExpression, mode mode, t cc.T
 			v = c.temp("%s %s %s, %v\n", c.baseType(n, n.PostfixExpression.Type()), op, v, delta)
 			c.w("\tstore%s %s, %s\n", c.extType(n, n.PostfixExpression.Type()), v, p)
 		default:
-			// COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/20000605-2.c
 			panic(todo("%v: %T", n.Position(), x))
 		}
 	case rvalue:
@@ -820,8 +830,25 @@ func (c *ctx) postfixExpressionIndex(n *cc.PostfixExpression, mode mode, t cc.Ty
 				panic(todo("%v: %s %s", n.Position(), mode, cc.NodeSource(n)))
 			}
 		default:
-			// COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/pr22061-1.c
-			panic(todo("%v: %v %s", n.Position(), n.Case, cc.NodeSource(n)))
+			et = n.ExpressionList.Type().(*cc.PointerType).Elem()
+			ix := c.expr(n.PostfixExpression, rvalue, c.ast.PVoid)
+			ix2 := c.temp("%s mul %s, %v\n", c.wordTag, ix, c.sizeof(n.ExpressionList, et))
+			switch x := n.ExpressionList.Type().(type) {
+			case *cc.PointerType:
+				switch et := x.Undecay().(type) {
+				case *cc.ArrayType:
+					p0 := c.expr(n.ExpressionList, lvalue, c.ast.PVoid)
+					p = c.temp("%s add %s, %s\n", c.wordTag, p0, ix2)
+					if et.Elem().Kind() == cc.Array {
+						load = false
+					}
+				default:
+					p0 := c.expr(n.ExpressionList, rvalue, c.ast.PVoid)
+					p = c.temp("%s add %s, %s\n", c.wordTag, p0, ix2)
+				}
+			default:
+				panic(todo("%v: %s %s", n.Position(), mode, cc.NodeSource(n)))
+			}
 		}
 	}
 	switch mode {
@@ -855,6 +882,17 @@ func (c *ctx) postfixExpressionIndex(n *cc.PostfixExpression, mode mode, t cc.Ty
 	}
 }
 
+// '(' TypeName ')' '{' InitializerList ',' '}'
+func (c *ctx) postfixExpressionComplit(n *cc.PostfixExpression, mode mode, t cc.Type) (r string) {
+	// _, info := c.variable(n)
+	switch mode {
+	default:
+		// ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/20050929-1.c
+		panic(todo("%v: %v %s", n.Position(), mode, cc.NodeSource(n)))
+	}
+	return r
+}
+
 func (c *ctx) postfixExpression(n *cc.PostfixExpression, mode mode, t cc.Type) (r string) {
 	switch n.Case {
 	case cc.PostfixExpressionPrimary: // PrimaryExpression
@@ -872,8 +910,7 @@ func (c *ctx) postfixExpression(n *cc.PostfixExpression, mode mode, t cc.Type) (
 	case cc.PostfixExpressionDec: // PostfixExpression "--"
 		return c.postfixExpressionIncDec(n, mode, t, "sub")
 	case cc.PostfixExpressionComplit: // '(' TypeName ')' '{' InitializerList ',' '}'
-		// ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/20050929-1.c
-		panic(todo("%v: %v %s", n.Position(), n.Case, cc.NodeSource(n)))
+		return c.postfixExpressionComplit(n, mode, t)
 	default:
 		c.err(n, "internal error %T.%s", n, n.Case)
 		return nothing
@@ -919,6 +956,12 @@ func (c *ctx) unaryExpressionAddrof(n *cc.UnaryExpression, mode mode, t cc.Type)
 			return x.name
 		case nil:
 			return c.expr(n.CastExpression, lvalue, n.Type())
+		case *complit:
+			c.initializer(&cc.Initializer{
+				Case:            cc.InitializerInitList,
+				InitializerList: x.n.InitializerList,
+			}, x, x.n.TypeName.Type())
+			return c.temp("%s add %%.bp., %v\n", c.wordTag, x.offset)
 		default:
 			panic(todo("%v: %T", n.Position(), x))
 		}
@@ -926,8 +969,9 @@ func (c *ctx) unaryExpressionAddrof(n *cc.UnaryExpression, mode mode, t cc.Type)
 		defer func() { r = c.convertConst(n, t, n.Type(), r) }()
 
 		return c.expr(n.CastExpression, constLvalue, n.Type())
+	case void:
+		return nothing
 	default:
-		// ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/980929-1.c
 		panic(todo("%v: %s %s", n.Position(), mode, cc.NodeSource(n)))
 	}
 }
@@ -993,6 +1037,8 @@ func (c *ctx) unaryExpressionSizeofExpr(n *cc.UnaryExpression, mode mode, t cc.T
 		}
 
 		return fmt.Sprint(c.sizeof(n.UnaryExpression, n.UnaryExpression.Type()))
+	case void:
+		return nothing
 	default:
 		// ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/pr58831.c
 		panic(todo("%v: %s %s", n.Position(), mode, cc.NodeSource(n)))

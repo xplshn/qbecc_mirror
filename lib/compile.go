@@ -63,7 +63,7 @@ func (t *Task) newCtx(ast *cc.AST, file *compilerFile) (r *ctx) {
 			if r.isUnsupportedType(x.Type()) {
 				r.err(x, "unsupported type")
 			}
-			r.variables.register(x, nil)
+			r.variables.register(x, nil, r)
 		}
 	}
 	return r
@@ -152,15 +152,17 @@ func (c *ctx) variable(n cc.Node) (d *cc.Declarator, v variable) {
 	case *cc.Declarator:
 		d = x
 	case cc.ExpressionNode:
-		d = c.declaratorOf(x)
+		if d = c.declaratorOf(x); d != nil {
+			n = d
+		}
 	default:
 		panic(todo("%T", x))
 	}
 	switch {
 	case c.fn != nil:
-		return d, c.fn.variables[d]
+		return d, c.fn.variables[n]
 	default:
-		return d, c.variables[d]
+		return d, c.variables[n]
 	}
 }
 

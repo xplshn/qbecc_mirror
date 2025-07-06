@@ -177,9 +177,9 @@ func (p *parallelTest) err(err error) {
 //	all_test.go:267: tcc-0.9.27/tests/tests2: files=88 gcc fails=8 skipped=18 failed=0 passed=62
 
 // 2025-07-06
-//	all_test.go:268: CompCert-3.6/test/c: files=24 gcc fails=8 skipped=9 failed=0 passed=7
-//	all_test.go:268: gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute: files=1506 gcc fails=26 skipped=616 failed=0 passed=864
-//	all_test.go:268: tcc-0.9.27/tests/tests2: files=88 gcc fails=8 skipped=19 failed=0 passed=61
+//	all_test.go:272: CompCert-3.6/test/c: files=24 gcc fails=8 skipped=6 failed=0 passed=10
+//	all_test.go:272: gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute: files=1506 gcc fails=26 skipped=607 failed=0 passed=873
+//	all_test.go:272: tcc-0.9.27/tests/tests2: files=88 gcc fails=8 skipped=19 failed=0 passed=61
 
 func TestExec(t *testing.T) {
 	t.Logf("using C compiler at %s", gcc)

@@ -56,6 +56,8 @@ func (c *ctx) initializer(n *cc.Initializer, v variable, t cc.Type) {
 		c.initEscapedVar(n, x, t, m, offs)
 	case *static:
 		c.initStaticVar(n, x, t, m, offs)
+	case *complit:
+		c.initComplit(n, x, t, m, offs)
 	default:
 		panic(todo("", n.Position(), cc.NodeSource(n), x, t, m))
 	}
@@ -73,6 +75,38 @@ func (c *ctx) initLocalVar(n cc.Node, v *local, t cc.Type, m initMap, offs []int
 		c.w("\t%s =%s copy %s\n", v.name, c.baseType(n, v.d.Type()), e)
 	default:
 		panic(todo("", n.Position(), cc.NodeSource(n), v, t, m))
+	}
+}
+
+func (c *ctx) initComplit(n cc.Node, v *complit, t cc.Type, m initMap, offs []int64) {
+	zeroed := false
+	switch t.Kind() {
+	case cc.Struct, cc.Union, cc.Array:
+		p := c.temp("%s add %%.bp., %v\n", c.wordTag, v.offset)
+		c.w("\tcall $memset(%s %s, w 0, %[1]s %[3]v)\n", c.wordTag, p, c.sizeof(n, t))
+		zeroed = true
+	}
+	for _, off := range offs {
+		item := m[off]
+		if zeroed {
+			switch x := item.expr.Value().(type) {
+			case cc.Int64Value:
+				if x == 0 {
+					continue
+				}
+			case cc.UInt64Value:
+				if x == 0 {
+					continue
+				}
+			case cc.Float64Value:
+				if x == 0 {
+					continue
+				}
+			}
+		}
+		p := c.temp("%s add %%.bp., %v\n", c.wordTag, v.offset+off)
+		e := c.expr(item.expr, rvalue, item.t)
+		c.w("\tstore%s %s, %s\n", c.extType(n, item.t), e, p)
 	}
 }
 

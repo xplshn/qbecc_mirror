@@ -43,6 +43,16 @@ func (n *escaped) String() string {
 	return fmt.Sprintf("%v: %T %s", n.d.Position(), n, n.d.Name())
 }
 
+type complit struct {
+	varinfo
+	n      *cc.PostfixExpression
+	offset int64 // into %.bp.
+}
+
+func (n *complit) String() string {
+	return fmt.Sprintf("%v: %T", n.n.Position(), n)
+}
+
 // storage static
 type static struct {
 	varinfo
@@ -50,9 +60,9 @@ type static struct {
 	name string
 }
 
-type variables map[*cc.Declarator]variable
+type variables map[cc.Node]variable
 
-func (v *variables) register(n cc.Node, f *fnCtx) {
+func (v *variables) register(n cc.Node, f *fnCtx, c *ctx) {
 	m := *v
 	if m == nil {
 		m = variables{}
@@ -100,7 +110,7 @@ func (v *variables) register(n cc.Node, f *fnCtx) {
 			case x.AddressTaken() || k == cc.Array || k == cc.Struct || k == cc.Union:
 				m[x] = &escaped{
 					d:      x,
-					offset: f.alloc(x, int64(dt.Align()), f.ctx.sizeof(x, dt)),
+					offset: f.alloc(x, int64(dt.Align()), c.sizeof(x, dt)),
 				}
 			default:
 				suff := ""
@@ -115,9 +125,17 @@ func (v *variables) register(n cc.Node, f *fnCtx) {
 		default:
 			panic(todo("", x.StorageDuration()))
 		}
+	case *cc.PostfixExpression:
+		switch x.Case {
+		case cc.PostfixExpressionComplit: // '(' TypeName ')' '{' InitializerList ',' '}'
+			t := x.TypeName.Type()
+			m[x] = &complit{
+				n:      x,
+				offset: f.alloc(x, int64(t.Align()), c.sizeof(x, t)),
+			}
+		}
 	default:
-		// compostite literal: COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/20000722-1.c
-		panic(todo("%v: %v %T", n.Position(), cc.NodeSource(n), x))
+		c.err(n, "internal error %T", x)
 	}
 }
 
@@ -177,18 +195,18 @@ func (c *ctx) newFnCtx(n *cc.FunctionDefinition) (r *fnCtx) {
 				ignore++
 			case *cc.Declarator:
 				if ignore == 0 {
-					r.variables.register(x, r)
+					r.variables.register(x, r, c)
 				}
 			case *cc.PostfixExpression:
 				switch x.Case {
 				case cc.PostfixExpressionComplit:
-					r.variables.register(x, r)
+					r.variables.register(x, r, c)
 				}
 			case *cc.PrimaryExpression:
 				switch x.Case {
 				case cc.PrimaryExpressionIdent:
 					if d, ok := x.ResolvedTo().(*cc.Declarator); ok {
-						r.variables.register(d, r)
+						r.variables.register(d, r, c)
 					}
 				}
 			}

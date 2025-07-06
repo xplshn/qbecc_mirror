@@ -313,7 +313,7 @@ func round(n, to int64) int64 {
 
 func (c *ctx) declaratorOf(n cc.ExpressionNode) (r *cc.Declarator) {
 	for n != nil {
-		n = c.unparen(n)
+		n = unparen(n)
 		switch x := n.(type) {
 		case *cc.PrimaryExpression:
 			switch x.Case {
