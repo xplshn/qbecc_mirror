@@ -460,3 +460,21 @@ func (c *ctx) declaratorOf(n cc.ExpressionNode) (r *cc.Declarator) {
 	}
 	return nil
 }
+
+func buildDefs(D, U []string) string {
+	var a []string
+	for _, v := range D {
+		v = v[len("-D"):]
+		if i := strings.IndexByte(v, '='); i > 0 {
+			a = append(a, fmt.Sprintf("#define %s %s", v[:i], v[i+1:]))
+			continue
+		}
+
+		a = append(a, fmt.Sprintf("#define %s 1", v))
+	}
+	for _, v := range U {
+		v = v[len("-U"):]
+		a = append(a, fmt.Sprintf("#undef %s", v))
+	}
+	return strings.Join(a, "\n")
+}

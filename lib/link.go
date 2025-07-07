@@ -110,6 +110,8 @@ func (l *linkerObject) inspectSSA(ssa []byte, nm string) (ok bool) {
 				switch x := v.(type) {
 				case *parser.RegularParamNode:
 					a = append(a, fmt.Sprintf("%s %s", x.Local.Src()[1:], l.ssaTyp(string(x.Type.Src()))))
+				case *parser.VariadicMarkerNode:
+					a = append(a, "__qbe_va uintptr")
 				default:
 					panic(todo("%T", x))
 				}
@@ -163,17 +165,33 @@ func (l *linkerObject) goabi0(w io.Writer, ssa []byte, nm string, externs map[st
 	}
 
 	rewritten := parser.RewriteSource(func(nm string) (r string) {
-		if nm == "%g" {
+		switch nm {
+		case "%g":
 			return "%__qbe_g"
+		case "%map":
+			return "%__qbe_map"
+		case "%type":
+			return "%__qbe_type"
+		case "%var":
+			return "%__qbe_var"
 		}
 		cname := nm[1:]
-		//defer func() { trc("(nm=%s cname=%s)->%s", nm, cname, r) }()
+		// defer func() { trc("(nm=%s cname=%s)->%s", nm, cname, r) }()
 		if !isQBEExported(nm) {
 			return nm
 		}
 
-		if _, ok := l.defines[cname]; ok {
-			return nm
+		if k, ok := l.defines[cname]; ok {
+			switch k {
+			case symbolExportedData, symbolExportedFunction:
+				if cname == "main" {
+					return nm
+				}
+
+				return "$Y" + cname
+			default:
+				return nm
+			}
 		}
 
 		resolvedIn := externs[cname]

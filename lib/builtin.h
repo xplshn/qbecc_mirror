@@ -19,8 +19,7 @@ typedef long long int __builtin_va_list[1];
 typedef __builtin_va_list __gnuc_va_list;
 
 #ifndef __builtin_va_arg
-#define __builtin_va_arg __builtin_va_arg
-#define __builtin_va_arg(va, type) (*(type*)__builtin_va_arg(va))
+#define __builtin_va_arg(va, type) ((type)__builtin_va_arg(va))
 #endif
 
 #ifndef __builtin_types_compatible_p

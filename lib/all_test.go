@@ -181,6 +181,11 @@ func (p *parallelTest) err(err error) {
 //	all_test.go:272: gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute: files=1506 gcc fails=26 skipped=607 failed=0 passed=873
 //	all_test.go:272: tcc-0.9.27/tests/tests2: files=88 gcc fails=8 skipped=19 failed=0 passed=61
 
+// 2025-07-07
+//	all_test.go:277: CompCert-3.6/test/c: files=24 gcc fails=8 skipped=5 failed=0 passed=11
+//	all_test.go:277: gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute: files=1506 gcc fails=26 skipped=573 failed=0 passed=907
+//	all_test.go:277: tcc-0.9.27/tests/tests2: files=88 gcc fails=8 skipped=18 failed=0 passed=62
+
 func TestExec(t *testing.T) {
 	t.Logf("using C compiler at %s", gcc)
 	const destDir = "tmp"
@@ -405,16 +410,21 @@ func main() {
 		sort.Strings(a)
 		for _, k := range a {
 			in := v.signatures[k]
-			out := renameGParam(in[len(in)-1])
+			out := renameParam(in[len(in)-1])
 			in = in[:len(in)-1]
 			for i, v := range in {
-				in[i] = renameGParam(v)
+				in[i] = renameParam(v)
+			}
+			prefix := ""
+			switch v.defines[k] {
+			case symbolExportedData, symbolExportedFunction:
+				prefix = "Y"
 			}
 			switch k {
 			case "main":
 				fmt.Fprintf(b, "func __qbe_main(%s) int32", strings.Join(in, ", "))
 			default:
-				fmt.Fprintf(b, "func %s(%s)", k, strings.Join(in, ", "))
+				fmt.Fprintf(b, "func %s%s(%s)", prefix, k, strings.Join(in, ", "))
 				if out != "" {
 					fmt.Fprintf(b, " %s", out)
 				}
@@ -457,14 +467,20 @@ func main() {
 	return nil
 }
 
-func renameGParam(s string) string {
+func renameParam(s string) string {
 	a := strings.Fields(s)
 	if len(a) == 0 {
 		return s
 	}
+	const prefix = "__qbe_"
 	switch a[0] {
-	case "g":
-		return "__qbe_g " + a[1]
+	case
+		"g",
+		"map",
+		"type",
+		"var":
+
+		return prefix + s
 	default:
 		return s
 	}

@@ -228,6 +228,9 @@ func (t *Task) sourcesFor(file *compilerFile) (r []cc.Source, err error) {
 		{Name: "<predefined>", Value: t.cfg.Predefined + predefined},
 		{Name: "<builtin>", Value: builtin},
 	}
+	if len(t.optD)+len(t.optU) != 0 {
+		r = append(r, cc.Source{Name: "<command-line>", Value: buildDefs(t.optD, t.optU)})
+	}
 	var v any
 	if file.in != nil {
 		v = file.in
@@ -295,6 +298,13 @@ func (t *Task) compileOne(in *compilerFile) (r *ctx) {
 		return
 	}
 
+	if t.optE {
+		if err := cc.Preprocess(t.cfg, srcs, t.options.Stderr); err != nil {
+			t.err(fileNode(in.name), "%v", err)
+		}
+		return
+	}
+
 	ast, err := cc.Translate(t.cfg, srcs)
 	if err != nil {
 		t.err(fileNode(in.name), "%v", err)
@@ -338,6 +348,10 @@ func (t *Task) compile() (ok bool) {
 				}
 			})
 		case fileELF:
+			if t.optE {
+				break
+			}
+
 			t.parallel.exec(func() {
 				ssa, err := t.ssaFromELF(v.name)
 				if err != nil {

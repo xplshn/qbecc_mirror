@@ -113,9 +113,12 @@ type Task struct {
 	parallel      *parallel
 	wordTag       string // 32b: "w", 64b: "l"
 
-	c         bool     // -c, compile or assemble the source files, but do not link.
-	cc        string   // --cc=<string>, C compiler to use for linking.
+	ansi      bool   // -ansi
+	c         bool   // -c, compile or assemble the source files, but do not link.
+	cc        string // --cc=<string>, C compiler to use for linking.
+	cfgArgs   []string
 	dumpSSA   bool     // --dump-ssa
+	fnoAsm    bool     // -fno-asm
 	goabi0    bool     // --goabi0, produce Go asm file.
 	goarch    string   // --goarch=<string>, target GOARCH
 	goos      string   // --goos=<string>, target GOOS
@@ -123,11 +126,15 @@ type Task struct {
 	iquote    []string // -iquote, #include "foo.h" search path
 	isystem   []string // -isystem, #include <foo.h> search path
 	o         string   // -o=<file>, Place the primary output in file <file>.
+	optD      []string // -D
 	optE      bool     // -E, stop after the preprocessing stage; do not run the compiler proper.
 	optI      []string // -I, include files search path
+	optO      string   // -O
 	optS      bool     // -S, stop after the stage of compilation proper; do not assemble.
+	optU      []string // -U
 	positions int      // --positions={base,full}, annotate SSA with source position info
 	ssaHeader string   // --ssa-header=<string>, injected into SSA
+	std       string   // -std
 	target    string   // --target=<string>, QBE target string, like amd64_sysv.
 }
 
@@ -142,12 +149,11 @@ func NewTask(options *Options, args ...string) (r *Task, err error) {
 	}
 
 	return &Task{
-		args:     args,
-		cc:       gcc,
-		goarch:   goarch,
-		goos:     goos,
-		options:  options,
-		parallel: newParallel(options.GOMAXPROCS),
+		args:    args,
+		cc:      gcc,
+		goarch:  goarch,
+		goos:    goos,
+		options: options,
 	}, nil
 }
 
@@ -158,13 +164,24 @@ func (t *Task) err(n cc.Node, s string, args ...any) {
 func (t *Task) Main() (err error) {
 	hasLC := false // -lc
 	set := opt.NewSet()
+	set.Arg("D", true, func(arg, val string) error { t.optD = append(t.optD, fmt.Sprintf("%s%s", arg, val)); return nil })
 	set.Arg("I", true, func(arg, val string) error { t.optI = append(t.optI, val); return nil })
-	set.Arg("-goarch", false, func(opt, arg string) error { t.goarch = arg; return nil })
-	set.Arg("-goos", false, func(opt, arg string) error { t.goos = arg; return nil })
+	set.Arg("O", true, func(arg, val string) error { t.optO = fmt.Sprintf("%s%s", arg, val); return nil })
+	set.Arg("U", true, func(arg, val string) error { t.optU = append(t.optU, fmt.Sprintf("%s%s", arg, val)); return nil })
 	set.Arg("idirafter", true, func(arg, val string) error { t.idirafter = append(t.idirafter, val); return nil })
 	set.Arg("iquote", true, func(arg, val string) error { t.iquote = append(t.iquote, val); return nil })
 	set.Arg("isystem", true, func(arg, val string) error { t.isystem = append(t.isystem, val); return nil })
+	set.Arg("l", true, func(opt, arg string) error {
+		if arg == "c" {
+			hasLC = true
+		}
+		t.compilerFiles = append(t.compilerFiles, &compilerFile{name: arg, inType: fileLib, outType: fileLib})
+		return nil
+	})
 	set.Arg("o", false, func(opt, arg string) error { t.o = arg; return nil })
+	set.Arg("std", true, func(arg, val string) error { t.std = fmt.Sprintf("%s=%s", arg, val); return nil })
+	set.Arg("-goarch", false, func(opt, arg string) error { t.goarch = arg; return nil })
+	set.Arg("-goos", false, func(opt, arg string) error { t.goos = arg; return nil })
 	set.Arg("-positions", false, func(opt, arg string) error {
 		switch arg {
 		case "base":
@@ -176,20 +193,14 @@ func (t *Task) Main() (err error) {
 	})
 	set.Arg("-ssa-header", false, func(opt, arg string) error { t.ssaHeader = arg; return nil })
 	set.Arg("-target", false, func(opt, arg string) error { t.target = arg; return nil })
-
-	set.Arg("l", true, func(opt, arg string) error {
-		if arg == "c" {
-			hasLC = true
-		}
-		t.compilerFiles = append(t.compilerFiles, &compilerFile{name: arg, inType: fileLib, outType: fileLib})
-		return nil
-	})
-
 	set.Opt("-dump-ssa", func(string) error { t.dumpSSA = true; return nil })
 	set.Opt("-extended-errors", func(string) error { t.errs.extendedErrors = true; return nil })
 	set.Opt("-goabi0", func(string) error { t.goabi0 = true; return nil })
+	set.Opt("E", func(string) error { t.optE = true; return nil })
 	set.Opt("S", func(string) error { t.optS = true; return nil })
+	set.Opt("ansi", func(arg string) error { t.ansi = true; return nil })
 	set.Opt("c", func(string) error { t.c = true; return nil })
+	set.Opt("fno-asm", func(arg string) error { t.fnoAsm = true; return nil })
 	if err := set.Parse(t.args[1:], func(arg string) error {
 		if strings.HasPrefix(arg, "-") {
 			return fmt.Errorf("unexpected/unsupported option: %s", arg)
@@ -234,14 +245,34 @@ func (t *Task) Main() (err error) {
 		return fmt.Errorf("cannot specify -o with -c, -S or -E and multiple input files")
 	}
 
-	cfg, err := cc.NewConfig(t.goos, t.goarch)
+	t.optD = append(t.optD, "-D__QBECC__")
+	t.cfgArgs = append(t.cfgArgs, t.optD...)
+	t.cfgArgs = append(t.cfgArgs, t.optU...)
+	t.cfgArgs = append(t.cfgArgs,
+		t.optO,
+		t.std,
+	)
+	ldflag := cc.LongDouble64Flag(t.goos, t.goarch)
+	if ldflag != "" {
+		t.cfgArgs = append(t.cfgArgs, ldflag)
+	}
+	if t.ansi {
+		t.cfgArgs = append(t.cfgArgs, "-ansi")
+	}
+	if t.fnoAsm {
+		t.cfgArgs = append(t.cfgArgs, "-fno-asm")
+	}
+
+	cfg, err := cc.NewConfig(t.goos, t.goarch, t.cfgArgs...)
 	if err != nil {
 		return err
 	}
 
 	t.cfg = cfg
-	if err = cfg.AdjustLongDouble(); err != nil {
-		return err
+	if ldflag == "" {
+		if err = cfg.AdjustLongDouble(); err != nil {
+			return err
+		}
 	}
 
 	// --------------------------------------------------------------------
@@ -302,6 +333,11 @@ func (t *Task) Main() (err error) {
 	// trc("IncludePaths=%v", cfg.IncludePaths)
 	// trc("SysIncludePaths=%v", cfg.SysIncludePaths)
 
+	n := t.options.GOMAXPROCS
+	if t.optE {
+		n = 1
+	}
+	t.parallel = newParallel(n)
 	if !t.compile() {
 		return t.errs.Err()
 	}

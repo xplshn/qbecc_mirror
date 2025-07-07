@@ -322,7 +322,7 @@ func (f *fnCtx) alloc(n cc.Node, align, size int64) (r int64) {
 	return r
 }
 
-func (c *ctx) signature(l []*cc.Parameter) {
+func (c *ctx) signature(l []*cc.Parameter, isVariadic bool) {
 	c.w("(")
 	for _, v := range l {
 		if v.Type().Kind() == cc.Void {
@@ -336,6 +336,9 @@ func (c *ctx) signature(l []*cc.Parameter) {
 		default:
 			c.w("%%%s, ", nm)
 		}
+	}
+	if isVariadic {
+		c.w("...")
 	}
 	c.w(")")
 }
@@ -366,7 +369,7 @@ func (c *ctx) externalDeclarationFuncDef(n *cc.FunctionDefinition) {
 		c.w("%s ", c.baseType(d, f.returns))
 	}
 	c.w("$%s", d.Name())
-	c.signature(ft.Parameters())
+	c.signature(ft.Parameters(), ft.IsVariadic())
 	c.w(" {\n")
 	c.w("@start.0\n")
 	if f.allocs != 0 {

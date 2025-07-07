@@ -607,9 +607,64 @@ func (c *ctx) ft(n cc.ExpressionNode) (r *cc.FunctionType) {
 	}
 }
 
+// PostfixExpression '(' ArgumentExpressionList ')'
+func (c *ctx) vaStart(n *cc.PostfixExpression, mode mode, t cc.Type) (r string) {
+	if n.ArgumentExpressionList == nil {
+		c.err(n, "missing argument")
+		return nothing
+	}
+
+	arg := n.ArgumentExpressionList.AssignmentExpression
+	_, info := c.variable(arg)
+	switch mode {
+	case void:
+		switch x := info.(type) {
+		case *escaped:
+			p := c.temp("%s add %%.bp., %v\n", c.wordTag, x.offset)
+			c.w("\tvastart %s\n", p)
+		default:
+			panic(todo("%v: %T %s", n.Position(), info, cc.NodeSource(n)))
+		}
+	default:
+		panic(todo("%v: %s %s", n.Position(), mode, cc.NodeSource(n)))
+	}
+	return r
+}
+
+// PostfixExpression '(' ArgumentExpressionList ')'
+func (c *ctx) vaArg(n *cc.PostfixExpression, mode mode, t cc.Type) (r string) {
+	if n.ArgumentExpressionList == nil {
+		c.err(n, "missing argument")
+		return nothing
+	}
+
+	switch mode {
+	case rvalue:
+		// Intentionally no call to convert here.
+		va := c.expr(n.ArgumentExpressionList.AssignmentExpression, rvalue, c.ast.PVoid)
+		return c.temp("%s vaarg %s\n", c.baseType(n, t), va)
+	default:
+		panic(todo("%v: %s %s %s", n.Position(), mode, cc.NodeSource(n), t))
+	}
+	return r
+}
+
+// PostfixExpression '(' ArgumentExpressionList ')'
 func (c *ctx) postfixExpressionCall(n *cc.PostfixExpression, mode mode, t cc.Type) (r string) {
+	if x, ok := unparen(n.PostfixExpression).(*cc.PrimaryExpression); ok && x.Case == cc.PrimaryExpressionIdent {
+		switch x.Token.SrcStr() {
+		case "__builtin_va_start":
+			return c.vaStart(n, mode, t)
+		case "__builtin_va_arg":
+			return c.vaArg(n, mode, t)
+		case "__builtin_va_end":
+			return nothing
+		}
+	}
+
 	callee := n.PostfixExpression
 	ct := c.ft(callee)
+	// trc("%v: %v %T %v", n.Position(), cc.NodeSource(n), ct, ct)
 	params := ct.Parameters()
 	switch {
 	case len(params) == 1 && params[0].Type().Kind() == cc.Void:

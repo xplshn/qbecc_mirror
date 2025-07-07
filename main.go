@@ -138,48 +138,91 @@
 //	        Go      8  1044      142    155   12
 //	jnml@e5-1650:~/src/modernc.org/qbecc/lib$
 //
-// # ==== CC compatible supported flags
+// # CC compatible supported flags
 //
-// # -I dir
+// These flags are recognized. Some are passed to the host C compiler for
+// configuration. Some are used by QBECC, the rest is ignored.
+//
+// # -D: Define macro
+//
+// -D foo is the same as
+//
+//	#define foo 1
+//
+// and -D foo=bar is the same as
+//
+//	# define foo bar
+//
+// # -E: Preprocess
+//
+// Stop after the preprocessing stage; do not run the compiler proper. 
+//
+// # -I <dir>: Include directory
 //
 // Add the directory dir to the list of directories to be searched for header files.
 //
-// # -S: Produce/keep assembler code
+// # -O <n>: Optimization
+//
+// Select optimization level.
+//
+// # -S: Keep assembler code
 //
 // Stop after the stage of compilation proper; do not assemble.
+//
+// # -U: Undefine macro
+//
+// Cancel any previous definition of name, either built in or provided with a -D option.
+//
+// # -ansi: Use ANSI C
+//
+// Select the ANSI C language standard.
 //
 // # -c: Do not link
 //
 // Compile or assemble the source files, but do not link. Ignored with --abi0.
 //
-// # -idirafter dir
+// # -fno-asm: Disable asm keyword
+//
+// Do not recognize asm, inline or typeof as a keyword, so that code can use these words as identifiers. 
+//
+// # -idirafter <dir>: Include directory
 //
 // Add the directory dir at the end of the list of directories to be searched
 // for header files during preprocessing.
 //
-// # -iquote dir
+// # -iquote <dir>: Include directory
 //
 // Add the directory dir to the list of directories to be searched for the
 // #include "foo.h" directive.
 //
-// # -isystem dir
+// # -isystem <dir>: Include directory
 //
 // Add the directory dir to the list of directories to be searched for both
 // #include "foo.h" and #include <bar.h> directives.
 //
-// # -llibrary or -l library
+// # -l <foo>: Link with libfoo
 //
 // Search the library named library when linking.
 //
-// # -o=<file>: Name the output file
+// # -o <file>: Output file name
 //
 // Place the primary output in file <file>.
 //
-// # ==== QBECC specific flags
+// # -std=cxx: Select C standard
+//
+// Select the C standard to use, for example -std=c99.
+//
+// # QBECC specific flags
+//
+// These flags are used only by QBECC.
 //
 // # --cc=<string>: Select host C compiler
 //
 // Name the C compiler to use for system headers discovery and linking.
+//
+// # --dump-ssa: Output SSA
+//
+// Output SSA to stderr.
 //
 // # --extended-errors: Turn on multi line errors
 //
@@ -189,23 +232,23 @@
 //
 // Produce Go [ABI0] assembler code.
 //
-// # --goarch=<string>: target GOARCH
+// # --goarch <string>: target GOARCH
 //
 // Select Go target architecture for cross compiling when/where supported.
 //
-// # --goos=<string>: target GOOS
+// # --goos <string>: target GOOS
 //
 // Select Go target OS for cross compiling when/where supported.
 //
-// # --positions={base,full}: Line number info
+// # --positions {base,full}: Line number info
 //
 // Annotate SSA with source positions.
 //
-// # --ssa-header=<string>: Set SSA header
+// # --ssa-header <string>: Set SSA header
 //
 // The string is injected into the SSA verbatim.
 //
-// # --target=<string>, QBE target
+// # --target <string>: QBE target
 //
 // The argument must be a valid QBE target for cross compiling when/where
 // supported. For example
