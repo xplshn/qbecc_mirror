@@ -22,6 +22,10 @@ typedef __builtin_va_list __gnuc_va_list;
 #define __builtin_va_arg(va, type) ((type)__builtin_va_arg(va))
 #endif
 
+#ifndef __builtin_va_copy
+#define __builtin_va_copy(dest, src) memcpy(dest, src, sizeof(va_list))
+#endif
+
 #ifndef __builtin_types_compatible_p
 #define __builtin_types_compatible_p(t1, t2) __builtin_types_compatible_p((t1){}, (t2){})
 #endif

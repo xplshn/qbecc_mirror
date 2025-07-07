@@ -591,6 +591,20 @@ func (c *ctx) assignmentExpression(n *cc.AssignmentExpression, mode mode, t cc.T
 }
 
 func (c *ctx) ft(n cc.ExpressionNode) (r *cc.FunctionType) {
+	if d := c.declaratorOf(unparen(n)); d != nil && d.Type().Kind() == cc.Function {
+		if r = d.Type().(*cc.FunctionType); len(r.Parameters()) != 0 {
+			return r
+		}
+
+		// d is an implicit or incomplete prototype of the form 'f()', try to get a better
+		// prototype from __builtin_f.
+		if a := c.ast.Scope.Nodes[fmt.Sprintf("__builtin_%s", d.Name())]; len(a) != 0 {
+			if x, ok := a[0].(*cc.Declarator); ok && x.Type().Kind() == cc.Function {
+				return x.Type().(*cc.FunctionType)
+			}
+		}
+	}
+
 	switch x := n.Type().(type) {
 	case *cc.PointerType:
 		switch x := x.Elem().(type) {
@@ -622,6 +636,13 @@ func (c *ctx) vaStart(n *cc.PostfixExpression, mode mode, t cc.Type) (r string) 
 		case *escaped:
 			p := c.temp("%s add %%.bp., %v\n", c.wordTag, x.offset)
 			c.w("\tvastart %s\n", p)
+		case nil:
+			p := c.expr(arg, lvalue, c.ast.PVoid)
+			c.w("\tvastart %s\n", p)
+		case *local:
+			c.w("\tvastart %s\n", x.name)
+		case *static:
+			c.w("\tvastart %s\n", x.name)
 		default:
 			panic(todo("%v: %T %s", n.Position(), info, cc.NodeSource(n)))
 		}
@@ -639,7 +660,7 @@ func (c *ctx) vaArg(n *cc.PostfixExpression, mode mode, t cc.Type) (r string) {
 	}
 
 	switch mode {
-	case rvalue:
+	case rvalue, void:
 		// Intentionally no call to convert here.
 		va := c.expr(n.ArgumentExpressionList.AssignmentExpression, rvalue, c.ast.PVoid)
 		return c.temp("%s vaarg %s\n", c.baseType(n, t), va)
@@ -664,7 +685,7 @@ func (c *ctx) postfixExpressionCall(n *cc.PostfixExpression, mode mode, t cc.Typ
 
 	callee := n.PostfixExpression
 	ct := c.ft(callee)
-	// trc("%v: %v %T %v", n.Position(), cc.NodeSource(n), ct, ct)
+	//trc("%v: %v %T %v", n.Position(), cc.NodeSource(n), ct, ct)
 	params := ct.Parameters()
 	switch {
 	case len(params) == 1 && params[0].Type().Kind() == cc.Void:
