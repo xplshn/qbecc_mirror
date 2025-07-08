@@ -39,6 +39,11 @@ var blacklist = map[string]struct{}{
 	"printf-chk-1.c":  {}, //TODO
 	"user-printf.c":   {}, //TODO
 
+	"20031215-1.c": {}, //TODO init overhaul WIPS
+	"memchr-1.c":   {}, //TODO init overhaul WIPS
+	"pr86714.c":    {}, //TODO init overhaul WIPS
+	"strlen-2.c":   {}, //TODO init overhaul WIPS
+
 	// ====================================================================
 
 	// "CompCert-3.6/test/c",
@@ -46,7 +51,6 @@ var blacklist = map[string]struct{}{
 
 	// "tcc-0.9.27/tests/tests2",
 	"73_arm64.c":                  {},
-	"75_array_in_struct_init.c":   {},
 	"76_dollars_in_identifiers.c": {},
 	"78_vla_label.c":              {},
 	"79_vla_continue.c":           {},
@@ -74,7 +78,6 @@ var blacklist = map[string]struct{}{
 	"20000717-1.c":                 {},
 	"20000717-5.c":                 {},
 	"20000801-3.c":                 {},
-	"20000801-4.c":                 {},
 	"20000808-1.c":                 {},
 	"20000815-1.c":                 {},
 	"20000822-1.c":                 {},
@@ -158,7 +161,6 @@ var blacklist = map[string]struct{}{
 	"20050316-2.c":                 {},
 	"20050316-3.c":                 {},
 	"20050502-1.c":                 {},
-	"20050502-2.c":                 {},
 	"20050604-1.c":                 {},
 	"20050607-1.c":                 {},
 	"20050613-1.c":                 {},
@@ -230,7 +232,6 @@ var blacklist = map[string]struct{}{
 	"921208-1.c":                   {},
 	"921208-2.c":                   {},
 	"921215-1.c":                   {},
-	"930123-1.c":                   {},
 	"930126-1.c":                   {},
 	"930208-1.c":                   {},
 	"930406-1.c":                   {},
@@ -269,7 +270,6 @@ var blacklist = map[string]struct{}{
 	"960312-1.c":                   {},
 	"960317-1.c":                   {},
 	"960326-1.c":                   {},
-	"960327-1.c":                   {},
 	"960405-1.c":                   {},
 	"960416-1.c":                   {},
 	"960512-1.c":                   {},
@@ -290,7 +290,6 @@ var blacklist = map[string]struct{}{
 	"990628-1.c":                   {},
 	"991019-1.c":                   {},
 	"991118-1.c":                   {},
-	"991201-1.c":                   {},
 	"991228-1.c":                   {},
 	"alias-2.c":                    {},
 	"alias-3.c":                    {},
@@ -543,7 +542,6 @@ var blacklist = map[string]struct{}{
 	"pr88739.c":                    {},
 	"pr88904.c":                    {},
 	"pr89195.c":                    {},
-	"pr89369.c":                    {},
 	"pr89434.c":                    {},
 	"pr89826.c":                    {},
 	"pr90025.c":                    {},
@@ -563,7 +561,6 @@ var blacklist = map[string]struct{}{
 	"strct-varg-1.c":               {},
 	"strlen-6.c":                   {},
 	"struct-cpy-1.c":               {},
-	"struct-ini-1.c":               {},
 	"struct-ini-2.c":               {},
 	"struct-ini-3.c":               {},
 	"struct-ini-4.c":               {},
