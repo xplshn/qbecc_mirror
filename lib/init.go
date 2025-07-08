@@ -21,7 +21,7 @@ func newInitListReader(n *cc.InitializerList) (r *initListReader) {
 	return &initListReader{n}
 }
 
-func (lr *initListReader) next() (r *cc.InitializerList) {
+func (lr *initListReader) consume() (r *cc.InitializerList) {
 	if r = lr.n; r != nil {
 		lr.n = lr.n.InitializerList
 	}
@@ -137,8 +137,33 @@ func (c *ctx) initEscapedVar(n cc.Node, v *escaped, t cc.Type, m initMap, offs [
 			}
 		}
 		p := c.temp("%s add %%.bp., %v\n", c.wordTag, v.offset+off)
-		e := c.expr(item.expr, rvalue, item.t)
-		c.w("\tstore%s %s, %s\n", c.extType(n, item.t), e, p)
+		switch item.t.Kind() {
+		case cc.Array:
+			at := item.t.(*cc.ArrayType)
+			switch x := item.expr.Value().(type) {
+			case cc.StringValue:
+				switch al, sl := at.Len(), int64(len(x)); {
+				case al < sl:
+					panic(todo("%v: %s al=%v sl=%v", item.expr.Position(), cc.NodeSource(item.expr), al, sl))
+				case al == sl:
+					// all_test.go:352: C COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/20000801-4.c
+					panic(todo("%v: %s al=%v sl=%v", item.expr.Position(), cc.NodeSource(item.expr), al, sl))
+				default: // al > sl
+					switch {
+					case zeroed:
+						c.w("\tcall $strcpy(%s %s, %[1]s %[3]s)\n", c.wordTag, p, c.addString(string(x)))
+					default:
+						panic(todo("%v: %s al=%v sl=%v", item.expr.Position(), cc.NodeSource(item.expr), al, sl))
+					}
+				}
+			default:
+				// all_test.go:352: C COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/pr89369.c
+				panic(todo("%v: %s %T", item.expr.Position(), cc.NodeSource(item.expr), x))
+			}
+		default:
+			e := c.expr(item.expr, rvalue, item.t)
+			c.w("\tstore%s %s, %s\n", c.extType(n, item.t), e, p)
+		}
 	}
 }
 
@@ -195,6 +220,7 @@ func (c *ctx) initStaticVar(n cc.Node, v variable, t cc.Type, m initMap, offs []
 		case cc.Float64Value:
 			c.w("\t%s %s,\n", c.extType(n, item.t), c.value(item.expr, constRvalue, item.t, x))
 		default:
+			// all_test.go:352: C COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/wchar_t-1.c
 			panic(todo("%v: %s %T", n.Position(), cc.NodeSource(n), x))
 		}
 		noff = off + c.sizeof(item.expr, item.t)
@@ -239,7 +265,7 @@ func (c *ctx) initArray(n *initListReader, off int64, t *cc.ArrayType, m initMap
 
 	et := t.Elem()
 	sz := c.sizeof(n.n, et)
-	for ix, elem := int64(0), n.next(); elem != nil && ix < limit; ix, elem = ix+1, n.next() {
+	for ix, elem := int64(0), n.consume(); elem != nil && ix < limit; ix, elem = ix+1, n.consume() {
 		switch {
 		case elem.Designation != nil:
 			panic(todo("", n.n.Position(), cc.NodeSource(n.n), off, t, m, t.Kind()))
@@ -257,7 +283,7 @@ func (c *ctx) initArray(n *initListReader, off int64, t *cc.ArrayType, m initMap
 func (c *ctx) initStruct(n *initListReader, off int64, t *cc.StructType, m initMap) {
 	limit := t.NumFields()
 	var f *cc.Field
-	for ix, elem := 0, n.next(); elem != nil && ix < limit; ix, elem = ix+1, n.next() {
+	for ix, elem := 0, n.consume(); elem != nil && ix < limit; ix, elem = ix+1, n.consume() {
 		switch {
 		case elem.Designation != nil:
 			// ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/20000801-3.c
@@ -277,7 +303,7 @@ func (c *ctx) initStruct(n *initListReader, off int64, t *cc.StructType, m initM
 func (c *ctx) initUnion(n *initListReader, off int64, t *cc.UnionType, m initMap) {
 	limit := 1
 	var f *cc.Field
-	for ix, elem := 0, n.next(); elem != nil && ix < limit; ix, elem = ix+1, n.next() {
+	for ix, elem := 0, n.consume(); elem != nil && ix < limit; ix, elem = ix+1, n.consume() {
 		switch {
 		case elem.Designation != nil:
 			// ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/991228-1.c

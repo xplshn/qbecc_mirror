@@ -478,3 +478,14 @@ func buildDefs(D, U []string) string {
 	}
 	return strings.Join(a, "\n")
 }
+
+//lint:ignore U1000 debug helper
+func pos(n cc.Node) string {
+	if n == nil {
+		return "-:"
+	}
+
+	p := n.Position()
+	p.Filename = filepath.Base(p.Filename)
+	return p.String()
+}

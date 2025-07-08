@@ -36,10 +36,10 @@ type ctx struct {
 	buf              // QBE SSA
 	file             *compilerFile
 	fn               *fnCtx
-	unsupportedTypes map[cc.Type]bool
 	nextID           int
 	strings          map[string]string // value: name
 	t                *Task
+	unsupportedTypes map[cc.Type]bool
 	variables        variables
 	wordTag          string
 
@@ -291,30 +291,30 @@ func (t *Task) asmFile(in string, c *ctx) (err error) {
 }
 
 // inputTypeC, inputTypeH
-func (t *Task) compileOne(in *compilerFile) (r *ctx) {
+func (t *Task) compileOne(in *compilerFile) bool {
 	srcs, err := t.sourcesFor(in)
 	if err != nil {
 		t.err(fileNode(in.name), "%v", err)
-		return
+		return false
 	}
 
 	if t.optE {
 		if err := cc.Preprocess(t.cfg, srcs, t.options.Stderr); err != nil {
 			t.err(fileNode(in.name), "%v", err)
 		}
-		return
+		return false
 	}
 
 	ast, err := cc.Translate(t.cfg, srcs)
 	if err != nil {
 		t.err(fileNode(in.name), "%v", err)
-		return
+		return false
 	}
 
-	r = t.newCtx(ast, in)
+	r := t.newCtx(ast, in)
 	r.w(t.ssaHeader)
 	if !r.translationUnit(ast.TranslationUnit) {
-		return
+		return false
 	}
 
 	if t.dumpSSA {
@@ -322,10 +322,10 @@ func (t *Task) compileOne(in *compilerFile) (r *ctx) {
 	}
 	if err = t.asmFile(in.name, r); err != nil {
 		t.err(fileNode(in.name), "%v", err)
-		return
+		return false
 	}
 
-	return r
+	return !r.failed
 }
 
 func (t *Task) compile() (ok bool) {
@@ -343,7 +343,7 @@ func (t *Task) compile() (ok bool) {
 		case fileC, fileH:
 			t.parallel.exec(func() {
 				defer t.recover(&fail)
-				if t.compileOne(v).failed {
+				if !t.compileOne(v) {
 					fail.Store(true)
 				}
 			})

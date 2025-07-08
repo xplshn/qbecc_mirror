@@ -13,9 +13,6 @@ var blacklist = map[string]struct{}{
 	// GO EXEC FAIL
 	"qsort.c": {}, //TODO rework func ptrs
 
-	// ------------------------------------------ "tcc-0.9.27/tests/tests2",
-	"81_types.c": {}, // arguments do not match signature
-
 	// -------------------- "gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute"
 
 	// C EXEC FAIL
@@ -24,44 +21,28 @@ var blacklist = map[string]struct{}{
 	"20031003-1.c": {}, // platform specific floating point handling
 
 	// unsupported type
-	"20010904-1.c": {},
-	"20010904-2.c": {},
-	"20040308-1.c": {},
-	"20040423-1.c": {},
-	"20041218-2.c": {},
-	"970217-1.c":   {},
-	"align-3.c":    {},
-	"align-nest.c": {},
-	"pr65369.c":    {},
-	"pr77767.c":    {},
-	"pr82210.c":    {},
+	"970217-1.c": {},
+	"pr77767.c":  {},
 
 	"20090113-2.c": {}, // https://g.co/gemini/share/bcd5c858c626
 
+	"strlen-3.c":  {}, //TODO
+	"strlen-4.c":  {}, //TODO
+	"va-arg-21.c": {}, //TODO
+
 	// GO EXEC FAIL
-	"20101011-1.c":    {}, // crash on unsupported signal handling
-	"920501-1.c":      {}, // arguments do not match signature
-	"921202-1.c":      {}, // arguments do not match signature
-	"921208-2.c":      {}, // arguments do not match signature
-	"930111-1.c":      {}, // arguments do not match signature
-	"931018-1.c":      {}, // arguments do not match signature
-	"floatunsisf-1.c": {}, // platform specific floating point handling
-	"pr28289.c":       {}, // arguments do not match signature
-	"pr67037.c":       {}, // arguments do not match signature
-	"pr34982.c":       {}, // arguments do not match signature
+	"20101011-1.c": {}, // crash on unsupported signal handling
 
 	"conversion.c":    {}, //TODO dtoui fails
 	"fprintf-chk-1.c": {}, //TODO
 	"pr34456.c":       {}, //TODO rework func ptrs
-	"pr58831.c":       {}, //TODO Needs __assert_fail, becomes available in next tagged libc
 	"printf-chk-1.c":  {}, //TODO
+	"user-printf.c":   {}, //TODO
 
 	// ====================================================================
 
 	// "CompCert-3.6/test/c",
-	"aes.c":      {},
-	"fannkuch.c": {},
-	"integr.c":   {},
+	"integr.c": {},
 
 	// "tcc-0.9.27/tests/tests2",
 	"73_arm64.c":                  {},
@@ -70,11 +51,11 @@ var blacklist = map[string]struct{}{
 	"78_vla_label.c":              {},
 	"79_vla_continue.c":           {},
 	"80_flexarray.c":              {},
+	"81_types.c":                  {},
 	"83_utf8_in_identifiers.c":    {},
 	"85_asm-outside-function.c":   {},
 	"87_dead_code.c":              {},
 	"88_codeopt.c":                {},
-	"89_nocode_wanted.c":          {},
 	"90_struct-init.c":            {},
 	"92_enum_bitfield.c":          {},
 	"93_integer_promotion.c":      {},
@@ -103,8 +84,6 @@ var blacklist = map[string]struct{}{
 	"20001024-1.c":                 {},
 	"20001026-1.c":                 {},
 	"20001101.c":                   {},
-	"20001203-2.c":                 {},
-	"20001229-1.c":                 {},
 	"20010122-1.c":                 {},
 	"20010209-1.c":                 {},
 	"20010224-1.c":                 {},
@@ -112,11 +91,11 @@ var blacklist = map[string]struct{}{
 	"20010518-2.c":                 {},
 	"20010605-1.c":                 {},
 	"20010605-2.c":                 {},
-	"20010915-1.c":                 {},
+	"20010904-1.c":                 {},
+	"20010904-2.c":                 {},
 	"20010924-1.c":                 {},
 	"20011008-3.c":                 {},
 	"20011113-1.c":                 {},
-	"20011128-1.c":                 {},
 	"20020127-1.c":                 {},
 	"20020206-1.c":                 {},
 	"20020206-2.c":                 {},
@@ -127,7 +106,6 @@ var blacklist = map[string]struct{}{
 	"20020404-1.c":                 {},
 	"20020411-1.c":                 {},
 	"20020412-1.c":                 {},
-	"20020413-1.c":                 {},
 	"20020418-1.c":                 {},
 	"20020611-1.c":                 {},
 	"20020810-1.c":                 {},
@@ -138,7 +116,6 @@ var blacklist = map[string]struct{}{
 	"20021118-2.c":                 {},
 	"20021219-1.c":                 {},
 	"20030109-1.c":                 {},
-	"20030221-1.c":                 {},
 	"20030222-1.c":                 {},
 	"20030224-2.c":                 {},
 	"20030323-1.c":                 {},
@@ -155,13 +132,14 @@ var blacklist = map[string]struct{}{
 	"20031211-1.c":                 {},
 	"20031211-2.c":                 {},
 	"20031214-1.c":                 {},
-	"20040208-1.c":                 {},
 	"20040223-1.c":                 {},
 	"20040302-1.c":                 {},
 	"20040307-1.c":                 {},
+	"20040308-1.c":                 {},
 	"20040313-1.c":                 {},
 	"20040331-1.c":                 {},
 	"20040411-1.c":                 {},
+	"20040423-1.c":                 {},
 	"20040520-1.c":                 {},
 	"20040703-1.c":                 {},
 	"20040707-1.c":                 {},
@@ -172,6 +150,7 @@ var blacklist = map[string]struct{}{
 	"20041201-1.c":                 {},
 	"20041214-1.c":                 {},
 	"20041218-1.c":                 {},
+	"20041218-2.c":                 {},
 	"20050121-1.c":                 {},
 	"20050125-1.c":                 {},
 	"20050203-1.c":                 {},
@@ -226,6 +205,7 @@ var blacklist = map[string]struct{}{
 	"920415-1.c":                   {},
 	"920428-1.c":                   {},
 	"920428-2.c":                   {},
+	"920501-1.c":                   {},
 	"920501-2.c":                   {},
 	"920501-3.c":                   {},
 	"920501-4.c":                   {},
@@ -245,8 +225,10 @@ var blacklist = map[string]struct{}{
 	"921113-1.c":                   {},
 	"921117-1.c":                   {},
 	"921123-2.c":                   {},
+	"921202-1.c":                   {},
 	"921204-1.c":                   {},
 	"921208-1.c":                   {},
+	"921208-2.c":                   {},
 	"921215-1.c":                   {},
 	"930123-1.c":                   {},
 	"930126-1.c":                   {},
@@ -280,10 +262,8 @@ var blacklist = map[string]struct{}{
 	"950607-2.c":                   {},
 	"950628-1.c":                   {},
 	"950710-1.c":                   {},
-	"950906-1.c":                   {},
 	"960117-1.c":                   {},
 	"960209-1.c":                   {},
-	"960215-1.c":                   {},
 	"960218-1.c":                   {},
 	"960301-1.c":                   {},
 	"960312-1.c":                   {},
@@ -293,7 +273,6 @@ var blacklist = map[string]struct{}{
 	"960405-1.c":                   {},
 	"960416-1.c":                   {},
 	"960512-1.c":                   {},
-	"960513-1.c":                   {},
 	"960608-1.c":                   {},
 	"980223.c":                     {},
 	"980526-1.c":                   {},
@@ -304,7 +283,6 @@ var blacklist = map[string]struct{}{
 	"990127-1.c":                   {},
 	"990130-1.c":                   {},
 	"990208-1.c":                   {},
-	"990222-1.c":                   {},
 	"990326-1.c":                   {},
 	"990413-2.c":                   {},
 	"990525-1.c":                   {},
@@ -318,6 +296,8 @@ var blacklist = map[string]struct{}{
 	"alias-3.c":                    {},
 	"alias-4.c":                    {},
 	"align-2.c":                    {},
+	"align-3.c":                    {},
+	"align-nest.c":                 {},
 	"alloca-1.c":                   {},
 	"bf-pack-1.c":                  {},
 	"bf-sign-1.c":                  {},
@@ -357,23 +337,19 @@ var blacklist = map[string]struct{}{
 	"extzvsi.c":                    {},
 	"ffs-1.c":                      {},
 	"ffs-2.c":                      {},
-	"fprintf-2.c":                  {},
 	"frame-address.c":              {},
 	"ifcvt-onecmpl-abs-1.c":        {},
 	"loop-ivopts-1.c":              {},
 	"lto-tbaa-1.c":                 {},
 	"mayalias-3.c":                 {},
-	"memchr-1.c":                   {},
 	"nest-align-1.c":               {},
 	"nest-stdar-1.c":               {},
 	"nestfunc-1.c":                 {},
 	"nestfunc-2.c":                 {},
 	"nestfunc-3.c":                 {},
-	"nestfunc-4.c":                 {},
 	"nestfunc-5.c":                 {},
 	"nestfunc-6.c":                 {},
 	"nestfunc-7.c":                 {},
-	"postmod-1.c":                  {},
 	"pr15262-2.c":                  {},
 	"pr15296.c":                    {},
 	"pr17377.c":                    {},
@@ -407,8 +383,6 @@ var blacklist = map[string]struct{}{
 	"pr35390.c":                    {},
 	"pr35456.c":                    {},
 	"pr35472.c":                    {},
-	"pr36034-1.c":                  {},
-	"pr36034-2.c":                  {},
 	"pr36321.c":                    {},
 	"pr37573.c":                    {},
 	"pr37780.c":                    {},
@@ -440,15 +414,12 @@ var blacklist = map[string]struct{}{
 	"pr44164.c":                    {},
 	"pr44575.c":                    {},
 	"pr44852.c":                    {},
-	"pr44942.c":                    {},
 	"pr45070.c":                    {},
 	"pr45695.c":                    {},
 	"pr46309.c":                    {},
 	"pr47237.c":                    {},
 	"pr47925.c":                    {},
 	"pr48717.c":                    {},
-	"pr48814-1.c":                  {},
-	"pr48814-2.c":                  {},
 	"pr48973-1.c":                  {},
 	"pr48973-2.c":                  {},
 	"pr49123.c":                    {},
@@ -500,16 +471,17 @@ var blacklist = map[string]struct{}{
 	"pr63641.c":                    {},
 	"pr64006.c":                    {},
 	"pr64242.c":                    {},
-	"pr64979.c":                    {},
 	"pr65053-1.c":                  {},
 	"pr65053-2.c":                  {},
 	"pr65215-3.c":                  {},
 	"pr65215-4.c":                  {},
+	"pr65369.c":                    {},
 	"pr65427.c":                    {},
 	"pr65648.c":                    {},
 	"pr65956.c":                    {},
 	"pr66556.c":                    {},
 	"pr66757.c":                    {},
+	"pr67037.c":                    {},
 	"pr67226.c":                    {},
 	"pr68249.c":                    {},
 	"pr68328.c":                    {},
@@ -548,6 +520,7 @@ var blacklist = map[string]struct{}{
 	"pr81281.c":                    {},
 	"pr81588.c":                    {},
 	"pr82192.c":                    {},
+	"pr82210.c":                    {},
 	"pr82387.c":                    {},
 	"pr82388.c":                    {},
 	"pr82524.c":                    {},
@@ -574,8 +547,6 @@ var blacklist = map[string]struct{}{
 	"pr89434.c":                    {},
 	"pr89826.c":                    {},
 	"pr90025.c":                    {},
-	"printf-2.c":                   {},
-	"regstack-1.c":                 {},
 	"scal-to-vec1.c":               {},
 	"scal-to-vec2.c":               {},
 	"scal-to-vec3.c":               {},
@@ -584,20 +555,12 @@ var blacklist = map[string]struct{}{
 	"simd-4.c":                     {},
 	"simd-5.c":                     {},
 	"simd-6.c":                     {},
-	"stdarg-1.c":                   {},
-	"stdarg-2.c":                   {},
 	"stdarg-3.c":                   {},
 	"stkalign.c":                   {},
 	"strct-pack-2.c":               {},
 	"strct-pack-3.c":               {},
 	"strct-stdarg-1.c":             {},
 	"strct-varg-1.c":               {},
-	"string-opt-17.c":              {},
-	"string-opt-5.c":               {},
-	"strlen-2.c":                   {},
-	"strlen-3.c":                   {},
-	"strlen-4.c":                   {},
-	"strlen-5.c":                   {},
 	"strlen-6.c":                   {},
 	"struct-cpy-1.c":               {},
 	"struct-ini-1.c":               {},
@@ -605,15 +568,10 @@ var blacklist = map[string]struct{}{
 	"struct-ini-3.c":               {},
 	"struct-ini-4.c":               {},
 	"struct-ret-1.c":               {},
-	"user-printf.c":                {},
-	"va-arg-21.c":                  {},
 	"va-arg-22.c":                  {},
 	"va-arg-23.c":                  {},
 	"va-arg-4.c":                   {},
-	"va-arg-5.c":                   {},
-	"va-arg-6.c":                   {},
 	"va-arg-pack-1.c":              {},
-	"va-arg-trap-1.c":              {},
 	"vla-dealloc-1.c":              {},
 	"vrp-7.c":                      {},
 	"wchar_t-1.c":                  {},

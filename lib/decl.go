@@ -168,18 +168,25 @@ type switchCtx struct {
 	isSigned bool
 }
 
+// ({ stmt; ... expr; })
+type exprStatementCtx struct {
+	expr string
+	prev *exprStatementCtx
+	typ  cc.Type
+}
+
 // Function compile context
 type fnCtx struct {
-	allocs      int64
-	breakCtx    *breakContinueCtx
-	continueCtx *breakContinueCtx
-	ctx         *ctx
-	returns     cc.Type
-	static      []*cc.InitDeclarator
-	switchCtx   *switchCtx
-	variables   variables
-
-	nextID int
+	allocs           int64
+	breakCtx         *breakContinueCtx
+	continueCtx      *breakContinueCtx
+	ctx              *ctx
+	exprStatementCtx *exprStatementCtx
+	nextID           int
+	returns          cc.Type
+	static           []*cc.InitDeclarator
+	switchCtx        *switchCtx
+	variables        variables
 }
 
 func (c *ctx) newFnCtx(n *cc.FunctionDefinition) (r *fnCtx) {

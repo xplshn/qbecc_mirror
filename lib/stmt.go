@@ -12,7 +12,17 @@ import (
 
 // ExpressionList ';'
 func (c *ctx) expressionStatement(n *cc.ExpressionStatement) {
-	c.expr(n.ExpressionList, void, nil)
+	if n.ExpressionList == nil {
+		return
+	}
+
+	switch esCtx, t := c.fn.exprStatementCtx, n.ExpressionList.Type(); {
+	case esCtx != nil && t.Kind() != cc.Void:
+		esCtx.expr = c.expr(n.ExpressionList, rvalue, t)
+		esCtx.typ = t
+	default:
+		c.expr(n.ExpressionList, void, nil)
+	}
 }
 
 // "return" ExpressionList ';'
