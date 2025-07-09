@@ -2,7 +2,7 @@
 # Use of this source code is governed by a BSD-style
 # license that can be found in the LICENSE file.
 
-.PHONY:	all clean edit editor work shorttest test todo
+.PHONY:	all clean edit editor work shorttest test todo review
 
 all: editor
 	golint
@@ -48,3 +48,16 @@ todo:
 	grep -a 'VET' log | tee -a log-todo
 	grep -a 'EXEC' log | tee -a log-todo
 	grep -a -o 'passed=.*' log | tee -a log-todo
+
+review:
+	echo -n > log-review
+	for f in $(shell ls *.h *.go | sort) ; \
+		do echo "File:" $$f >> log-review ; \
+		echo >> log-review; \
+		echo '```' >> log-review; \
+		cat $$f >> log-review; \
+		echo '```' >> log-review; \
+		echo >> log-review; \
+		done
+	ls -l log-review
+

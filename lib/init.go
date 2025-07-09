@@ -116,10 +116,15 @@ func (c *ctx) initEscapedVar(n cc.Node, v *escaped, t cc.Type, m initMap, offs [
 
 func (c *ctx) initStaticVar(n cc.Node, v variable, t cc.Type, m initMap, offs []int64) {
 	noff := int64(-1)
-	var sz int64
+	var size int64
 	for _, off := range offs {
 		item := m[off]
-		sz = off + c.sizeof(item.expr, item.t)
+		sz := c.sizeof(item.expr, item.t)
+		if sz == 0 {
+			continue
+		}
+
+		size = off + sz
 		if noff >= 0 && off > noff {
 			c.w("\tz %v,\n", off-noff)
 		}
@@ -127,13 +132,13 @@ func (c *ctx) initStaticVar(n cc.Node, v variable, t cc.Type, m initMap, offs []
 		case *cc.UnknownValue:
 			c.w("\t%s %s,\n", c.extType(n, item.t), c.expr(item.expr, constRvalue, item.t))
 		case cc.Int64Value:
-			c.w("\t%s %s,\n", c.extType(n, item.t), c.value(item.expr, constRvalue, item.t, x))
+			c.w("\t%s %s,\n", c.extType(n, item.t), c.value(item.expr, constRvalue, item.t, x, false))
 		case cc.UInt64Value:
 			switch {
 			case item.t.Kind() == cc.Ptr && x != 0:
 				c.w("\t%s %s,\n", c.extType(n, item.t), c.expr(item.expr, constRvalue, item.t))
 			default:
-				c.w("\t%s %s,\n", c.extType(n, item.t), c.value(item.expr, constRvalue, item.t, x))
+				c.w("\t%s %s,\n", c.extType(n, item.t), c.value(item.expr, constRvalue, item.t, x, false))
 			}
 		case cc.StringValue:
 			s := string(x)
@@ -166,14 +171,16 @@ func (c *ctx) initStaticVar(n cc.Node, v variable, t cc.Type, m initMap, offs []
 				panic(todo("", item.expr.Position(), cc.NodeSource(item.expr), item.t))
 			}
 		case cc.Float64Value:
-			c.w("\t%s %s,\n", c.extType(n, item.t), c.value(item.expr, constRvalue, item.t, x))
+			c.w("\t%s %s,\n", c.extType(n, item.t), c.value(item.expr, constRvalue, item.t, x, false))
+		case *cc.ZeroValue:
+			// nop
 		default:
 			// all_test.go:336: C COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/wchar_t-1.c
 			panic(todo("%v: %s %T", n.Position(), cc.NodeSource(n), x))
 		}
 		noff = off + c.sizeof(item.expr, item.t)
 	}
-	if n := c.sizeof(n, t) - sz; n != 0 {
+	if n := c.sizeof(n, t) - size; n != 0 {
 		c.w("\tz %v,\n", n)
 	}
 }
@@ -264,7 +271,10 @@ func (c *ctx) initList(n cc.Node, r *initListReader, off int64, t cc.Type, m ini
 		c.initUnion(n, r, off, t.(*cc.UnionType), m)
 	default:
 		// all_test.go:336: C COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/20050316-1.c
-		panic(todo("%v: %s off=%v t=%v m=%v kind=%v", n.Position(), cc.NodeSource(n), off, t, m, t.Kind()))
+		// panic(todo("%v: %s off=%v t=%v m=%v kind=%v", n.Position(), cc.NodeSource(n), off, t, m, t.Kind()))
+		ln := r.peek()
+		r.consume()
+		c.init(ln.Initializer, off, t, m)
 	}
 }
 
@@ -287,11 +297,8 @@ func (c *ctx) initArray(n cc.Node, r *initListReader, off int64, t *cc.ArrayType
 			return
 		}
 
-		switch {
-		case ln.Designation != nil:
-			panic(todo("", ln.Position(), cc.NodeSource(ln), off, t, m, t.Kind()))
-		default:
-			// ok
+		if ln.Designation != nil {
+			ix = ln.Initializer.Offset() / sz
 		}
 
 		switch et.Kind() {
@@ -333,8 +340,7 @@ func (c *ctx) initStruct(n cc.Node, r *initListReader, off int64, t *cc.StructTy
 
 		switch {
 		case ln.Designation != nil:
-			// all_test.go:336: C COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/20000801-3.c
-			panic(todo("", ln.Position(), cc.NodeSource(ln), off, t, m, t.Kind()))
+			f = ln.Initializer.Field()
 		default:
 			for f = t.FieldByIndex(ix); f.Name() == ""; f = t.FieldByIndex(ix) {
 				if ix = ix + 1; ix == limit {
@@ -385,8 +391,7 @@ func (c *ctx) initUnion(n cc.Node, r *initListReader, off int64, t *cc.UnionType
 
 		switch {
 		case ln.Designation != nil:
-			// all_test.go:336: C COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/991228-1.c
-			panic(todo("", r.n.Position(), cc.NodeSource(r.n), off, t, m, t.Kind()))
+			f = ln.Initializer.Field()
 		default:
 			for f = t.FieldByIndex(ix); f.Name() == ""; f = t.FieldByIndex(ix) {
 				if ix = ix + 1; ix == limit {
@@ -396,6 +401,7 @@ func (c *ctx) initUnion(n cc.Node, r *initListReader, off int64, t *cc.UnionType
 			}
 		}
 		if f.IsBitfield() {
+			// all_test.go:336: C COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/pr88739.c
 			panic(todo("%v: %s", ln.Initializer.Position(), cc.NodeSource(ln.Initializer)))
 		}
 		switch f.Type().Kind() {
@@ -410,8 +416,8 @@ func (c *ctx) initUnion(n cc.Node, r *initListReader, off int64, t *cc.UnionType
 		default:
 			switch ln.Initializer.Case {
 			case cc.InitializerExpr:
-				// all_test.go:340: C COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/20181120-1.c
-				panic(todo("%v: %s", ln.Initializer.Position(), cc.NodeSource(ln.Initializer)))
+				r.consume()
+				c.init(ln.Initializer, off+f.Offset(), f.Type(), m)
 			case cc.InitializerInitList:
 				panic(todo("%v: %s", ln.Initializer.Position(), cc.NodeSource(ln.Initializer)))
 			}

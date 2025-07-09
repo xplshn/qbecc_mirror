@@ -27,7 +27,7 @@ func (c *ctx) expressionStatement(n *cc.ExpressionStatement) {
 
 // "return" ExpressionList ';'
 func (c *ctx) jumpStatementReturn(n *cc.JumpStatement) {
-	s := ""
+	s := any("")
 	switch {
 	case c.fn.returns.Kind() != cc.Void:
 		switch {

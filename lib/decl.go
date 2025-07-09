@@ -160,7 +160,7 @@ type switchCtx struct {
 	defaultCase *switchCase
 	case2index  map[*cc.LabeledStatement]int // index into the sorted cases slice
 	cases       []*switchCase
-	expr        string
+	expr        any
 	sign        string // "s" or "u"
 	suff        string // "w" or "l"
 	typ         cc.Type
@@ -170,7 +170,7 @@ type switchCtx struct {
 
 // ({ stmt; ... expr; })
 type exprStatementCtx struct {
-	expr string
+	expr any
 	prev *exprStatementCtx
 	typ  cc.Type
 }
@@ -249,7 +249,7 @@ func (f *fnCtx) newContinueCtx(label string) func() {
 	}
 }
 
-func (f *fnCtx) newSwitchCtx(expr string, typ cc.Type, cases0 []*cc.LabeledStatement) func() {
+func (f *fnCtx) newSwitchCtx(expr any, typ cc.Type, cases0 []*cc.LabeledStatement) func() {
 	isSigned := cc.IsSignedInteger(typ)
 	defaultCase := &switchCase{
 		isDefault: true,
