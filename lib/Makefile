@@ -47,6 +47,7 @@ todo:
 	grep -a -o 'PANIC:.*\.go:[0-9]\+:' log | sort -u 2>&1 >> log-todo
 	grep -a 'VET' log | tee -a log-todo
 	grep -a 'EXEC' log | tee -a log-todo
+	grep -a 'EQUA' log | tee -a log-todo
 	grep -a -o 'passed=.*' log | tee -a log-todo
 
 review:

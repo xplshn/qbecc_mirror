@@ -8,12 +8,14 @@
 //	type :valist = align 8 { 8 }   # For rv64
 #define __GNUC_VA_LIST
 
+typedef long long int __qbe_va_list_elem;
+
 #if defined(__amd64__) || defined(__x86_64__) || defined(_M_X64)
-typedef long long int __builtin_va_list[3];
+typedef __qbe_va_list_elem __builtin_va_list[3];
 #elif defined(__aarch64__) || defined(_M_ARM64) || defined(__ARM_ARCH_ISA_A64)
-typedef long long int __builtin_va_list[4];
+typedef __qbe_va_list_elem __builtin_va_list[4];
 #elif (defined(__riscv) && __riscv_xlen == 64) || defined(__riscv64)
-typedef long long int __builtin_va_list[1];
+typedef __qbe_va_list_elem __builtin_va_list[1];
 #endif
 
 typedef __builtin_va_list __gnuc_va_list;
@@ -24,6 +26,10 @@ typedef __builtin_va_list __gnuc_va_list;
 
 #ifndef __builtin_va_copy
 #define __builtin_va_copy(dest, src) memcpy(dest, src, sizeof(va_list))
+#endif
+
+#ifndef __builtin_va_end
+#define __builtin_va_end(va) (void)va
 #endif
 
 #ifndef __builtin_types_compatible_p

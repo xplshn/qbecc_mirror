@@ -125,7 +125,10 @@ func (c *ctx) initStaticVar(n cc.Node, v variable, t cc.Type, m initMap, offs []
 		}
 
 		size = off + sz
-		if noff >= 0 && off > noff {
+		switch {
+		case noff < 0 && off != 0:
+			c.w("\tz %v,\n", off)
+		case noff >= 0 && off > noff:
 			c.w("\tz %v,\n", off-noff)
 		}
 		switch x := item.expr.Value().(type) {

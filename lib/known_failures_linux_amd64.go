@@ -8,50 +8,50 @@ var blacklist = map[string]struct{}{
 	// ---------------------------------------------- "CompCert-3.6/test/c"
 
 	// C EXEC FAIL
+
+	//TODO
 	"mandelbrot.c": {},
 
 	// GO EXEC FAIL
-	"qsort.c": {}, //TODO rework func ptrs
+
+	//TODO
+	"qsort.c": {}, // rework func ptrs
+
+	// ------------------------------------------ "tcc-0.9.27/tests/tests2"
+
+	// C EQUAL FAIL
+
+	//TODO
+	"92_enum_bitfield.c": {},
 
 	// -------------------- "gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute"
 
 	// C EXEC FAIL
 
-	"20021127-1.c": {}, // linker specific resolution order
-	"20031003-1.c": {}, // platform specific floating point handling
-
-	// unsupported type
-	"970217-1.c": {},
-	"pr77767.c":  {},
-
-	"20090113-2.c": {}, // https://g.co/gemini/share/bcd5c858c626
-
-	"20000914-1.c":   {}, //TODO bitfield
-	"921113-1.c":     {}, //TODO
-	"960326-1.c":     {}, //TODO
-	"align-2.c":      {}, //TODO
-	"cmpsf-1.c":      {}, //TODO
-	"pr32244-1.c":    {}, //TODO bitfield
-	"pr34971.c":      {}, //TODO bitfield
-	"struct-ini-4.c": {}, //TODO
-	"va-arg-21.c":    {}, //TODO
-
-	// regressions vs a30be8bdd143
-	"20031215-1.c": {}, //TODO
-	"memchr-1.c":   {}, //TODO
-	"pr86714.c":    {}, //TODO
-	"strlen-2.c":   {}, //TODO
-	"strlen-3.c":   {}, //TODO
-	"strlen-4.c":   {}, //TODO
+	"20000914-1.c": {}, // Won't fix: Works only with GCC-specific unsigned enums
+	"20021127-1.c": {}, // Won't fix: linker specific resolution order
+	"20031003-1.c": {}, // Won't fix: platform specific floating point handling
+	"20090113-2.c": {}, // Won't fix: https://g.co/gemini/share/bcd5c858c626
+	"970217-1.c":   {}, // Won't fix: unsupported type
+	"pr32244-1.c":  {}, // Won't fix: https://g.co/gemini/share/46d2317fe36d
+	"pr34971.c":    {}, // Won't fix: https://g.co/gemini/share/46d2317fe36d
+	"pr77767.c":    {}, // Won't fix: unsupported type
 
 	// GO EXEC FAIL
-	"20101011-1.c": {}, // crash on unsupported signal handling
 
-	"conversion.c":    {}, //TODO dtoui fails
-	"fprintf-chk-1.c": {}, //TODO
-	"pr34456.c":       {}, //TODO rework func ptrs
-	"printf-chk-1.c":  {}, //TODO
-	"user-printf.c":   {}, //TODO
+	"20101011-1.c": {}, // Won't fix: unsupported signal handling
+
+	//TODO
+	"20000519-1.c": {},
+	"20071213-1.c": {},
+	"conversion.c": {}, // dtoui fails
+	"pr34456.c":    {}, // rework func ptrs
+	"stdarg-1.c":   {},
+	"stdarg-4.c":   {},
+	"va-arg-10.c":  {},
+	"va-arg-14.c":  {},
+	"va-arg-20.c":  {},
+	"va-arg-9.c":   {},
 
 	// ====================================================================
 
@@ -70,7 +70,6 @@ var blacklist = map[string]struct{}{
 	"87_dead_code.c":              {},
 	"88_codeopt.c":                {},
 	"90_struct-init.c":            {},
-	"92_enum_bitfield.c":          {},
 	"93_integer_promotion.c":      {},
 	"94_generic.c":                {},
 	"97_utf8_string_literal.c":    {},
@@ -104,7 +103,6 @@ var blacklist = map[string]struct{}{
 	"20010924-1.c":                 {},
 	"20011008-3.c":                 {},
 	"20011113-1.c":                 {},
-	"20020127-1.c":                 {},
 	"20020206-1.c":                 {},
 	"20020206-2.c":                 {},
 	"20020215-1.c":                 {},
@@ -138,6 +136,7 @@ var blacklist = map[string]struct{}{
 	"20031201-1.c":                 {},
 	"20031211-1.c":                 {},
 	"20031214-1.c":                 {},
+	"20031215-1.c":                 {},
 	"20040223-1.c":                 {},
 	"20040302-1.c":                 {},
 	"20040307-1.c":                 {},
@@ -191,16 +190,13 @@ var blacklist = map[string]struct{}{
 	"20090219-1.c":                 {},
 	"20090814-1.c":                 {},
 	"20100316-1.c":                 {},
-	"20110418-1.c":                 {},
 	"20111208-1.c":                 {},
 	"20131127-1.c":                 {},
-	"20140212-1.c":                 {},
 	"20150611-1.c":                 {},
 	"20170401-1.c":                 {},
 	"20171008-1.c":                 {},
 	"20180131-1.c":                 {},
 	"20180921-1.c":                 {},
-	"20190228-1.c":                 {},
 	"920302-1.c":                   {},
 	"920415-1.c":                   {},
 	"920428-1.c":                   {},
@@ -256,15 +252,12 @@ var blacklist = map[string]struct{}{
 	"950710-1.c":                   {},
 	"960117-1.c":                   {},
 	"960209-1.c":                   {},
-	"960218-1.c":                   {},
 	"960312-1.c":                   {},
-	"960317-1.c":                   {},
 	"960405-1.c":                   {},
 	"960416-1.c":                   {},
 	"960512-1.c":                   {},
 	"980223.c":                     {},
 	"980526-1.c":                   {},
-	"980526-3.c":                   {},
 	"980604-1.c":                   {},
 	"981130-1.c":                   {},
 	"990130-1.c":                   {},
@@ -315,9 +308,9 @@ var blacklist = map[string]struct{}{
 	"ffs-1.c":                      {},
 	"ffs-2.c":                      {},
 	"frame-address.c":              {},
-	"ifcvt-onecmpl-abs-1.c":        {},
 	"lto-tbaa-1.c":                 {},
 	"mayalias-3.c":                 {},
+	"memchr-1.c":                   {},
 	"nest-align-1.c":               {},
 	"nest-stdar-1.c":               {},
 	"nestfunc-1.c":                 {},
@@ -348,7 +341,6 @@ var blacklist = map[string]struct{}{
 	"pr31448-2.c":                  {},
 	"pr33382.c":                    {},
 	"pr34154.c":                    {},
-	"pr35390.c":                    {},
 	"pr35456.c":                    {},
 	"pr35472.c":                    {},
 	"pr36321.c":                    {},
@@ -384,7 +376,6 @@ var blacklist = map[string]struct{}{
 	"pr46309.c":                    {},
 	"pr47237.c":                    {},
 	"pr47925.c":                    {},
-	"pr48717.c":                    {},
 	"pr49218.c":                    {},
 	"pr49279.c":                    {},
 	"pr49390.c":                    {},
@@ -419,7 +410,6 @@ var blacklist = map[string]struct{}{
 	"pr58365.c":                    {},
 	"pr58419.c":                    {},
 	"pr58984.c":                    {},
-	"pr59101.c":                    {},
 	"pr59358.c":                    {},
 	"pr60003.c":                    {},
 	"pr60017.c":                    {},
@@ -436,22 +426,15 @@ var blacklist = map[string]struct{}{
 	"pr65648.c":                    {},
 	"pr65956.c":                    {},
 	"pr66556.c":                    {},
-	"pr66757.c":                    {},
 	"pr67037.c":                    {},
 	"pr67226.c":                    {},
 	"pr68249.c":                    {},
 	"pr68328.c":                    {},
-	"pr68376-1.c":                  {},
-	"pr68376-2.c":                  {},
 	"pr68381.c":                    {},
 	"pr68390.c":                    {},
 	"pr68841.c":                    {},
-	"pr68911.c":                    {},
-	"pr69097-1.c":                  {},
-	"pr69320-1.c":                  {},
 	"pr69320-2.c":                  {},
 	"pr69691.c":                    {},
-	"pr70005.c":                    {},
 	"pr70127.c":                    {},
 	"pr70460.c":                    {},
 	"pr70602.c":                    {},
@@ -486,9 +469,9 @@ var blacklist = map[string]struct{}{
 	"pr85169.c":                    {},
 	"pr85331.c":                    {},
 	"pr85529-1.c":                  {},
-	"pr85582-1.c":                  {},
 	"pr85756.c":                    {},
 	"pr86528.c":                    {},
+	"pr86714.c":                    {},
 	"pr87053.c":                    {},
 	"pr88739.c":                    {},
 	"pr88904.c":                    {},
@@ -504,17 +487,22 @@ var blacklist = map[string]struct{}{
 	"simd-4.c":                     {},
 	"simd-5.c":                     {},
 	"simd-6.c":                     {},
+	"stdarg-2.c":                   {},
 	"stdarg-3.c":                   {},
 	"stkalign.c":                   {},
 	"strct-pack-2.c":               {},
 	"strct-pack-3.c":               {},
 	"strct-stdarg-1.c":             {},
 	"strct-varg-1.c":               {},
+	"strlen-2.c":                   {},
+	"strlen-3.c":                   {},
+	"strlen-4.c":                   {},
 	"strlen-6.c":                   {},
 	"struct-cpy-1.c":               {},
 	"struct-ini-2.c":               {},
 	"struct-ini-3.c":               {},
 	"struct-ret-1.c":               {},
+	"va-arg-13.c":                  {},
 	"va-arg-22.c":                  {},
 	"va-arg-23.c":                  {},
 	"va-arg-4.c":                   {},
