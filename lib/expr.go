@@ -861,8 +861,10 @@ func (c *ctx) postfixExpressionCall(n *cc.PostfixExpression, mode mode, t cc.Typ
 		case "__builtin_va_start":
 			return c.vaStart(n, mode, t)
 		case "__builtin_va_arg":
+			// all_test.go:346: C COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/20000519-1.c
 			return c.vaArg(n, mode, t)
 		case "__builtin_va_end":
+			panic(todo("%v: %s %s %s", n.Position(), mode, cc.NodeSource(n), t))
 			return nothing
 		}
 	}
@@ -1056,6 +1058,21 @@ func (c *ctx) postfixExpressionSelect(n *cc.PostfixExpression, mode mode, t cc.T
 			//TODO aborts
 		}
 		return c.load(n, p, f.Type())
+	case void:
+		if f.Type().Kind() == cc.Array {
+			c.postfixExpression(n, lvalue, t)
+			return nothing
+		}
+
+		p := c.expr(n.PostfixExpression, lvalue, nil)
+		c.w("\t%s =%s add %s, %v\n", p, c.wordTag, p, f.Offset())
+		if f.IsBitfield() {
+			p = &bitfieldPtr{f: f, ptr: p}
+			// all_test.go:345: C COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/20000914-1.c
+			//TODO aborts
+		}
+		c.load(n, p, f.Type())
+		return nothing
 	default:
 		// all_test.go:341: C COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/lto-tbaa-1.c
 		panic(todo("%v: %s %s", n.Position(), mode, cc.NodeSource(n)))
@@ -1086,8 +1103,20 @@ func (c *ctx) postfixExpressionPSelect(n *cc.PostfixExpression, mode mode, t cc.
 			p = &bitfieldPtr{f: f, ptr: p}
 		}
 		return c.load(n, p, f.Type())
+	case void:
+		if f.Type().Kind() == cc.Array {
+			c.postfixExpression(n, lvalue, t)
+			return nothing
+		}
+
+		p := c.expr(n.PostfixExpression, rvalue, c.ast.PVoid)
+		p = c.temp("%s add %s, %v\n", c.wordTag, p, f.Offset())
+		if f.IsBitfield() {
+			p = &bitfieldPtr{f: f, ptr: p}
+		}
+		c.load(n, p, f.Type())
+		return nothing
 	default:
-		// err=-: PANIC: expr.go:1069:postfixExpressionPSelect TODO tmp/main0820.c:19:19: constLvalue (Upgrade_items + 1)->uaattrid
 		panic(todo("%v: %s %s", n.Position(), mode, cc.NodeSource(n)))
 	}
 }

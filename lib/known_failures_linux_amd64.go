@@ -37,21 +37,137 @@ var blacklist = map[string]struct{}{
 	"pr34971.c":    {}, // Won't fix: https://g.co/gemini/share/46d2317fe36d
 	"pr77767.c":    {}, // Won't fix: unsupported type
 
+	//TODO
+	"strlen-3.c": {},
+	"strlen-4.c": {},
+
 	// GO EXEC FAIL
 
 	"20101011-1.c": {}, // Won't fix: unsupported signal handling
 
 	//TODO
-	"20000519-1.c": {},
-	"20071213-1.c": {},
 	"conversion.c": {}, // dtoui fails
 	"pr34456.c":    {}, // rework func ptrs
-	"stdarg-1.c":   {},
-	"stdarg-4.c":   {},
-	"va-arg-10.c":  {},
-	"va-arg-14.c":  {},
-	"va-arg-20.c":  {},
-	"va-arg-9.c":   {},
+
+	// variadic regressions
+	//TODO
+	"fprintf-chk-1.c":  {},
+	"printf-chk-1.c":   {},
+	"stdarg-3.c":       {}, // struct
+	"strct-stdarg-1.c": {}, // struct
+	"strct-varg-1.c":   {}, // struct
+	"user-printf.c":    {},
+	"va-arg-21.c":      {},
+	"va-arg-22.c":      {}, // struct
+	"va-arg-23.c":      {}, // struct
+	"va-arg-4.c":       {}, // struct arg
+	"va-arg-pack-1.c":  {}, // init static "foo"
+
+	// jnml@e5-1650:~/src/modernc.org/libqbe$ git diff
+	// diff --git a/goabi0.go b/goabi0.go
+	// index 41eec8f..aa21832 100644
+	// --- a/goabi0.go
+	// +++ b/goabi0.go
+	// @@ -486,6 +486,13 @@ func (c *cnv) inst2(n parser.Node) {
+	//                 }
+	//                 c.w("\n\t%%._%d =%s add %%._%[1]d, 8", va, c.wordTag)
+	//                 c.w("\n\tstore%s %%._%d, %s", c.wordTag, va, vaListPtr)
+	// +       case *parser.CopyNode:
+	// +               switch dst := trimSource(&x.InstPreambleNode.Dst); {
+	// +               case strings.HasPrefix(dst, "%._va"):
+	// +                       c.w("\n\t%s =%s load%[2]s %s", dst, c.wordTag, trimSource(x.Val))
+	// +               default:
+	// +                       c.w("%s", source(n))
+	// +               }
+	//         default:
+	//                 c.w("%s", source(n))
+	//         }
+	// jnml@e5-1650:~/src/modernc.org/libqbe$
+	//
+	// Fixes:
+	//
+	//	user-printf.c
+	//	fprintf-chk-1.c
+	//	printf-chk-1.c
+	//	va-arg-21.c
+	//
+	// While causing regressions:
+	//
+	//	20000519-1.c
+	//	20071213-1.c
+	//	stdarg-1.c
+	//	stdarg-2.c
+	//	stdarg-4.c
+	//	va-arg-10.c
+	//	va-arg-14.c
+	//	va-arg-13.c
+	//	va-arg-20.c
+	//	va-arg-9.c
+	//
+	// --------------------------------------------------------------------
+	//
+	//	//go:build ignore
+	//
+	//	#include <stdio.h>
+	//	#include <stdlib.h>
+	//
+	//	#define trc(fmt, ...) \
+	//	    do { \
+	//	        fprintf(stderr, "[TRACE] %s:%d: " fmt "\n", __FILE__, __LINE__, ##__VA_ARGS__); \
+	//	    } while (0)
+	//
+	//	// void dump(void *p, int n) {
+	//	//      unsigned char *q = p;
+	//	//      int i = 0;
+	//	//      for (; n; n--, q++) {
+	//	//              fprintf(stderr, "%02x ", *q);
+	//	//              i++;
+	//	//              if (i%8 == 0) {
+	//	//                      fprintf(stderr, "\n");
+	//	//              }
+	//	//      }
+	//	//      fprintf(stderr, "\n");
+	//	// }
+	//
+	//	// ============================================================================
+	//
+	//	#include <stdarg.h>
+	//
+	//	//#define trc(...)
+	//
+	//	void f(int i, ...) {
+	//		va_list ap;
+	//		va_start(ap, i);
+	//		i = va_arg(ap, int);
+	//		trc("(A) i=%i", i);
+	//	}
+	//
+	//	void f2(int i, ...) {
+	//		va_list ap;
+	//		va_start(ap, i);
+	//		// loadl works, copy does not
+	//		vprintf("(B) i=%i\n", ap);
+	//	}
+	//
+	//	void bar(int a, va_list ap) {
+	//		int b;
+	//		b = va_arg (ap, int);
+	//		trc("(C) b=%i", b);
+	//	}
+	//
+	//	void foo (int a, ...) {
+	//		va_list ap;
+	//		va_start (ap, a);
+	//		// copy works, loadl does not
+	//		bar(a, ap);
+	//	}
+	//
+	//	int main () {
+	//		f(42, 24);
+	//		f2(42, 24);
+	//		foo(111, 222);
+	//		return 0;
+	//	}
 
 	// ====================================================================
 
@@ -136,7 +252,6 @@ var blacklist = map[string]struct{}{
 	"20031201-1.c":                 {},
 	"20031211-1.c":                 {},
 	"20031214-1.c":                 {},
-	"20031215-1.c":                 {},
 	"20040223-1.c":                 {},
 	"20040302-1.c":                 {},
 	"20040307-1.c":                 {},
@@ -310,7 +425,6 @@ var blacklist = map[string]struct{}{
 	"frame-address.c":              {},
 	"lto-tbaa-1.c":                 {},
 	"mayalias-3.c":                 {},
-	"memchr-1.c":                   {},
 	"nest-align-1.c":               {},
 	"nest-stdar-1.c":               {},
 	"nestfunc-1.c":                 {},
@@ -471,7 +585,6 @@ var blacklist = map[string]struct{}{
 	"pr85529-1.c":                  {},
 	"pr85756.c":                    {},
 	"pr86528.c":                    {},
-	"pr86714.c":                    {},
 	"pr87053.c":                    {},
 	"pr88739.c":                    {},
 	"pr88904.c":                    {},
@@ -487,26 +600,14 @@ var blacklist = map[string]struct{}{
 	"simd-4.c":                     {},
 	"simd-5.c":                     {},
 	"simd-6.c":                     {},
-	"stdarg-2.c":                   {},
-	"stdarg-3.c":                   {},
 	"stkalign.c":                   {},
 	"strct-pack-2.c":               {},
 	"strct-pack-3.c":               {},
-	"strct-stdarg-1.c":             {},
-	"strct-varg-1.c":               {},
-	"strlen-2.c":                   {},
-	"strlen-3.c":                   {},
-	"strlen-4.c":                   {},
 	"strlen-6.c":                   {},
 	"struct-cpy-1.c":               {},
 	"struct-ini-2.c":               {},
 	"struct-ini-3.c":               {},
 	"struct-ret-1.c":               {},
-	"va-arg-13.c":                  {},
-	"va-arg-22.c":                  {},
-	"va-arg-23.c":                  {},
-	"va-arg-4.c":                   {},
-	"va-arg-pack-1.c":              {},
 	"vla-dealloc-1.c":              {},
 	"wchar_t-1.c":                  {},
 	"widechar-2.c":                 {},

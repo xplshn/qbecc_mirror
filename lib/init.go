@@ -104,7 +104,6 @@ func (c *ctx) initEscapedVar(n cc.Node, v *escaped, t cc.Type, m initMap, offs [
 					}
 				}
 			default:
-				// all_test.go:336: C COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/pr89369.c
 				panic(todo("%v: %s %T", item.expr.Position(), cc.NodeSource(item.expr), x))
 			}
 		default:
@@ -117,6 +116,12 @@ func (c *ctx) initEscapedVar(n cc.Node, v *escaped, t cc.Type, m initMap, offs [
 func (c *ctx) initStaticVar(n cc.Node, v variable, t cc.Type, m initMap, offs []int64) {
 	noff := int64(-1)
 	var size int64
+	// trc("==== t=%s", t)
+	// for _, off := range offs {
+	// 	item := m[off]
+	// 	sz := c.sizeof(item.expr, item.t)
+	// 	trc("%v: off=%v t=%v sz=%v e=%v", item.expr.Position(), off, item.t, sz, cc.NodeSource(item.expr))
+	// }
 	for _, off := range offs {
 		item := m[off]
 		sz := c.sizeof(item.expr, item.t)
@@ -171,7 +176,7 @@ func (c *ctx) initStaticVar(n cc.Node, v variable, t cc.Type, m initMap, offs []
 				c.w("\t%s %s,\n", c.extType(n, item.t), c.addString(s))
 			default:
 				// all_test.go:340: C COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/20010924-1.c
-				panic(todo("", item.expr.Position(), cc.NodeSource(item.expr), item.t))
+				panic(todo("", item.expr.Position(), cc.NodeSource(item.expr), off, sz, t, item.t))
 			}
 		case cc.Float64Value:
 			c.w("\t%s %s,\n", c.extType(n, item.t), c.value(item.expr, constRvalue, item.t, x, false))
@@ -294,6 +299,22 @@ func (c *ctx) initArray(n cc.Node, r *initListReader, off int64, t *cc.ArrayType
 
 	et := t.Elem()
 	sz := c.sizeof(n, et)
+	ln := r.peek()
+	if ln == nil {
+		return
+	}
+
+	if ln.Initializer.Case == cc.InitializerExpr {
+		switch et.Kind() {
+		case cc.Char, cc.SChar, cc.UChar:
+			switch ln.Initializer.AssignmentExpression.Value().(type) {
+			case cc.StringValue:
+				r.consume()
+				m[off] = &initMapItem{expr: ln.Initializer.AssignmentExpression, t: t}
+				return
+			}
+		}
+	}
 	for ix := int64(0); ix < limit; ix++ {
 		ln := r.peek()
 		if ln == nil {
@@ -355,6 +376,10 @@ func (c *ctx) initStruct(n cc.Node, r *initListReader, off int64, t *cc.StructTy
 		if f.IsBitfield() {
 			// all_test.go:344: C COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/20000113-1.c
 			panic(todo("%v: %s", ln.Initializer.Position(), cc.NodeSource(ln.Initializer)))
+		}
+
+		if f.IsFlexibleArrayMember() {
+			c.err(n, "flexible array members not supported")
 		}
 
 		switch f.Type().Kind() {

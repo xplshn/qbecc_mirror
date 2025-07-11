@@ -25,7 +25,7 @@ typedef __builtin_va_list __gnuc_va_list;
 #endif
 
 #ifndef __builtin_va_copy
-#define __builtin_va_copy(dest, src) memcpy(dest, src, sizeof(va_list))
+#define __builtin_va_copy(dest, src) memcpy(dest, src, sizeof(__builtin_va_list))
 #endif
 
 #ifndef __builtin_va_end
