@@ -48,9 +48,7 @@ var blacklist = map[string]struct{}{
 	//TODO
 	"conversion.c": {}, // dtoui fails
 	"pr34456.c":    {}, // rework func ptrs
-
-	//TODO
-	"va-arg-14.c": {}, // support va_list param reuse
+	"va-arg-14.c":  {}, // support va_list param reuse
 
 	// ====================================================================
 
