@@ -846,12 +846,42 @@ func (c *ctx) vaArg(n *cc.PostfixExpression, mode mode, t cc.Type) (r any) {
 	switch mode {
 	case rvalue, void:
 		// Intentionally no call to convert here.
-		va := c.expr(n.ArgumentExpressionList.AssignmentExpression, rvalue, c.ast.PVoid)
-		return c.temp("%s vaarg %s\n", c.baseType(n, t), va)
+
+		vaListExpr := n.ArgumentExpressionList.AssignmentExpression
+		switch d, info := c.variable(vaListExpr); {
+		case d != nil && d.IsParam():
+			return c.temp("%s vaarg %s\n", c.baseType(n, t), info.(*local).name)
+		default:
+			vaList := c.expr(vaListExpr, rvalue, c.ast.PVoid)
+			return c.temp("%s vaarg %s\n", c.baseType(n, t), vaList)
+		}
 	default:
 		panic(todo("%v: %s %s %s", n.Position(), mode, cc.NodeSource(n), t))
 	}
 	return r
+}
+
+func (c *ctx) isVaList(d *cc.Declarator) (r bool) {
+	if d == nil {
+		return false
+	}
+
+	if x, ok := d.Type().(*cc.PointerType); ok {
+		if x.Elem().String() == "__qbe_va_list_elem" {
+			return true
+		}
+	}
+	return false
+}
+
+func (c *ctx) isMemcpy(n cc.ExpressionNode) (r bool) {
+	if d := c.declaratorOf(n); d != nil {
+		if !d.IsFuncDef() && (d.Name() == "memcpy" || d.Name() == "__builtin_memcpy") {
+			return true
+		}
+	}
+
+	return false
 }
 
 // PostfixExpression '(' ArgumentExpressionList ')'
@@ -870,6 +900,7 @@ func (c *ctx) postfixExpressionCall(n *cc.PostfixExpression, mode mode, t cc.Typ
 	}
 
 	callee := n.PostfixExpression
+	isMemcpy := c.isMemcpy(callee)
 	ct := c.ft(callee)
 	//trc("%v: %v %T %v", n.Position(), cc.NodeSource(n), ct, ct)
 	params := ct.Parameters()
@@ -880,7 +911,7 @@ func (c *ctx) postfixExpressionCall(n *cc.PostfixExpression, mode mode, t cc.Typ
 	var args []cc.ExpressionNode
 	var exprs []any
 	var types []cc.Type
-	for l := n.ArgumentExpressionList; l != nil; l = l.ArgumentExpressionList {
+	for iArg, l := 0, n.ArgumentExpressionList; l != nil; iArg, l = iArg+1, l.ArgumentExpressionList {
 		e := l.AssignmentExpression
 		args = append(args, e)
 		et := e.Type()
@@ -888,13 +919,7 @@ func (c *ctx) postfixExpressionCall(n *cc.PostfixExpression, mode mode, t cc.Typ
 		switch {
 		case len(exprs) < len(params):
 			param := params[len(exprs)]
-			if d := param.Declarator; d != nil {
-				if x, ok := d.Type().(*cc.PointerType); ok {
-					if x.Elem().String() == "__qbe_va_list_elem" {
-						isVaList = true
-					}
-				}
-			}
+			isVaList = c.isVaList(param.Declarator)
 			et = params[len(exprs)].Type()
 		default:
 			switch {
@@ -904,11 +929,28 @@ func (c *ctx) postfixExpressionCall(n *cc.PostfixExpression, mode mode, t cc.Typ
 				et = c.ast.Double
 			}
 		}
-		expr := c.expr(e, rvalue, et)
+		d, info := c.variable(e)
+		var expr any
+		switch x := info.(type) {
+		case *local:
+			if isMemcpy && iArg < 2 {
+				expr = x.name
+				break
+			}
+
+			expr = c.expr(e, rvalue, et)
+		default:
+			expr = c.expr(e, rvalue, et)
+		}
 		if isVaList {
-			nm := fmt.Sprintf("%%._va%d", c.fn.id())
-			c.w("\t%s =%s copy %s\n", nm, c.wordTag, expr)
-			expr = nm
+			switch {
+			case d != nil && d.IsParam():
+				// nop
+			default:
+				nm := fmt.Sprintf("%%._va_list%d", c.fn.id()) // va_list[0] is va_arg
+				c.w("\t%s =%s copy %s\n", nm, c.wordTag, expr)
+				expr = nm
+			}
 		}
 		exprs = append(exprs, expr)
 		types = append(types, et)

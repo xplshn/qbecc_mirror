@@ -111,7 +111,7 @@ func (l *linkerObject) inspectSSA(ssa []byte, nm string) (ok bool) {
 				case *parser.RegularParamNode:
 					a = append(a, fmt.Sprintf("%s %s", x.Local.Src()[1:], l.ssaTyp(string(x.Type.Src()))))
 				case *parser.VariadicMarkerNode:
-					a = append(a, "__qbe_va uintptr")
+					a = append(a, "__qbe_va_arg uintptr")
 				default:
 					panic(todo("%T", x))
 				}
@@ -165,15 +165,15 @@ func (l *linkerObject) goabi0(w io.Writer, ssa []byte, nm string, externs map[st
 	}
 
 	rewritten := parser.RewriteSource(func(nm string) (r string) {
-		switch nm {
+		switch nm { // Rename Go conflicts
 		case "%g":
-			return "%__qbe_g"
+			return "%__qbe_g" // assembler reserved
 		case "%map":
-			return "%__qbe_map"
+			return "%__qbe_map" // Go reserved
 		case "%type":
-			return "%__qbe_type"
+			return "%__qbe_type" // Go reserved
 		case "%var":
-			return "%__qbe_var"
+			return "%__qbe_var" // Go reserved
 		}
 		cname := nm[1:]
 		// defer func() { trc("(nm=%s cname=%s)->%s", nm, cname, r) }()

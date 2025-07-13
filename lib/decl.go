@@ -108,18 +108,24 @@ func (v *variables) register(n cc.Node, f *fnCtx, c *ctx) {
 		case cc.Automatic:
 			switch {
 			case x.AddressTaken() || k == cc.Array || k == cc.Struct || k == cc.Union:
+				if x.IsParam() && c.isVaList(x) {
+					panic(todo("", x.Position(), x.Type()))
+				}
 				m[x] = &escaped{
 					d:      x,
 					offset: f.alloc(x, int64(dt.Align()), c.sizeof(x, dt)),
 				}
 			default:
-				suff := ""
+				var prefix, suffix string
 				if !x.IsParam() {
-					suff = fmt.Sprintf(".%d", f.id())
+					suffix = fmt.Sprintf(".%d", f.id())
+				}
+				if x.IsParam() && c.isVaList(x) {
+					prefix = "__qbe_va_list_"
 				}
 				m[x] = &local{
 					d:    x,
-					name: fmt.Sprintf("%%%s%s", x.Name(), suff),
+					name: fmt.Sprintf("%%%s%s%s", prefix, x.Name(), suffix),
 				}
 			}
 		default:
@@ -341,7 +347,11 @@ func (c *ctx) signature(l []*cc.Parameter, isVariadic bool) {
 		case "":
 			c.w("%%.param.%d, ", c.id())
 		default:
-			c.w("%%%s, ", nm)
+			var prefix string
+			if c.isVaList(v.Declarator) {
+				prefix = "__qbe_va_list_"
+			}
+			c.w("%%%s%s, ", prefix, nm)
 		}
 	}
 	if isVariadic {

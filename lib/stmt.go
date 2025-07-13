@@ -194,10 +194,11 @@ func (c *ctx) selectionStatementSwitch(n *cc.SelectionStatement) {
 
 	ctx := c.fn.switchCtx
 	var f func(cases []*switchCase, label, comment string)
+	comments := false
 	f = func(cases []*switchCase, label, comment string) {
 		if label != "" {
 			c.w("%s", label)
-			if comment != "" {
+			if comment != "" && comments {
 				c.w("%s", comment)
 			}
 			c.w("\n")
@@ -269,7 +270,8 @@ func (c *ctx) labeledStatementSwitchLabel(n *cc.LabeledStatement) {
 	ctx := c.fn.switchCtx
 	cs := ctx.cases[ctx.case2index[n]]
 	c.w("%s\n\tjmp %s\n", c.label(), cs.label)
-	c.w("%s # %v\n", cs.label, n.Position())
+	// c.w("%s # %v\n", cs.label, n.Position())
+	c.w("%s\n", cs.label)
 	c.statement(n.Statement)
 }
 
