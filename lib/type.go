@@ -37,6 +37,7 @@ func (c *ctx) baseType(n cc.Node, t cc.Type) string {
 			case 8:
 				return "d"
 			default:
+				// all_test.go:356: C COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/pr85331.c
 				panic(todo("%v: %s %v", n.Position(), t, t.Kind()))
 			}
 		default:
@@ -64,6 +65,7 @@ func (c *ctx) extType(n cc.Node, t cc.Type) string {
 			panic(todo("%v: %s %v", n.Position(), t, t.Kind()))
 		}
 	default:
+		// all_test.go:356: C COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/20041201-1.c
 		panic(todo("%v: %s %v", n.Position(), t, t.Kind()))
 	}
 }

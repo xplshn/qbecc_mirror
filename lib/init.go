@@ -7,18 +7,18 @@ package qbecc // import "modernc.org/qbecc/lib"
 import (
 	"fmt"
 	"slices"
-	"strconv"
 
 	"modernc.org/cc/v4"
 )
 
 // initializer list reader
 type initListReader struct {
-	n *cc.InitializerList
+	designation *cc.Designation
+	n           *cc.InitializerList
 }
 
 func newInitListReader(n *cc.InitializerList) (r *initListReader) {
-	return &initListReader{n}
+	return &initListReader{n: n}
 }
 
 func (lr *initListReader) peek() (r *cc.InitializerList) {
@@ -91,19 +91,18 @@ func (c *ctx) initEscapedVar(n cc.Node, v *escaped, t cc.Type, m initMap, offs [
 			switch x := item.expr.Value().(type) {
 			case cc.StringValue:
 				switch al, sl := at.Len(), int64(len(x)); {
-				case al < sl:
-					panic(todo("%v: %s al=%v sl=%v", item.expr.Position(), cc.NodeSource(item.expr), al, sl))
-				case al == sl:
-					c.w("\tcall $memcpy(%s %s, %[1]s %[3]s, %[1]s %[4]v)\n", c.wordTag, p, c.addString(string(x)), al)
-				default: // al > sl
+				case al > sl:
 					switch {
 					case zeroed:
 						c.w("\tcall $strcpy(%s %s, %[1]s %[3]s)\n", c.wordTag, p, c.addString(string(x)))
 					default:
 						panic(todo("%v: %s al=%v sl=%v", item.expr.Position(), cc.NodeSource(item.expr), al, sl))
 					}
+				default:
+					c.w("\tcall $memcpy(%s %s, %[1]s %[3]s, %[1]s %[4]v)\n", c.wordTag, p, c.addString(string(x)), al)
 				}
 			default:
+				// all_test.go:356: C COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/tcc-0.9.27/tests/tests2/97_utf8_string_literal.c
 				panic(todo("%v: %s %T", item.expr.Position(), cc.NodeSource(item.expr), x))
 			}
 		default:
@@ -165,7 +164,7 @@ func (c *ctx) initStaticVar(n cc.Node, v variable, t cc.Type, m initMap, offs []
 				}
 				switch et.Kind() {
 				case cc.Char, cc.SChar, cc.UChar:
-					c.w("\tb %s,\n", strconv.QuoteToASCII(s))
+					c.w("\t%s,\n", c.safeString(s))
 					if len(s) < al {
 						c.w("\tz %v,\n", al-len(s))
 					}
@@ -269,15 +268,16 @@ func (c *ctx) init(n *cc.Initializer, off int64, t cc.Type, m initMap) {
 func (c *ctx) initList(n cc.Node, r *initListReader, off int64, t cc.Type, m initMap) {
 	switch t.Kind() {
 	case cc.Array:
-		// trc("%v: kind=%v off=%v t=%v", n.Position(), t.Kind(), off, t)
+		// trc("%v: kind=%v off=%v t=%v: %s", n.Position(), t.Kind(), off, t, cc.NodeSource(r.peek()))
 		c.initArray(n, r, off, t.(*cc.ArrayType), m)
 	case cc.Struct:
-		// trc("%v: kind=%v off=%v t=%v", n.Position(), t.Kind(), off, t)
+		// trc("%v: kind=%v off=%v t=%v: %s", n.Position(), t.Kind(), off, t, cc.NodeSource(r.peek()))
 		c.initStruct(n, r, off, t.(*cc.StructType), m)
 	case cc.Union:
-		// trc("%v: kind=%v off=%v t=%v", n.Position(), t.Kind(), off, t)
+		// trc("%v: kind=%v off=%v t=%v: %s", n.Position(), t.Kind(), off, t, cc.NodeSource(r.peek()))
 		c.initUnion(n, r, off, t.(*cc.UnionType), m)
 	default:
+		// trc("%v: kind=%v off=%v t=%v: %s", n.Position(), t.Kind(), off, t, cc.NodeSource(r.peek()))
 		// all_test.go:336: C COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/20050316-1.c
 		// panic(todo("%v: %s off=%v t=%v m=%v kind=%v", n.Position(), cc.NodeSource(n), off, t, m, t.Kind()))
 		ln := r.peek()
@@ -321,8 +321,9 @@ func (c *ctx) initArray(n cc.Node, r *initListReader, off int64, t *cc.ArrayType
 			return
 		}
 
-		if ln.Designation != nil {
+		if ln.Designation != nil && ln.Designation != r.designation {
 			ix = ln.Initializer.Offset() / sz
+			r.designation = ln.Designation
 		}
 
 		switch et.Kind() {
@@ -363,8 +364,10 @@ func (c *ctx) initStruct(n cc.Node, r *initListReader, off int64, t *cc.StructTy
 		}
 
 		switch {
-		case ln.Designation != nil:
+		case ln.Designation != nil && ln.Designation != r.designation:
 			f = ln.Initializer.Field()
+			ix = f.Index()
+			r.designation = ln.Designation
 		default:
 			for f = t.FieldByIndex(ix); f.Name() == ""; f = t.FieldByIndex(ix) {
 				if ix = ix + 1; ix == limit {
@@ -418,8 +421,10 @@ func (c *ctx) initUnion(n cc.Node, r *initListReader, off int64, t *cc.UnionType
 		}
 
 		switch {
-		case ln.Designation != nil:
+		case ln.Designation != nil && ln.Designation != r.designation:
 			f = ln.Initializer.Field()
+			ix = f.Index()
+			r.designation = ln.Designation
 		default:
 			for f = t.FieldByIndex(ix); f.Name() == ""; f = t.FieldByIndex(ix) {
 				if ix = ix + 1; ix == limit {

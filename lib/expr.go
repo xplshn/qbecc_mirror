@@ -49,6 +49,20 @@ func (v uint64Value) String() string {
 	return fmt.Sprint(uint64(v))
 }
 
+type symbolValue struct {
+	sym string
+	off int64
+}
+
+func (v *symbolValue) String() string {
+	switch {
+	case v.off != 0:
+		return fmt.Sprintf("%s%+v", v.sym, v.off)
+	default:
+		return v.sym
+	}
+}
+
 func (c *ctx) convertConst(n cc.Node, dstType, srcType cc.Type, v any) (r any) {
 	switch dstType.Kind() {
 	case cc.Enum:
@@ -168,6 +182,10 @@ func (c *ctx) convert(n cc.Node, dstType, srcType cc.Type, v any) (r any) {
 			s = "s"
 		}
 		switch srcSize {
+		case 1:
+			return c.temp("%s ext%sb %s\n", c.wordTag, s, v)
+		case 2:
+			return c.temp("%s ext%sh %s\n", c.wordTag, s, v)
 		case 4:
 			if dstSize == 4 {
 				return v
@@ -266,7 +284,6 @@ func (c *ctx) convert(n cc.Node, dstType, srcType cc.Type, v any) (r any) {
 			return v
 		}
 	}
-	// all_test.go:341: C COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/20010224-1.c
 	panic(todo("%v: %s(%v, %v) <- %s(%v, %v) %v", n.Position(), dstType, dstType.Kind(), dstSize, srcType, srcType.Kind(), srcSize, cc.NodeSource(n)))
 }
 
@@ -372,7 +389,7 @@ func (c *ctx) primaryExpressionIdent(n *cc.PrimaryExpression, mode mode, t cc.Ty
 	case constLvalue:
 		switch x := info.(type) {
 		case *static:
-			return x.name
+			return &symbolValue{sym: x.name}
 		default:
 			// all_test.go:341: C COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/20030224-2.c
 			panic(todo("%v: %T", n.Position(), x))
@@ -721,7 +738,7 @@ func (c *ctx) assignmentExpressionOp(n *cc.AssignmentExpression, mode mode, t cc
 			}
 			return c.load(n, lv, lt)
 		default:
-			trc("%v: %v %T %v", n.Position(), mode, x, cc.NodeSource(n))
+			// trc("%v: %v %T %v", n.Position(), mode, x, cc.NodeSource(n))
 			panic(todo("%v: %v %T %v", n.Position(), mode, x, cc.NodeSource(n)))
 		}
 	default:
@@ -891,10 +908,8 @@ func (c *ctx) postfixExpressionCall(n *cc.PostfixExpression, mode mode, t cc.Typ
 		case "__builtin_va_start":
 			return c.vaStart(n, mode, t)
 		case "__builtin_va_arg":
-			// all_test.go:346: C COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/20000519-1.c
 			return c.vaArg(n, mode, t)
 		case "__builtin_va_end":
-			panic(todo("%v: %s %s %s", n.Position(), mode, cc.NodeSource(n), t))
 			return nothing
 		}
 	}
@@ -1034,13 +1049,12 @@ func (c *ctx) postfixExpressionIncDec(n *cc.PostfixExpression, mode mode, t cc.T
 			v := c.load(n, x.name, x.d.Type())
 			v = c.temp("%s %s %s, %v\n", c.baseType(n, n.PostfixExpression.Type()), op, v, delta)
 			c.store(n, x.d.Type(), v, x.name)
-		case nil:
+		case nil, *escaped:
 			p := c.expr(n.PostfixExpression, lvalue, n.PostfixExpression.Type())
 			v := c.load(n, p, n.PostfixExpression.Type())
 			v = c.temp("%s %s %s, %v\n", c.baseType(n, n.PostfixExpression.Type()), op, v, delta)
 			c.store(n, n.PostfixExpression.Type(), v, p)
 		default:
-			// all_test.go:341: C COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/20021219-1.c
 			panic(todo("%v: %T", n.Position(), x))
 		}
 	case rvalue:
@@ -1115,8 +1129,16 @@ func (c *ctx) postfixExpressionSelect(n *cc.PostfixExpression, mode mode, t cc.T
 		}
 		c.load(n, p, f.Type())
 		return nothing
+	case constLvalue:
+		switch x := c.expr(n.PostfixExpression, constLvalue, nil).(type) {
+		case *symbolValue:
+			x.off += f.Offset()
+			return x
+		default:
+			// all_test.go:341: C COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/lto-tbaa-1.c
+			panic(todo("%v: %T %s", n.Position(), x, cc.NodeSource(n)))
+		}
 	default:
-		// all_test.go:341: C COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/lto-tbaa-1.c
 		panic(todo("%v: %s %s", n.Position(), mode, cc.NodeSource(n)))
 	}
 }
@@ -1159,6 +1181,7 @@ func (c *ctx) postfixExpressionPSelect(n *cc.PostfixExpression, mode mode, t cc.
 		c.load(n, p, f.Type())
 		return nothing
 	default:
+		// all_test.go:356: C COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/const-addr-expr-1.c
 		panic(todo("%v: %s %s", n.Position(), mode, cc.NodeSource(n)))
 	}
 }
@@ -1345,12 +1368,15 @@ func (c *ctx) unaryExpressionDeref(n *cc.UnaryExpression, mode mode, t cc.Type) 
 				panic(todo("%v: %T %s", n.Position(), x, cc.NodeSource(n.CastExpression)))
 			}
 		default:
+			// all_test.go:356: C COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/20060929-1.c
 			panic(todo("%v: %v %s", n.Position(), et, cc.NodeSource(n)))
 		}
 	case rvalue:
 		defer func() { r = c.convert(n, t, n.Type(), r) }()
 
-		switch et := n.Type(); {
+		// trc("%v: %s et=%s(%s)", n.Position(), cc.NodeSource(n), n.Type(), n.Type().Undecay())
+		// trc("cet=%s(%s)", n.CastExpression.Type(), n.CastExpression.Type().Undecay())
+		switch et := n.Type().Undecay(); {
 		case et.Kind() == cc.Ptr:
 			switch x := n.CastExpression.Type().(type) {
 			case *cc.PointerType:
@@ -1368,9 +1394,13 @@ func (c *ctx) unaryExpressionDeref(n *cc.UnaryExpression, mode mode, t cc.Type) 
 			}
 		case c.isIntegerType(et) || c.isFloatingPointType(et) || et.Kind() == cc.Ptr:
 			return c.load(n, c.expr(n.CastExpression, rvalue, n.CastExpression.Type()), et)
+		case et.Kind() == cc.Array:
+			return c.expr(n.CastExpression, rvalue, n.CastExpression.Type())
+		case et.Kind() == cc.Function:
+			return c.expr(n.CastExpression, rvalue, et)
 		default:
 			// COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/931004-10.c
-			panic(todo("%v: %v %s", n.Position(), et, cc.NodeSource(n)))
+			panic(todo("%v: %v %s", n.Position(), et.Kind(), cc.NodeSource(n)))
 		}
 	case lvalue:
 		switch et := n.Type(); {
@@ -1710,6 +1740,17 @@ func (c *ctx) equalityExpression(n *cc.EqualityExpression, mode mode, t cc.Type)
 	}
 }
 
+func (c *ctx) elemSize(t cc.Type) (r int64) {
+	switch x := t.Undecay().(type) {
+	case *cc.ArrayType:
+		return x.Elem().Undecay().Size()
+	case *cc.PointerType:
+		return x.Elem().Undecay().Size()
+	default:
+		return 1
+	}
+}
+
 func (c *ctx) arithmeticOp(lhs, rhs cc.ExpressionNode, mode mode, t cc.Type, op string) (r any) {
 	lt, rt := lhs.Type(), rhs.Type()
 	ct := c.usualArithmeticConversions(lt, rt)
@@ -1718,18 +1759,14 @@ func (c *ctx) arithmeticOp(lhs, rhs cc.ExpressionNode, mode mode, t cc.Type, op 
 	div := int64(1)
 	switch op {
 	case "add":
-		switch {
-		case lt.Kind() == cc.Ptr:
-			rmul = c.sizeof(lhs, lt.(*cc.PointerType).Elem())
-		case rt.Kind() == cc.Ptr:
-			lmul = c.sizeof(rhs, rt.(*cc.PointerType).Elem())
-		}
+		lmul = c.elemSize(rt)
+		rmul = c.elemSize(lt)
 	case "sub":
 		switch {
 		case lt.Kind() == cc.Ptr && rt.Kind() == cc.Ptr:
-			div = c.sizeof(lhs, lt.(*cc.PointerType).Elem())
+			div = c.elemSize(lt)
 		case lt.Kind() == cc.Ptr:
-			rmul = c.sizeof(lhs, lt.(*cc.PointerType).Elem())
+			rmul = c.elemSize(lt)
 		}
 	case "div":
 		if c.isIntegerType(ct) && !cc.IsSignedInteger(ct) {

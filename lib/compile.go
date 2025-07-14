@@ -54,16 +54,18 @@ func (t *Task) newCtx(ast *cc.AST, file *compilerFile) (r *ctx) {
 		wordTag: t.wordTag,
 	}
 	for _, v := range ast.Scope.Nodes {
-		switch x := v[0].(type) {
-		case *cc.Declarator:
-			if x.IsTypename() { // typedef int i;
-				break
-			}
+		for _, w := range v {
+			switch x := w.(type) {
+			case *cc.Declarator:
+				if x.IsTypename() { // typedef int i;
+					break
+				}
 
-			if r.isUnsupportedType(x.Type()) {
-				r.err(x, "unsupported type")
+				if r.isUnsupportedType(x.Type()) {
+					r.err(x, "unsupported type")
+				}
+				r.variables.register(x, nil, r)
 			}
-			r.variables.register(x, nil, r)
 		}
 	}
 	return r
@@ -180,16 +182,18 @@ func (c *ctx) translationUnit(n *cc.TranslationUnit) (ok bool) {
 	}
 	sort.Strings(a)
 	c.w("\n")
-	var s []string
 	for _, k := range a {
-		// c.w("data %s = { b %s }\n", c.strings[k], strconv.QuoteToASCII(k))
-		s = s[:0]
-		for i := 0; i < len(k); i++ {
-			s = append(s, fmt.Sprintf("b %v", k[i]))
-		}
-		c.w("data %s = align 1 { %s }\n", c.strings[k], strings.Join(s, ", "))
+		c.w("data %s = align 1 { %s }\n", c.strings[k], c.safeString(k))
 	}
 	return true
+}
+
+func (c *ctx) safeString(s string) (r string) {
+	var parts []string
+	for i := 0; i < len(s); i++ {
+		parts = append(parts, fmt.Sprintf("b %v", s[i]))
+	}
+	return strings.Join(parts, ", ")
 }
 
 func (c *ctx) pos(n cc.Node) {
