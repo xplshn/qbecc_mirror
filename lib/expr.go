@@ -671,7 +671,7 @@ func (c *ctx) assignmentExpressionOp(n *cc.AssignmentExpression, mode mode, t cc
 			case "shl", "shr":
 				v = c.shiftop(lhs, rhs, rvalue, ct, op)
 			default:
-				v = c.arithmeticOp(lhs, rhs, rvalue, ct, op)
+				v = c.arithmeticOp(n, lhs, rhs, rvalue, ct, op)
 			}
 			v = c.convert(n, lt, ct, v)
 			c.w("\t%s =%s copy %s\n", x.name, c.baseType(n, lt), v)
@@ -682,7 +682,7 @@ func (c *ctx) assignmentExpressionOp(n *cc.AssignmentExpression, mode mode, t cc
 			case "shl", "shr":
 				v = c.shiftop(lhs, rhs, rvalue, ct, op)
 			default:
-				v = c.arithmeticOp(lhs, rhs, rvalue, ct, op)
+				v = c.arithmeticOp(n, lhs, rhs, rvalue, ct, op)
 			}
 			v = c.convert(n, lt, ct, v)
 			c.store(n, lt, v, x.name)
@@ -692,7 +692,7 @@ func (c *ctx) assignmentExpressionOp(n *cc.AssignmentExpression, mode mode, t cc
 			case "shl", "shr":
 				c.shiftop(lhs, rhs, lvalue, ct, op)
 			default:
-				c.arithmeticOp(lhs, rhs, lvalue, ct, op)
+				c.arithmeticOp(n, lhs, rhs, lvalue, ct, op)
 			}
 		}
 		return nothing
@@ -710,7 +710,7 @@ func (c *ctx) assignmentExpressionOp(n *cc.AssignmentExpression, mode mode, t cc
 			case "shl", "shr":
 				v = c.shiftop(lhs, rhs, rvalue, ct, op)
 			default:
-				v = c.arithmeticOp(lhs, rhs, rvalue, ct, op)
+				v = c.arithmeticOp(n, lhs, rhs, rvalue, ct, op)
 			}
 			v = c.convert(n, lt, ct, v)
 			c.w("\t%s =%s copy %s\n", x.name, c.baseType(n, lt), v)
@@ -722,7 +722,7 @@ func (c *ctx) assignmentExpressionOp(n *cc.AssignmentExpression, mode mode, t cc
 			case "shl", "shr":
 				v = c.shiftop(lhs, rhs, rvalue, ct, op)
 			default:
-				v = c.arithmeticOp(lhs, rhs, rvalue, ct, op)
+				v = c.arithmeticOp(n, lhs, rhs, rvalue, ct, op)
 			}
 			v = c.convert(n, lt, ct, v)
 			c.store(n, lt, v, x.name)
@@ -734,7 +734,7 @@ func (c *ctx) assignmentExpressionOp(n *cc.AssignmentExpression, mode mode, t cc
 			case "shl", "shr":
 				lv = c.shiftop(lhs, rhs, lvalue, ct, op)
 			default:
-				lv = c.arithmeticOp(lhs, rhs, lvalue, ct, op)
+				lv = c.arithmeticOp(n, lhs, rhs, lvalue, ct, op)
 			}
 			return c.load(n, lv, lt)
 		default:
@@ -1751,7 +1751,7 @@ func (c *ctx) elemSize(t cc.Type) (r int64) {
 	}
 }
 
-func (c *ctx) arithmeticOp(lhs, rhs cc.ExpressionNode, mode mode, t cc.Type, op string) (r any) {
+func (c *ctx) arithmeticOp(n, lhs, rhs cc.ExpressionNode, mode mode, t cc.Type, op string) (r any) {
 	lt, rt := lhs.Type(), rhs.Type()
 	ct := c.usualArithmeticConversions(lt, rt)
 	rmul := int64(1)
@@ -1835,8 +1835,63 @@ func (c *ctx) arithmeticOp(lhs, rhs cc.ExpressionNode, mode mode, t cc.Type, op 
 			// ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/const-addr-expr-1.c
 			panic(todo("%v: %T", lhs.Position(), x))
 		}
+	case constRvalue:
+		switch nv := n.Value().(type) {
+		case *cc.UnknownValue:
+			switch lv := lhs.Value().(type) {
+			case *cc.LongDoubleValue:
+				l := (*big.Float)(lv)
+				switch rv := rhs.Value().(type) {
+				case *cc.LongDoubleValue:
+					r := (*big.Float)(rv)
+					var v big.Float
+					var f float64
+					switch op {
+					case "add":
+						f, _ = v.Add(l, r).Float64()
+					case "div":
+						f, _ = v.Quo(l, r).Float64()
+					case "mul":
+						f, _ = v.Mul(l, r).Float64()
+					case "sub":
+						f, _ = v.Sub(l, r).Float64()
+					default:
+						panic(todo("%v: %v %s %s %s %q", lhs.Position(), mode, cc.NodeSource(lhs), op, cc.NodeSource(rhs), op))
+					}
+					return float64Value(f)
+				default:
+					panic(todo("%v: %v %s %s %s %T", lhs.Position(), mode, cc.NodeSource(lhs), op, cc.NodeSource(rhs), rv))
+				}
+			case cc.Float64Value:
+				l := float64(lv)
+				switch rv := rhs.Value().(type) {
+				case cc.Float64Value:
+					r := float64(rv)
+					var f float64
+					switch op {
+					case "add":
+						f = l + r
+					case "div":
+						f = l / r
+					case "mul":
+						f = l * r
+					case "sub":
+						f = l - r
+					default:
+						panic(todo("%v: %v %s %s %s %q", lhs.Position(), mode, cc.NodeSource(lhs), op, cc.NodeSource(rhs), op))
+					}
+					return float64Value(f)
+				default:
+					panic(todo("%v: %v %s %s %s %T", lhs.Position(), mode, cc.NodeSource(lhs), op, cc.NodeSource(rhs), rv))
+				}
+			default:
+				// all_test.go:366: C COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/pr23941.c
+				panic(todo("%v: %v %s %s %s %T", lhs.Position(), mode, cc.NodeSource(lhs), op, cc.NodeSource(rhs), lv))
+			}
+		default:
+			panic(todo("%v: %v %s %s %s %T", lhs.Position(), mode, cc.NodeSource(lhs), op, cc.NodeSource(rhs), nv))
+		}
 	default:
-		// all_test.go:341: C COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/960405-1.c
 		panic(todo("%v: %v %s %s %s", lhs.Position(), mode, cc.NodeSource(lhs), op, cc.NodeSource(rhs)))
 	}
 	return r
@@ -1847,9 +1902,9 @@ func (c *ctx) additiveExpression(n *cc.AdditiveExpression, mode mode, t cc.Type)
 	case cc.AdditiveExpressionMul: // MultiplicativeExpression
 		return c.expr(n.MultiplicativeExpression, mode, t)
 	case cc.AdditiveExpressionAdd: // AdditiveExpression '+' MultiplicativeExpression
-		return c.arithmeticOp(n.AdditiveExpression, n.MultiplicativeExpression, mode, t, "add")
+		return c.arithmeticOp(n, n.AdditiveExpression, n.MultiplicativeExpression, mode, t, "add")
 	case cc.AdditiveExpressionSub: // AdditiveExpression '-' MultiplicativeExpression
-		return c.arithmeticOp(n.AdditiveExpression, n.MultiplicativeExpression, mode, t, "sub")
+		return c.arithmeticOp(n, n.AdditiveExpression, n.MultiplicativeExpression, mode, t, "sub")
 	default:
 		c.err(n, "internal error %T.%s", n, n.Case)
 		return nothing
@@ -1971,11 +2026,11 @@ func (c *ctx) multiplicativeExpression(n *cc.MultiplicativeExpression, mode mode
 	case cc.MultiplicativeExpressionCast: // CastExpression
 		return c.expr(n.CastExpression, mode, t)
 	case cc.MultiplicativeExpressionMul: // MultiplicativeExpression '*' CastExpression
-		return c.arithmeticOp(n.MultiplicativeExpression, n.CastExpression, mode, t, "mul")
+		return c.arithmeticOp(n, n.MultiplicativeExpression, n.CastExpression, mode, t, "mul")
 	case cc.MultiplicativeExpressionDiv: // MultiplicativeExpression '/' CastExpression
-		return c.arithmeticOp(n.MultiplicativeExpression, n.CastExpression, mode, t, "div")
+		return c.arithmeticOp(n, n.MultiplicativeExpression, n.CastExpression, mode, t, "div")
 	case cc.MultiplicativeExpressionMod: // MultiplicativeExpression '%' CastExpression
-		return c.arithmeticOp(n.MultiplicativeExpression, n.CastExpression, mode, t, "rem")
+		return c.arithmeticOp(n, n.MultiplicativeExpression, n.CastExpression, mode, t, "rem")
 	default:
 		c.err(n, "internal error %T.%s", n, n.Case)
 		return nothing
@@ -1987,7 +2042,7 @@ func (c *ctx) inclusiveOrExpression(n *cc.InclusiveOrExpression, mode mode, t cc
 	case cc.InclusiveOrExpressionXor: // ExclusiveOrExpression
 		return c.expr(n.ExclusiveOrExpression, mode, t)
 	case cc.InclusiveOrExpressionOr: // InclusiveOrExpression '|' ExclusiveOrExpression
-		return c.arithmeticOp(n.InclusiveOrExpression, n.ExclusiveOrExpression, mode, t, "or")
+		return c.arithmeticOp(n, n.InclusiveOrExpression, n.ExclusiveOrExpression, mode, t, "or")
 	default:
 		c.err(n, "internal error %T.%s", n, n.Case)
 		return nothing
@@ -1999,7 +2054,7 @@ func (c *ctx) exclusiveOrExpression(n *cc.ExclusiveOrExpression, mode mode, t cc
 	case cc.ExclusiveOrExpressionAnd: // AndExpression
 		return c.expr(n.AndExpression, mode, t)
 	case cc.ExclusiveOrExpressionXor: // ExclusiveOrExpression '^' AndExpression
-		return c.arithmeticOp(n.ExclusiveOrExpression, n.AndExpression, mode, t, "xor")
+		return c.arithmeticOp(n, n.ExclusiveOrExpression, n.AndExpression, mode, t, "xor")
 	default:
 		c.err(n, "internal error %T.%s", n, n.Case)
 		return nothing
@@ -2011,7 +2066,7 @@ func (c *ctx) andExpression(n *cc.AndExpression, mode mode, t cc.Type) (r any) {
 	case cc.AndExpressionEq: // EqualityExpression
 		return c.expr(n.EqualityExpression, mode, t)
 	case cc.AndExpressionAnd: // AndExpression '&' EqualityExpression
-		return c.arithmeticOp(n.AndExpression, n.EqualityExpression, mode, t, "and")
+		return c.arithmeticOp(n, n.AndExpression, n.EqualityExpression, mode, t, "and")
 	default:
 		c.err(n, "internal error %T.%s", n, n.Case)
 		return nothing
