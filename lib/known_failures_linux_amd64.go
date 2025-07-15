@@ -25,7 +25,7 @@ var blacklist = map[string]struct{}{
 
 	// C EXEC FAIL
 
-	"20000914-1.c": {}, // Won't fix: Works only with GCC-specific unsigned enums
+	"20000914-1.c": {}, // Won't fix: Depend on GCC-specific unsigned enums
 	"20021127-1.c": {}, // Won't fix: linker specific resolution order
 	"20031003-1.c": {}, // Won't fix: platform specific floating point handling
 	"20090113-2.c": {}, // Won't fix: https://g.co/gemini/share/bcd5c858c626
@@ -33,8 +33,6 @@ var blacklist = map[string]struct{}{
 	"pr32244-1.c":  {}, // Won't fix: https://g.co/gemini/share/46d2317fe36d
 	"pr34971.c":    {}, // Won't fix: https://g.co/gemini/share/46d2317fe36d
 	"pr77767.c":    {}, // Won't fix: unsupported type
-
-	"strlen-4.c": {}, //TODO
 
 	// GO EXEC FAIL
 
