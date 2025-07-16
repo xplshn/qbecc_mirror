@@ -202,7 +202,11 @@ func (t *Task) Main() (err error) {
 	set.Opt("c", func(string) error { t.c = true; return nil })
 	set.Opt("fno-asm", func(arg string) error { t.fnoAsm = true; return nil })
 	if err := set.Parse(t.args[1:], func(arg string) error {
-		if strings.HasPrefix(arg, "-") {
+		switch {
+		case strings.HasPrefix(arg, "-f"):
+			// ignored
+			return nil
+		case strings.HasPrefix(arg, "-"):
 			return fmt.Errorf("unexpected/unsupported option: %s", arg)
 		}
 
@@ -224,9 +228,6 @@ func (t *Task) Main() (err error) {
 			return fmt.Errorf("parsing argument %v: %v", t.args[1:], err)
 		}
 	}
-	if !hasLC {
-		t.compilerFiles = append(t.compilerFiles, &compilerFile{name: "c", inType: fileLib, outType: fileLib})
-	}
 
 	switch t.goarch {
 	case "386", "arm":
@@ -245,6 +246,9 @@ func (t *Task) Main() (err error) {
 		return fmt.Errorf("cannot specify -o with -c, -S or -E and multiple input files")
 	}
 
+	if !hasLC {
+		t.compilerFiles = append(t.compilerFiles, &compilerFile{name: "c", inType: fileLib, outType: fileLib})
+	}
 	t.optD = append(t.optD, "-D__QBECC__")
 	t.cfgArgs = append(t.cfgArgs, t.optD...)
 	t.cfgArgs = append(t.cfgArgs, t.optU...)
@@ -267,6 +271,9 @@ func (t *Task) Main() (err error) {
 	if err != nil {
 		return err
 	}
+
+	// Do not do this
+	// cfg.UnsignedEnums = true
 
 	t.cfg = cfg
 	if ldflag == "" {

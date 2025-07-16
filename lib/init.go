@@ -7,18 +7,23 @@ package qbecc // import "modernc.org/qbecc/lib"
 import (
 	"fmt"
 	"slices"
+	"strings"
 
 	"modernc.org/cc/v4"
 )
 
 // initializer list reader
 type initListReader struct {
-	designation *cc.Designation
-	n           *cc.InitializerList
+	d *cc.DesignatorList
+	n *cc.InitializerList
 }
 
 func newInitListReader(n *cc.InitializerList) (r *initListReader) {
-	return &initListReader{n: n}
+	r = &initListReader{n: n}
+	if n != nil && n.Designation != nil {
+		r.d = n.Designation.DesignatorList
+	}
+	return r
 }
 
 func (lr *initListReader) peek() (r *cc.InitializerList) {
@@ -28,6 +33,24 @@ func (lr *initListReader) peek() (r *cc.InitializerList) {
 func (lr *initListReader) consume() {
 	if lr.n != nil {
 		lr.n = lr.n.InitializerList
+		lr.d = nil
+		if lr.n != nil && lr.n.Designation != nil {
+			lr.d = lr.n.Designation.DesignatorList
+		}
+	}
+}
+
+func (lr *initListReader) peekDesignator() (r *cc.Designator) {
+	if lr.d == nil {
+		return nil
+	}
+
+	return lr.d.Designator
+}
+
+func (lr *initListReader) consumeDesignator() {
+	if lr.d != nil {
+		lr.d = lr.d.DesignatorList
 	}
 }
 
@@ -56,6 +79,17 @@ func (c *ctx) initLocalVar(n cc.Node, v *local, t cc.Type, m initMap, offs []int
 	default:
 		panic(todo("", n.Position(), cc.NodeSource(n), v, t, m))
 	}
+}
+
+func (c *ctx) littleEndianUTF32string(s cc.UTF32StringValue) (r string) {
+	var b strings.Builder
+	for _, v := range s {
+		for i := 0; i < 4; i++ {
+			b.WriteByte(byte(v))
+			v >>= 8
+		}
+	}
+	return b.String()
 }
 
 func (c *ctx) initEscapedVar(n cc.Node, v *escaped, t cc.Type, m initMap, offs []int64) {
@@ -88,21 +122,43 @@ func (c *ctx) initEscapedVar(n cc.Node, v *escaped, t cc.Type, m initMap, offs [
 		switch item.t.Kind() {
 		case cc.Array:
 			at := item.t.(*cc.ArrayType)
+			et := at.Elem()
 			switch x := item.expr.Value().(type) {
 			case cc.StringValue:
-				switch al, sl := at.Len(), int64(len(x)); {
-				case al > sl:
-					switch {
-					case zeroed:
-						c.w("\tcall $strcpy(%s %s, %[1]s %[3]s)\n", c.wordTag, p, c.addString(string(x)))
-					default:
-						panic(todo("%v: %s al=%v sl=%v", item.expr.Position(), cc.NodeSource(item.expr), al, sl))
+				switch et.Size() {
+				case 1:
+					switch al, sl := at.Len(), int64(len(x)); {
+					case al > sl:
+						switch {
+						case zeroed:
+							c.w("\tcall $memcpy(%s %s, %[1]s %[3]s, %[1]s %[4]v)\n", c.wordTag, p, c.addString(string(x)), sl)
+						default:
+							panic(todo("%v: %s al=%v sl=%v", item.expr.Position(), cc.NodeSource(item.expr), al, sl))
+						}
+					default: // al <= sl
+						c.w("\tcall $memcpy(%s %s, %[1]s %[3]s, %[1]s %[4]v)\n", c.wordTag, p, c.addString(string(x)), al)
 					}
 				default:
-					c.w("\tcall $memcpy(%s %s, %[1]s %[3]s, %[1]s %[4]v)\n", c.wordTag, p, c.addString(string(x)), al)
+					panic(todo("%v: %s %v", item.expr.Position(), cc.NodeSource(item.expr), et.Size()))
+				}
+			case cc.UTF32StringValue:
+				switch et.Size() {
+				case 4:
+					switch al, sl := at.Len(), int64(len(x)); {
+					case al > sl:
+						switch {
+						case zeroed:
+							c.w("\tcall $memcpy(%s %s, %[1]s %[3]s, %[1]s %[4]v)\n", c.wordTag, p, c.addString(string(x)), 4*sl)
+						default:
+							panic(todo("%v: %s al=%v sl=%v", item.expr.Position(), cc.NodeSource(item.expr), al, sl))
+						}
+					default: // al <= sl
+						c.w("\tcall $memcpy(%s %s, %[1]s %[3]s, %[1]s %[4]v)\n", c.wordTag, p, c.addString(c.littleEndianUTF32string(x)), 4*al)
+					}
+				default:
+					panic(todo("%v: %s %v", item.expr.Position(), cc.NodeSource(item.expr), et.Size()))
 				}
 			default:
-				// all_test.go:356: C COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/tcc-0.9.27/tests/tests2/97_utf8_string_literal.c
 				panic(todo("%v: %s %T", item.expr.Position(), cc.NodeSource(item.expr), x))
 			}
 		default:
@@ -155,21 +211,27 @@ func (c *ctx) initStaticVar(n cc.Node, v variable, t cc.Type, m initMap, offs []
 				al := int(at.Len())
 				if al < 0 {
 					// all_test.go:336: C COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/20010924-1.c
+					// flexible array members
 					panic(todo("%v: %T %s", n.Position(), x, cc.NodeSource(n)))
 				}
 
 				et := at.Elem()
-				if len(s) > al {
-					s = s[:al]
-				}
-				switch et.Kind() {
-				case cc.Char, cc.SChar, cc.UChar:
-					c.w("\t%s,\n", c.safeString(s))
-					if len(s) < al {
-						c.w("\tz %v,\n", al-len(s))
+				switch et.Size() {
+				case 1:
+					if len(s) > al {
+						s = s[:al]
+					}
+					switch et.Kind() {
+					case cc.Char, cc.SChar, cc.UChar:
+						c.w("\t%s,\n", c.safeString(s))
+						if len(s) < al {
+							c.w("\tz %v,\n", al-len(s))
+						}
+					default:
+						panic(todo("", item.t))
 					}
 				default:
-					panic(todo("", item.t))
+					panic(todo("%v: %s %v", n.Position(), cc.NodeSource(n), et.Size()))
 				}
 			case cc.Ptr:
 				c.w("\t%s %s,\n", c.extType(n, item.t), c.addString(s))
@@ -181,8 +243,32 @@ func (c *ctx) initStaticVar(n cc.Node, v variable, t cc.Type, m initMap, offs []
 			c.w("\t%s %s,\n", c.extType(n, item.t), c.value(item.expr, constRvalue, item.t, x, false))
 		case *cc.ZeroValue:
 			// nop
+		case cc.UTF32StringValue:
+			switch t.Kind() {
+			case cc.Array:
+				at := t.(*cc.ArrayType)
+				if at.Len() < 0 {
+					panic(todo("%v: %s %T", n.Position(), cc.NodeSource(n), x))
+				}
+
+				et := at.Elem()
+				switch et.Size() {
+				case 4:
+					switch al, sl := at.Len(), int64(len(x)); {
+					case al < sl:
+						panic(todo("%v: %s al=%v sl=%v", n.Position(), cc.NodeSource(n), al, sl))
+					default: // al <= sl
+						for _, v := range x[:al] {
+							c.w("\tw %v,\n", v)
+						}
+					}
+				default:
+					panic(todo("%v: %s %v", n.Position(), cc.NodeSource(n), et.Size()))
+				}
+			default:
+				panic(todo("%v: %s %v", n.Position(), cc.NodeSource(n), t.Kind()))
+			}
 		default:
-			// all_test.go:336: C COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/wchar_t-1.c
 			panic(todo("%v: %s %T", n.Position(), cc.NodeSource(n), x))
 		}
 		noff = off + c.sizeof(item.expr, item.t)
@@ -321,9 +407,9 @@ func (c *ctx) initArray(n cc.Node, r *initListReader, off int64, t *cc.ArrayType
 			return
 		}
 
-		if ln.Designation != nil && ln.Designation != r.designation {
+		if d := r.peekDesignator(); d != nil {
+			panic(todo(""))
 			ix = ln.Initializer.Offset() / sz
-			r.designation = ln.Designation
 		}
 
 		switch et.Kind() {
@@ -347,6 +433,34 @@ func (c *ctx) initArray(n cc.Node, r *initListReader, off int64, t *cc.ArrayType
 	}
 }
 
+type fielder interface {
+	FieldByName(s string) *cc.Field
+}
+
+func (c *ctx) fieldDesignator(n *cc.Designator, t fielder) (r *cc.Field) {
+	var fn string
+	switch n.Case {
+	case cc.DesignatorIndex: // '[' ConstantExpression ']'
+		c.err(n, "invalid field designator: %s", cc.NodeSource(n))
+		return nil
+	case cc.DesignatorIndex2: // '[' ConstantExpression "..." ConstantExpression ']'
+		c.err(n, "not supported: %s", cc.NodeSource(n))
+		return nil
+	case cc.DesignatorField: // '.' IDENTIFIER
+		fn = n.Token2.SrcStr()
+	case cc.DesignatorField2: // IDENTIFIER ':'
+		fn = n.Token.SrcStr()
+	default:
+		c.err(n, "internal error %T.%s", n, n.Case)
+		return nil
+	}
+
+	if r = t.FieldByName(fn); r == nil {
+		c.err(n, "type %s has no field %s", t, fn)
+	}
+	return r
+}
+
 // 6.7.8/9: unnamed members of objects of structure and union type do not
 // participate in initialization.
 
@@ -363,11 +477,16 @@ func (c *ctx) initStruct(n cc.Node, r *initListReader, off int64, t *cc.StructTy
 			return
 		}
 
-		switch {
-		case ln.Designation != nil && ln.Designation != r.designation:
+		switch d := r.peekDesignator(); {
+		case d != nil:
+			if f = c.fieldDesignator(d, t); f == nil {
+				r.consume()
+				continue
+			}
+
+			r.consumeDesignator()
 			f = ln.Initializer.Field()
 			ix = f.Index()
-			r.designation = ln.Designation
 		default:
 			for f = t.FieldByIndex(ix); f.Name() == ""; f = t.FieldByIndex(ix) {
 				if ix = ix + 1; ix == limit {
@@ -420,11 +539,16 @@ func (c *ctx) initUnion(n cc.Node, r *initListReader, off int64, t *cc.UnionType
 			return
 		}
 
-		switch {
-		case ln.Designation != nil && ln.Designation != r.designation:
+		switch d := r.peekDesignator(); {
+		case d != nil:
+			if f = c.fieldDesignator(d, t); f == nil {
+				r.consume()
+				continue
+			}
+
+			r.consumeDesignator()
 			f = ln.Initializer.Field()
 			ix = f.Index()
-			r.designation = ln.Designation
 		default:
 			for f = t.FieldByIndex(ix); f.Name() == ""; f = t.FieldByIndex(ix) {
 				if ix = ix + 1; ix == limit {

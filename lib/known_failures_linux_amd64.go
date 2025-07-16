@@ -7,10 +7,6 @@ package qbecc // import "modernc.org/qbecc/lib"
 var blacklist = map[string]struct{}{
 	// ---------------------------------------------- "CompCert-3.6/test/c"
 
-	// C EXEC FAIL
-
-	"mandelbrot.c": {}, //TODO
-
 	// GO EXEC FAIL
 
 	"qsort.c": {}, //TODO rework func ptrs
@@ -19,13 +15,13 @@ var blacklist = map[string]struct{}{
 
 	// C EQUAL FAIL
 
-	"92_enum_bitfield.c": {}, //TODO
+	"92_enum_bitfield.c": {}, // Won't fix: Depends on GCC-specific unsigned enums
 
 	// -------------------- "gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute"
 
 	// C EXEC FAIL
 
-	"20000914-1.c": {}, // Won't fix: Depend on GCC-specific unsigned enums
+	"20000914-1.c": {}, // Won't fix: Depends on GCC-specific unsigned enums
 	"20021127-1.c": {}, // Won't fix: linker specific resolution order
 	"20031003-1.c": {}, // Won't fix: platform specific floating point handling
 	"20090113-2.c": {}, // Won't fix: https://g.co/gemini/share/bcd5c858c626
@@ -61,7 +57,6 @@ var blacklist = map[string]struct{}{
 	"90_struct-init.c":            {},
 	"93_integer_promotion.c":      {},
 	"94_generic.c":                {},
-	"97_utf8_string_literal.c":    {},
 	"98_al_ax_extend.c":           {},
 
 	// "gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute",
@@ -472,8 +467,6 @@ var blacklist = map[string]struct{}{
 	"va-arg-4.c":                   {},
 	"va-arg-pack-1.c":              {},
 	"vla-dealloc-1.c":              {},
-	"wchar_t-1.c":                  {},
-	"widechar-2.c":                 {},
 	"widechar-3.c":                 {},
 	"zero-struct-1.c":              {},
 	"zero-struct-2.c":              {},

@@ -185,6 +185,10 @@
 //
 // Do not recognize asm, inline or typeof as a keyword, so that code can use these words as identifiers. 
 //
+// # -f*
+//
+// All other -f* flags are ignored.
+//
 // # -idirafter <dir>: Include directory
 //
 // Add the directory dir at the end of the list of directories to be searched

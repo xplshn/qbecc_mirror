@@ -1038,7 +1038,7 @@ func (c *ctx) postfixExpressionIncDec(n *cc.PostfixExpression, mode mode, t cc.T
 	if x, ok := n.PostfixExpression.Type().(*cc.PointerType); ok {
 		idelta = c.sizeof(n.PostfixExpression, x.Elem())
 	}
-	delta := c.value(n, rvalue, n.PostfixExpression.Type(), cc.Int64Value(idelta), false)
+	delta := c.value(n, constRvalue, n.PostfixExpression.Type(), cc.Int64Value(idelta), false)
 	switch mode {
 	case void:
 		switch x := info.(type) {
@@ -1488,10 +1488,11 @@ func (c *ctx) unaryExpressionAlignofType(n *cc.UnaryExpression, mode mode, t cc.
 // "--" UnaryExpression
 func (c *ctx) unaryExpressionIncDec(n *cc.UnaryExpression, mode mode, t cc.Type, op string) (r any) {
 	_, info := c.variable(n.UnaryExpression)
-	delta := int64(1)
+	idelta := int64(1)
 	if x, ok := n.UnaryExpression.Type().(*cc.PointerType); ok {
-		delta = c.sizeof(n.UnaryExpression, x.Elem())
+		idelta = c.sizeof(n.PostfixExpression, x.Elem())
 	}
+	delta := c.value(n, constRvalue, n.UnaryExpression.Type(), cc.Int64Value(idelta), false)
 	switch mode {
 	case void:
 		switch x := info.(type) {
