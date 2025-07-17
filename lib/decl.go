@@ -209,6 +209,9 @@ func (c *ctx) newFnCtx(n *cc.FunctionDefinition) (r *fnCtx) {
 			case *cc.Declarator:
 				if ignore == 0 {
 					r.variables.register(x, r, c)
+					if x.IsParam() {
+						ignore++
+					}
 				}
 			case *cc.PostfixExpression:
 				switch x.Case {
@@ -224,9 +227,13 @@ func (c *ctx) newFnCtx(n *cc.FunctionDefinition) (r *fnCtx) {
 				}
 			}
 		case walkPost:
-			switch n.(type) {
+			switch x := n.(type) {
 			case *cc.StructDeclarator:
 				ignore--
+			case *cc.Declarator:
+				if x.IsParam() {
+					ignore--
+				}
 			}
 		}
 	})
