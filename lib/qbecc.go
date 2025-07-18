@@ -2,11 +2,9 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// Package qbecc is a [QBE] based C compiler. (WIP)
+// Package qbecc is a [QBE] based C compiler.
 //
-// See the associated [command] for documentation on flags and arguments.
-//
-// [command]: https://pkg.go.dev/modernc.org/qbecc
+// [QBE]: https://c9x.me/compile/
 package qbecc // import "modernc.org/qbecc/lib"
 
 import (
@@ -143,6 +141,11 @@ type Task struct {
 //	t := NewTask(nil, "linux", "amd64", "qbecc", "main.c")
 //
 // It's ok to pass nil 'opts'.
+//
+// See the associated [command] for documentation on flags and arguments passed
+// in 'args'.
+//
+// [command]: https://pkg.go.dev/modernc.org/qbecc
 func NewTask(options *Options, args ...string) (r *Task, err error) {
 	if options, err = options.setDefaults(); err != nil {
 		return nil, err

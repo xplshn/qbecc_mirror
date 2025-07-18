@@ -20,6 +20,7 @@ editor:
 	stringer -type=fileType,symbolType,mode,refType
 	gofmt -l -s -w .
 	go test -c -o /dev/null ./...
+	go build -o /dev/null logextractor.go
 	go install -v  ..
 	staticcheck 2>&1
 
