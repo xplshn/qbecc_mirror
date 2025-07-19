@@ -39,6 +39,10 @@ type ctx struct {
 	nextID           int
 	strings          map[string]string // value: name
 	t                *Task
+	typeID2Name      map[string]string // id: name
+	typesByID        map[string]*qtype // id: qtype
+	typesByName      map[string]*qtype // name: qtype
+	typesInDeclOrder []string          // name: qtype
 	unsupportedTypes map[cc.Type]bool
 	variables        variables
 	wordTag          string
@@ -48,10 +52,13 @@ type ctx struct {
 
 func (t *Task) newCtx(ast *cc.AST, file *compilerFile) (r *ctx) {
 	r = &ctx{
-		ast:     ast,
-		file:    file,
-		t:       t,
-		wordTag: t.wordTag,
+		ast:         ast,
+		file:        file,
+		t:           t,
+		typesByID:   map[string]*qtype{},
+		typesByName: map[string]*qtype{},
+		typeID2Name: map[string]string{},
+		wordTag:     t.wordTag,
 	}
 	for _, v := range ast.Scope.Nodes {
 		for _, w := range v {
@@ -68,7 +75,65 @@ func (t *Task) newCtx(ast *cc.AST, file *compilerFile) (r *ctx) {
 			}
 		}
 	}
+	for n := ast.TranslationUnit; n != nil; n = n.TranslationUnit {
+		switch ed := n.ExternalDeclaration; ed.Case {
+		case cc.ExternalDeclarationDecl: // Declaration
+			switch decl := ed.Declaration; decl.Case {
+			case cc.DeclarationDecl: // DeclarationSpecifiers InitDeclaratorList AttributeSpecifierList ';'
+				switch {
+				case decl.InitDeclaratorList == nil:
+					if decl.DeclarationSpecifiers != nil {
+						r.registerQType(decl, "", decl.DeclarationSpecifiers.Type())
+					}
+				default:
+					nm := ""
+					d := decl.InitDeclaratorList.InitDeclarator.Declarator
+					if d.IsTypename() {
+						nm = d.Name()
+					}
+					r.registerQType(decl, nm, decl.DeclarationSpecifiers.Type())
+				}
+			case cc.DeclarationAuto: // "__auto_type" Declarator '=' Initializer ';'
+				r.registerQType(decl, "", decl.Declarator.Type())
+			}
+		}
+	}
 	return r
+}
+
+func (c *ctx) registerQType(n cc.Node, nm string, t cc.Type) {
+	if nm == "" {
+		nm = fmt.Sprintf("__qbe_type%v", c.id())
+	}
+	for {
+		switch x := t.Undecay().(type) {
+		case *cc.ArrayType:
+			t = x.Elem()
+			continue
+		case *cc.PointerType:
+			t = x.Elem()
+			continue
+		case *cc.StructType:
+			qt := c.newQtype(n, t)
+			id := qt.id()
+			if c.typesByID[id] == nil {
+				c.typesByID[id] = &qt
+				c.typesByName[nm] = &qt
+				c.typesInDeclOrder = append(c.typesInDeclOrder, nm)
+				c.typeID2Name[id] = nm
+			}
+		case *cc.UnionType:
+			qt := c.newQtype(n, t)
+			id := qt.id()
+			if c.typesByID[id] == nil {
+				c.typesByID[id] = &qt
+				c.typesByName[nm] = &qt
+				c.typesInDeclOrder = append(c.typesInDeclOrder, nm)
+				c.typeID2Name[id] = nm
+			}
+		}
+		return
+	}
 }
 
 func (c *ctx) isVLA(t cc.Type) (r bool) {
@@ -317,6 +382,7 @@ func (t *Task) compileOne(in *compilerFile) bool {
 
 	r := t.newCtx(ast, in)
 	r.w(t.ssaHeader)
+	r.emitTypes()
 	if !r.translationUnit(ast.TranslationUnit) {
 		return false
 	}
@@ -330,6 +396,30 @@ func (t *Task) compileOne(in *compilerFile) bool {
 	}
 
 	return !r.failed
+}
+
+func (c *ctx) emitTypes() {
+	for _, v := range c.typesInDeclOrder {
+		c.emitType(v)
+	}
+}
+
+func (c *ctx) emitType(nm string) {
+	t := *c.typesByName[nm]
+	if len(t) == 0 {
+		return
+	}
+
+	c.w("type :%s = {\n", nm)
+	for _, f := range t {
+		switch {
+		case f.count != 1:
+			c.w("\t%s %v,\n", f.tag, f.count)
+		default:
+			c.w("\t%s,\n", f.tag)
+		}
+	}
+	c.w("}\n\n")
 }
 
 func (t *Task) compile() (ok bool) {

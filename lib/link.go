@@ -150,6 +150,8 @@ func (l *linkerObject) inspectSSA(ssa []byte, nm string) (ok bool) {
 			if nm := string(x.Global.Src()); isQBEExported(nm) {
 				l.defines[nm[1:]] = st
 			}
+		case *parser.TypeDefNode:
+			// nop
 		default:
 			panic(todo("%T", x))
 		}

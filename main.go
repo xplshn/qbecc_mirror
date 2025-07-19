@@ -141,7 +141,8 @@
 // # CC compatible supported flags
 //
 // These flags are recognized. Some are passed to the host C compiler for
-// configuration. Some are used by QBECC, the rest is ignored.
+// configuration. Some are used by QBECC, and many others are ignored. Passing
+// a flag not listed in this documentation results in an error.
 //
 // # -D: Define macro
 //
@@ -161,6 +162,16 @@
 //
 // Add the directory dir to the list of directories to be searched for header files.
 //
+// # -MF <file>
+//
+// Like -M but do not mention header files that are found in system header
+// directories, nor header files that are included, directly or indirectly,
+// from such a header. Ignored.
+//
+// # -MMD
+//
+// Like -MD except mention only user header files, not system header files. Ignored.
+//
 // # -O <n>: Optimization
 //
 // Select optimization level.
@@ -172,6 +183,10 @@
 // # -U: Undefine macro
 //
 // Cancel any previous definition of name, either built in or provided with a -D option.
+//
+// # -W*
+//
+// Enables extra warning flags. Ignored.
 //
 // # -ansi: Use ANSI C
 //
@@ -188,6 +203,10 @@
 // # -f*
 //
 // All other -f* flags are ignored.
+//
+// # -g
+//
+// Produce debugging information. Ignored.
 //
 // # -idirafter <dir>: Include directory
 //

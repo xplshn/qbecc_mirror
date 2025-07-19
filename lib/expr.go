@@ -991,9 +991,10 @@ func (c *ctx) postfixExpressionCall(n *cc.PostfixExpression, mode mode, t cc.Typ
 				panic(todo("%v: %v %s", n.Position(), c.sizeof(n, n.Type()), cc.NodeSource(n)))
 			}
 		default:
+			r = c.temp("%s call %s(", c.typename(n, n.Type()), c.expr(callee, rvalue, ct))
 			// COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/990525-2.c
 			// struct typed function result
-			panic(todo("%v: %s %s", n.Position(), mode, cc.NodeSource(n)))
+			// panic(todo("%v: %s %s", n.Position(), mode, cc.NodeSource(n)))
 		}
 	default:
 		panic(todo("%v: %s %s", n.Position(), mode, cc.NodeSource(n)))

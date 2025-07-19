@@ -55,6 +55,7 @@ func (lr *initListReader) consumeDesignator() {
 }
 
 type initMapItem struct {
+	//f    *cc.Field // only for bitfields
 	expr cc.ExpressionNode
 	t    cc.Type
 }

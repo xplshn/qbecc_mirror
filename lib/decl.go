@@ -383,13 +383,28 @@ func (c *ctx) externalDeclarationFuncDef(n *cc.FunctionDefinition) {
 		return
 	}
 
+	ft := d.Type().(*cc.FunctionType)
+	ntypes := len(c.typesInDeclOrder)
+	switch f.returns = ft.Result(); f.returns.Kind() {
+	case cc.Struct, cc.Union:
+		c.registerQType(n, "", f.returns)
+	}
+	for _, v := range ft.Parameters() {
+		switch v.Type().Kind() {
+		case cc.Struct, cc.Union:
+			c.registerQType(n, "", v.Type())
+		}
+	}
+	for _, v := range c.typesInDeclOrder[ntypes:len(c.typesInDeclOrder)] {
+		c.emitType(v)
+	}
+
 	c.pos(n)
 	if d.Linkage() == cc.External {
 		c.w("export ")
 	}
 	c.w("function ")
-	ft := d.Type().(*cc.FunctionType)
-	if f.returns = ft.Result(); f.returns.Kind() != cc.Void {
+	if f.returns.Kind() != cc.Void {
 		c.w("%s ", c.baseType(d, f.returns))
 	}
 	c.w("$%s", d.Name())

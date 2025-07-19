@@ -196,6 +196,7 @@ func (t *Task) Main() (err error) {
 	})
 	set.Arg("-ssa-header", false, func(opt, arg string) error { t.ssaHeader = arg; return nil })
 	set.Arg("-target", false, func(opt, arg string) error { t.target = arg; return nil })
+
 	set.Opt("-dump-ssa", func(string) error { t.dumpSSA = true; return nil })
 	set.Opt("-extended-errors", func(string) error { t.errs.extendedErrors = true; return nil })
 	set.Opt("-goabi0", func(string) error { t.goabi0 = true; return nil })
@@ -204,10 +205,17 @@ func (t *Task) Main() (err error) {
 	set.Opt("ansi", func(arg string) error { t.ansi = true; return nil })
 	set.Opt("c", func(string) error { t.c = true; return nil })
 	set.Opt("fno-asm", func(arg string) error { t.fnoAsm = true; return nil })
+
+	// Ignored
+	set.Arg("MF", false, func(arg, val string) error { return nil })
+	set.Arg("W", true, func(arg, val string) error { return nil }) // all '-W' prefixed flags are ignored
+	set.Opt("MMD", func(arg string) error { return nil })
+	set.Opt("g", func(arg string) error { return nil })
+
 	if err := set.Parse(t.args[1:], func(arg string) error {
 		switch {
 		case strings.HasPrefix(arg, "-f"):
-			// ignored
+			// all '-f' prefixed flags are ignored
 			return nil
 		case strings.HasPrefix(arg, "-"):
 			return fmt.Errorf("unexpected/unsupported option: %s", arg)
