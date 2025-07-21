@@ -202,6 +202,7 @@ func (t *Task) Main() (err error) {
 	set.Opt("-dump-ssa", func(string) error { t.dumpSSA = true; return nil })
 	set.Opt("-extended-errors", func(string) error { t.errs.extendedErrors = true; return nil })
 	set.Opt("-goabi0", func(string) error { t.goabi0 = true; return nil })
+	set.Opt("-panic", func(arg string) error { t.errs.panic = true; return nil })
 	set.Opt("E", func(string) error { t.optE = true; return nil })
 	set.Opt("S", func(string) error { t.optS = true; return nil })
 	set.Opt("ansi", func(arg string) error { t.ansi = true; return nil })

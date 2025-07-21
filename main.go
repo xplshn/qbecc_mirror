@@ -7,11 +7,15 @@
 // Note: QBECC uses the host C compiler for finding system include files and
 // for linking executables.
 //
-// # Supported targets
+// # Targets the plain C compiler supports
 //
 //	linux/amd64
 //	linux/arm64
 //	linux/riscv64
+//
+// # Targets supported using --goabi0
+//
+//	linux/amd64
 //
 // # Status
 //
@@ -162,13 +166,13 @@
 //
 // Add the directory dir to the list of directories to be searched for header files.
 //
-// # -MF <file>
+// # -MF <file>: preprocessor directive
 //
 // Like -M but do not mention header files that are found in system header
 // directories, nor header files that are included, directly or indirectly,
 // from such a header. Ignored.
 //
-// # -MMD
+// # -MMD: preprocessor directive
 //
 // Like -MD except mention only user header files, not system header files. Ignored.
 //
@@ -184,7 +188,7 @@
 //
 // Cancel any previous definition of name, either built in or provided with a -D option.
 //
-// # -W*
+// # -W*: Configure warnings
 //
 // Enables extra warning flags. Ignored.
 //
@@ -200,11 +204,11 @@
 //
 // Do not recognize asm, inline or typeof as a keyword, so that code can use these words as identifiers. 
 //
-// # -f*
+// # -f*: Other compiler flags
 //
 // All other -f* flags are ignored.
 //
-// # -g
+// # -g: Debugging info
 //
 // Produce debugging information. Ignored.
 //
@@ -213,12 +217,12 @@
 // Add the directory dir at the end of the list of directories to be searched
 // for header files during preprocessing.
 //
-// # -iquote <dir>: Include directory
+// # -iquote <dir>: Include "foo.h" directory
 //
 // Add the directory dir to the list of directories to be searched for the
 // #include "foo.h" directive.
 //
-// # -isystem <dir>: Include directory
+// # -isystem <dir>: Include <foo.h> directory
 //
 // Add the directory dir to the list of directories to be searched for both
 // #include "foo.h" and #include <bar.h> directives.

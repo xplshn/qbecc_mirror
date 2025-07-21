@@ -30,7 +30,6 @@ func (c *ctx) baseType(n cc.Node, t cc.Type) string {
 			case sz <= 8:
 				return "l"
 			default:
-				// COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/20020413-1.c
 				panic(todo("%v: %s %v", n.Position(), t, t.Kind()))
 			}
 		case c.isFloatingPointType(t):
@@ -44,6 +43,7 @@ func (c *ctx) baseType(n cc.Node, t cc.Type) string {
 				panic(todo("%v: %s %v", n.Position(), t, t.Kind()))
 			}
 		default:
+			//TODO 2025-07-21
 			// COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/20000419-1.c
 			panic(todo("%v: %s %v", n.Position(), t, t.Kind()))
 		}
@@ -112,7 +112,7 @@ type qtypeField struct {
 	tag   string // "b", "h", "w", "l", "s", "d" but also ":foo" etc.
 }
 
-var sizeToTag = map[int]string{
+var sizeToTag = map[int64]string{
 	1: "b",
 	2: "h",
 	4: "w",
@@ -142,6 +142,7 @@ func (c *ctx) newQtype(n cc.Node, t cc.Type) (r qtype) {
 		}
 	case *cc.StructType:
 		groupOff := int64(-1)
+		sz := int64(-1)
 		for i := 0; i < x.NumFields(); i++ {
 			f := x.FieldByIndex(i)
 			ft := f.Type()
@@ -149,34 +150,48 @@ func (c *ctx) newQtype(n cc.Node, t cc.Type) (r qtype) {
 				continue
 			}
 
-			if f.IsBitfield() {
-				if off := f.Offset(); off != groupOff {
-					r = append(r, qtypeField{1, sizeToTag[f.GroupSize()]})
-					groupOff = off
+			switch {
+			case f.IsBitfield():
+				foff := f.Offset()
+				if foff != groupOff {
+					r = append(r, qtypeField{1, sizeToTag[int64(f.GroupSize())]})
+					groupOff = foff
 				}
-				continue
+				sz = f.Offset() + int64(f.GroupSize())
+			default:
+				r = append(r, c.newQtype(n, ft)...)
+				sz = f.Offset() + ft.Size()
 			}
-
-			r = append(r, c.newQtype(n, ft)...)
+		}
+		if n := x.Size() - sz; n != 0 {
+			r = append(r, qtypeField{n, "b"})
 		}
 	case *cc.UnionType:
 		var f *cc.Field
-		var ft cc.Type
+		sz := int64(-1)
+		tag := ""
 		for i := 0; i < x.NumFields(); i++ {
 			f = x.FieldByIndex(i)
-			if ft = f.Type(); ft.Size() == 0 {
+			sz0 := f.Type().Size()
+			if sz0 == 0 {
 				continue
 			}
 
 			if f.IsBitfield() {
-				panic(todo("%v: %s %T", n.Position(), cc.NodeSource(n), x))
+				sz0 = int64(f.GroupSize())
 			}
-
-			r = append(r, c.newQtype(n, ft)...)
-			break
+			if sz0 > sz {
+				sz = sz0
+				if s := sizeToTag[sz]; s != "" {
+					tag = s
+				}
+			}
 		}
-		if sz := x.Size(); sz < ft.Size() {
-			r = append(r, qtypeField{ft.Size() - sz, "b"})
+		if tag != "" {
+			r = append(r, qtypeField{1, tag})
+		}
+		if n := x.Size() - sz; n != 0 {
+			r = append(r, qtypeField{n, "b"})
 		}
 	case *cc.PredefinedType:
 		r = append(r, qtypeField{1, c.extType(n, x)})

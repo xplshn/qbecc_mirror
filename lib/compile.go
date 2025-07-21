@@ -68,7 +68,7 @@ func (t *Task) newCtx(ast *cc.AST, file *compilerFile) (r *ctx) {
 					break
 				}
 
-				if r.isUnsupportedType(x.Type()) {
+				if r.isUnsupportedType(x.Type()) && !x.IsExtern() {
 					r.err(x, "unsupported type")
 				}
 				r.variables.register(x, nil, r)

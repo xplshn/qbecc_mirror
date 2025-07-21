@@ -109,6 +109,7 @@ type errList struct {
 	errs []*posErr
 
 	extendedErrors bool
+	panic          bool
 }
 
 func (e *errList) Error() string {
@@ -156,6 +157,10 @@ func (e *errList) err(n cc.Node, s string, args ...any) {
 	}
 
 	e.errs = append(e.errs, err)
+	if e.panic {
+		panic(todo("--panic"))
+	}
+
 	if len(e.errs) == errLimit {
 		panic(tooManyErrors{})
 	}
