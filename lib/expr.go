@@ -986,7 +986,12 @@ func (c *ctx) postfixExpressionCall(n *cc.PostfixExpression, mode mode, t cc.Typ
 
 			expr = c.expr(e, rvalue, et)
 		default:
-			expr = c.expr(e, rvalue, et)
+			switch {
+			case c.isAggType(et):
+				expr = c.expr(e, lvalue, et)
+			default:
+				expr = c.expr(e, rvalue, et)
+			}
 		}
 		if isVaList {
 			switch {

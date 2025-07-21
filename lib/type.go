@@ -122,11 +122,11 @@ var sizeToTag = map[int]string{
 type qtype []qtypeField
 
 func (c *ctx) newQtype(n cc.Node, t cc.Type) (r qtype) {
-	//trc(" IN: %v: %s %v", pos(n), cc.NodeSource(n), t)
+	// trc(" IN: %v: %s %v", pos(n), cc.NodeSource(n), t)
 	defer func() {
-		//trc("OUT: %v: %s %v %q %+v (A)", pos(n), cc.NodeSource(n), t, r.id(), r)
+		// trc("OUT: %v: %s %v %q %+v (A)", pos(n), cc.NodeSource(n), t, r.id(), r)
 		r = r.normalize()
-		//trc("OUT: %v: %s %v %q %+v (B)", pos(n), cc.NodeSource(n), t, r.id(), r)
+		// trc("OUT: %v: %s %v %q %+v (B)", pos(n), cc.NodeSource(n), t, r.id(), r)
 	}()
 
 	if t = t.Undecay(); t.Size() == 0 {
@@ -197,7 +197,8 @@ func (t *qtype) normalize() (r qtype) {
 	for _, v := range a {
 		switch {
 		case v.tag == prev.tag:
-			a[w].count += v.count
+			a[w-1].count += v.count
+			continue
 		default:
 			a[w] = v
 			w++
