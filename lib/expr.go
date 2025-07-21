@@ -19,6 +19,7 @@ const (
 	void mode = iota
 	lvalue
 	rvalue
+	aggRvalue
 	constLvalue
 	constRvalue
 )
@@ -284,6 +285,7 @@ func (c *ctx) convert(n cc.Node, dstType, srcType cc.Type, v any) (r any) {
 			return v
 		}
 	}
+	// all_test.go:381: C COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/20020920-1.c
 	panic(todo("%v: %s(%v, %v) <- %s(%v, %v) %v", n.Position(), dstType, dstType.Kind(), dstSize, srcType, srcType.Kind(), srcSize, cc.NodeSource(n)))
 }
 
@@ -402,6 +404,7 @@ func (c *ctx) primaryExpressionIdent(n *cc.PrimaryExpression, mode mode, t cc.Ty
 			panic(todo("%v: %T", n.Position(), x))
 		}
 	default:
+		// all_test.go:381: C COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/20011113-1.c
 		panic(todo("%v: mode=%v %v", n.Position(), mode, cc.NodeSource(n)))
 	}
 }
@@ -587,8 +590,36 @@ func (c *ctx) store(n cc.Node, et cc.Type, v, p any) {
 	}
 }
 
+func (c *ctx) isAggType(t cc.Type) (r bool) {
+	switch t.Kind() {
+	case cc.Struct, cc.Union:
+		return true
+	}
+
+	return false
+}
+
+func (c *ctx) assignmentExpressionAssignAggType(n *cc.AssignmentExpression, mode mode, t cc.Type) (r any) {
+	lhs := c.expr(n.UnaryExpression, lvalue, n.Type())
+	c.fn.newDest(fmt.Sprint(lhs))
+
+	defer c.fn.popDest()
+
+	switch mode {
+	case void:
+		c.expr(n.AssignmentExpression, aggRvalue, n.Type())
+	default:
+		panic(todo("%v: %v %v", n.Position(), mode, cc.NodeSource(n)))
+	}
+	return r
+}
+
 // UnaryExpression '=' AssignmentExpression
 func (c *ctx) assignmentExpressionAssign(n *cc.AssignmentExpression, mode mode, t cc.Type) (r any) {
+	if c.isAggType(n.AssignmentExpression.Type()) {
+		return c.assignmentExpressionAssignAggType(n, mode, t)
+	}
+
 	lhs := c.expr(n.UnaryExpression, lvalue, n.Type())
 	rhs := c.expr(n.AssignmentExpression, rvalue, n.Type())
 	_, info := c.variable(n.UnaryExpression)
@@ -976,34 +1007,35 @@ func (c *ctx) postfixExpressionCall(n *cc.PostfixExpression, mode mode, t cc.Typ
 	r = nothing
 	switch mode {
 	case void:
-		c.w("\tcall %s(", c.expr(callee, rvalue, ct))
+		switch {
+		case n.Type().Kind() != cc.Void:
+			c.temp("%s call %s(", c.abiType(n, n.Type()), c.expr(callee, rvalue, ct))
+		default:
+			c.w("\tcall %s(", c.expr(callee, rvalue, ct))
+		}
 	case rvalue:
 		defer func() { r = c.convert(n, t, n.Type(), r) }()
 
 		switch {
 		case c.isIntegerType(n.Type()) || c.isFloatingPointType(n.Type()) || n.Type().Kind() == cc.Ptr:
-			switch c.sizeof(n, n.Type()) {
-			case 4, 8:
-				r = c.temp("%s call %s(", c.baseType(n, n.Type()), c.expr(callee, rvalue, ct))
-			case 1, 2:
-				r = c.temp("w call %s(", c.expr(callee, rvalue, ct))
-			default:
-				panic(todo("%v: %v %s", n.Position(), c.sizeof(n, n.Type()), cc.NodeSource(n)))
-			}
+			r = c.temp("%s call %s(", c.abiType(n, ct.Result()), c.expr(callee, rvalue, ct))
 		default:
-			r = c.temp("%s call %s(", c.typename(n, n.Type()), c.expr(callee, rvalue, ct))
 			// COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/990525-2.c
 			// struct typed function result
-			// panic(todo("%v: %s %s", n.Position(), mode, cc.NodeSource(n)))
+			panic(todo("%v: %s %s", n.Position(), mode, cc.NodeSource(n)))
 		}
+	case aggRvalue:
+		dest := c.fn.topDest()
+		c.w("\t%s =%s call %s(", dest, c.abiType(n, ct.Result()), c.expr(callee, rvalue, ct))
 	default:
+		// all_test.go:381: C COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/20170401-1.c
 		panic(todo("%v: %s %s", n.Position(), mode, cc.NodeSource(n)))
 	}
 	for i, expr := range exprs {
 		if i == len(params) {
 			c.w("...,")
 		}
-		c.w("%s %s,", c.baseType(args[i], types[i]), expr)
+		c.w("%s %s,", c.abiType(args[i], types[i]), expr)
 	}
 	if ct.IsVariadic() && len(exprs) == len(params) {
 		c.w("...,w 0")
@@ -1140,6 +1172,7 @@ func (c *ctx) postfixExpressionSelect(n *cc.PostfixExpression, mode mode, t cc.T
 			panic(todo("%v: %T %s", n.Position(), x, cc.NodeSource(n)))
 		}
 	default:
+		// all_test.go:381: C COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/20001024-1.c
 		panic(todo("%v: %s %s", n.Position(), mode, cc.NodeSource(n)))
 	}
 }
@@ -2141,6 +2174,7 @@ func (c *ctx) castExpressionCast(n *cc.CastExpression, mode mode, t cc.Type) (r 
 
 		r = c.expr(n.CastExpression, mode, n.Type())
 	default:
+		// all_test.go:381: C COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/920625-1.c
 		panic(todo("%v: %s %s", n.Position(), mode, cc.NodeSource(n)))
 	}
 	return r

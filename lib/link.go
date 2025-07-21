@@ -76,7 +76,16 @@ func (l *linkerObject) ssaTyp(s string) string {
 		return "float32"
 	case "d":
 		return "float64"
+	case "sb":
+		return "int8"
+	case "ub":
+		return "byte"
+	case "sh":
+		return "int16"
+	case "uh":
+		return "uint16"
 	default:
+		// all_test.go:441: GO COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/920726-1.c
 		panic(todo("", s))
 	}
 }

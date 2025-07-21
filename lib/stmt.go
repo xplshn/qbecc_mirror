@@ -32,7 +32,12 @@ func (c *ctx) jumpStatementReturn(n *cc.JumpStatement) {
 	case c.fn.returns.Kind() != cc.Void:
 		switch {
 		case n.ExpressionList != nil:
-			s = c.expr(n.ExpressionList, rvalue, c.fn.returns)
+			switch {
+			case c.isAggType(c.fn.returns):
+				s = c.expr(n.ExpressionList, lvalue, c.fn.returns)
+			default:
+				s = c.expr(n.ExpressionList, rvalue, c.fn.returns)
+			}
 		}
 	default:
 		switch {

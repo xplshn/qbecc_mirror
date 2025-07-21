@@ -78,7 +78,7 @@ func (c *ctx) extType(n cc.Node, t cc.Type) string {
 func (c *ctx) abiType(n cc.Node, t cc.Type) string {
 	switch t.Kind() {
 	case cc.Struct, cc.Union:
-		return c.typename(n, t)
+		return ":" + c.typename(n, t)
 	default:
 		isInt := c.isIntegerType(t)
 		sign := "u"
@@ -89,7 +89,7 @@ func (c *ctx) abiType(n cc.Node, t cc.Type) string {
 		case isInt && sz == 1:
 			return fmt.Sprintf("%sb", sign)
 		case isInt && sz == 2:
-			return fmt.Sprintf("%sg", sign)
+			return fmt.Sprintf("%sh", sign)
 		}
 
 		return c.baseType(n, t)

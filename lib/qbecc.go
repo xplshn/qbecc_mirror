@@ -7,6 +7,8 @@
 // [QBE]: https://c9x.me/compile/
 package qbecc // import "modernc.org/qbecc/lib"
 
+//TODO use blit for small copies
+
 import (
 	_ "embed"
 	"fmt"

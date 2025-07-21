@@ -797,6 +797,8 @@ const (
 	RET                                // ret
 	S                                  // s
 	SAR                                // sar
+	SB                                 // sb
+	SH                                 // sh
 	SHL                                // shl
 	SHR                                // shr
 	SLTOF                              // sltof
@@ -815,7 +817,9 @@ const (
 	TRUNCD                             // truncd
 	TYPE                               // type
 	TYPENAME                           // type name
+	UB                                 // ub
 	UDIV                               // udiv
+	UH                                 // uh
 	ULTOF                              // ultof
 	UREM                               // urem
 	UWTOF                              // uwtof
@@ -917,6 +921,8 @@ var Keywords = map[string]Ch{
 	"ret":      RET,
 	"s":        S,
 	"sar":      SAR,
+	"sb":       SB,
+	"sh":       SH,
 	"shl":      SHL,
 	"shr":      SHR,
 	"sltof":    SLTOF,
@@ -933,7 +939,9 @@ var Keywords = map[string]Ch{
 	"thread":   THREAD,
 	"truncd":   TRUNCD,
 	"type":     TYPE,
+	"ub":       UB,
 	"udiv":     UDIV,
+	"uh":       UH,
 	"ultof":    ULTOF,
 	"urem":     UREM,
 	"uwtof":    UWTOF,

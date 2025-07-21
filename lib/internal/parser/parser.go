@@ -1118,7 +1118,7 @@ func (p *parser) args() (r []Node) {
 	for {
 		comma := false
 		switch p.ch() {
-		case W, L, P, C, S, D, TYPENAME:
+		case W, L, P, C, S, D, SB, UB, SH, UH, TYPENAME:
 			r = append(r, &RegularArgNode{p.consume(), p.val(), p.commaOpt(&comma)})
 		case ENV:
 			r = append(r, &EnvArgNode{p.consume(), p.val(), p.commaOpt(&comma)})
@@ -1189,7 +1189,7 @@ func (p *parser) params() (r []Node) {
 	for {
 		comma := false
 		switch p.ch() {
-		case W, L, P, C, S, D, TYPENAME:
+		case W, L, P, C, S, D, SB, UB, SH, UH, TYPENAME:
 			r = append(r, &RegularParamNode{p.consume(), p.must(LOCAL), p.commaOpt(&comma)})
 		case ENV:
 			r = append(r, &EnvParamNode{p.consume(), p.must(LOCAL), p.commaOpt(&comma)})
@@ -1303,59 +1303,26 @@ func (p *parser) dst() Tok {
 	return p.consume()
 }
 
-// ABITY := BASETY | :IDENT
+// ABITY  := BASETY | SUBWTY | :IDENT
+// SUBWTY := 'sb' | 'ub' | 'sh' | 'uh'  # Sub-word types
 func (p *parser) abiType() Tok {
 	switch p.ch() {
-	case W, L, P, C, S, D, TYPENAME:
+	case W, L, P, C, S, D, SB, UB, SH, UH, TYPENAME:
 	default:
 		p.err(p.tok.off, 0, "expected ABI type")
 	}
 	return p.consume()
 }
 
-// ABITY := BASETY | :IDENT
+// ABITY  := BASETY | SUBWTY | :IDENT
+// SUBWTY := 'sb' | 'ub' | 'sh' | 'uh'  # Sub-word types
 func (p *parser) abiTypeOpt() Tok {
 	switch p.ch() {
-	case W, L, P, C, S, D, TYPENAME:
+	case W, L, P, C, S, D, SB, UB, SH, UH, TYPENAME:
 		return p.consume()
 	}
 
 	return Tok{}
-}
-
-func isQBEExported(nm string) bool {
-	return strings.HasPrefix(nm, "$") && !strings.HasPrefix(nm, "$.")
-}
-
-// RweriteSource returns the source form of nodes using a rewriter.
-func RewriteSource(rewriter func(s string) string, nodes ...Node) string {
-	var a []tokener
-	for _, n := range nodes {
-		nodeSource(n, &a)
-	}
-	sort.Slice(a, func(i, j int) bool { return a[i].Off() < a[j].Off() })
-	w := 0
-	off := int32(-1)
-	for _, v := range a {
-		if v.Off() == off {
-			continue
-		}
-
-		a[w] = v
-		w++
-		off = v.Off()
-	}
-	a = a[:w]
-	var b strings.Builder
-	for _, t := range a {
-		b.Write(t.Sep())
-		src := string(t.Src())
-		// if isQBEExported(src) {
-		src = rewriter(src)
-		// }
-		b.WriteString(src)
-	}
-	return b.String()
 }
 
 // NodeSource returns the source form of nodes.

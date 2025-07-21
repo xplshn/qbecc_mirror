@@ -187,6 +187,7 @@ type fnCtx struct {
 	breakCtx         *breakContinueCtx
 	continueCtx      *breakContinueCtx
 	ctx              *ctx
+	dest             []string
 	exprStatementCtx *exprStatementCtx
 	nextID           int
 	returns          cc.Type
@@ -238,6 +239,22 @@ func (c *ctx) newFnCtx(n *cc.FunctionDefinition) (r *fnCtx) {
 		}
 	})
 	return r
+}
+
+func (f *fnCtx) newDest(s string) {
+	f.dest = append(f.dest, s)
+}
+
+func (f *fnCtx) topDest() (r string) {
+	if n := len(f.dest); n != 0 {
+		return f.dest[n-1]
+	}
+
+	return ""
+}
+
+func (f *fnCtx) popDest() {
+	f.dest = f.dest[:len(f.dest)-1]
 }
 
 func (f *fnCtx) id() (r int) {
@@ -349,7 +366,7 @@ func (c *ctx) signature(l []*cc.Parameter, isVariadic bool) {
 			break
 		}
 
-		c.w("%s ", c.baseType(v, v.Type()))
+		c.w("%s ", c.abiType(v, v.Type()))
 		switch nm := v.Name(); nm {
 		case "":
 			c.w("%%.param.%d, ", c.id())
@@ -405,7 +422,7 @@ func (c *ctx) externalDeclarationFuncDef(n *cc.FunctionDefinition) {
 	}
 	c.w("function ")
 	if f.returns.Kind() != cc.Void {
-		c.w("%s ", c.baseType(d, f.returns))
+		c.w("%s ", c.abiType(d, f.returns))
 	}
 	c.w("$%s", d.Name())
 	c.signature(ft.Parameters(), ft.IsVariadic())
