@@ -170,6 +170,7 @@ func (c *ctx) newQtype(n cc.Node, t cc.Type) (r qtype) {
 		var f *cc.Field
 		sz := int64(-1)
 		tag := ""
+		tagSz := int64(-1)
 		for i := 0; i < x.NumFields(); i++ {
 			f = x.FieldByIndex(i)
 			sz0 := f.Type().Size()
@@ -184,14 +185,17 @@ func (c *ctx) newQtype(n cc.Node, t cc.Type) (r qtype) {
 				sz = sz0
 				if s := sizeToTag[sz]; s != "" {
 					tag = s
+					tagSz = sz
 				}
 			}
 		}
+		rem := x.Size()
 		if tag != "" {
 			r = append(r, qtypeField{1, tag})
+			rem -= tagSz
 		}
-		if n := x.Size() - sz; n != 0 {
-			r = append(r, qtypeField{n, "b"})
+		if rem != 0 {
+			r = append(r, qtypeField{rem, "b"})
 		}
 	case *cc.PredefinedType:
 		r = append(r, qtypeField{1, c.extType(n, x)})
