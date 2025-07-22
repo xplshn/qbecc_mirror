@@ -1554,7 +1554,6 @@ func (c *ctx) unaryExpressionIncDec(n *cc.UnaryExpression, mode mode, t cc.Type,
 			c.store(n, n.UnaryExpression.Type(), v, p)
 			r = v
 		default:
-			// all_test.go:386: C COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/pr37573.c
 			panic(todo("%v: %T", n.Position(), x))
 		}
 	default:
