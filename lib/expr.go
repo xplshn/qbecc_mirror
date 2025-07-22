@@ -601,13 +601,10 @@ func (c *ctx) isAggType(t cc.Type) (r bool) {
 
 func (c *ctx) assignmentExpressionAssignAggType(n *cc.AssignmentExpression, mode mode, t cc.Type) (r any) {
 	lhs := c.expr(n.UnaryExpression, lvalue, n.Type())
-	c.fn.newDest(fmt.Sprint(lhs))
-
-	defer c.fn.popDest()
-
 	switch mode {
 	case void:
-		c.expr(n.AssignmentExpression, aggRvalue, n.Type())
+		s := c.expr(n.AssignmentExpression, aggRvalue, n.Type())
+		c.w("\tblit %s, %s, %v\n", s, lhs, n.UnaryExpression.Type().Size())
 	default:
 		panic(todo("%v: %v %v", n.Position(), mode, cc.NodeSource(n)))
 	}
@@ -1030,8 +1027,7 @@ func (c *ctx) postfixExpressionCall(n *cc.PostfixExpression, mode mode, t cc.Typ
 			panic(todo("%v: %s %s", n.Position(), mode, cc.NodeSource(n)))
 		}
 	case aggRvalue:
-		dest := c.fn.topDest()
-		c.w("\t%s =%s call %s(", dest, c.abiType(n, ct.Result()), c.expr(callee, rvalue, ct))
+		r = c.temp("%s call %s(", c.abiType(n, ct.Result()), c.expr(callee, rvalue, ct))
 	default:
 		// all_test.go:381: C COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/20170401-1.c
 		panic(todo("%v: %s %s", n.Position(), mode, cc.NodeSource(n)))

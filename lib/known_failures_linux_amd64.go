@@ -201,15 +201,6 @@ var blacklist = map[string]struct{}{
 	"pr34971.c":    {}, // Won't fix: https://g.co/gemini/share/46d2317fe36d
 	"pr77767.c":    {}, // Won't fix: unsupported type
 
-	"20001026-1.c": {}, //TODO
-	"20020810-1.c": {}, //TODO
-	"930126-1.c":   {}, //TODO
-	"930713-1.c":   {}, //TODO
-	"931005-1.c":   {}, //TODO
-	"990525-2.c":   {}, //TODO
-	"991019-1.c":   {}, //TODO
-	"pr39120.c":    {}, //TODO
-
 	// GO EXEC FAIL
 
 	"20101011-1.c": {}, // Won't fix: unsupported signal handling
@@ -295,7 +286,6 @@ var blacklist = map[string]struct{}{
 	"20180921-1.c":         {},
 	"920501-2.c":           {},
 	"920625-1.c":           {},
-	"920726-1.c":           {},
 	"920908-1.c":           {},
 	"920908-2.c":           {},
 	"921112-1.c":           {},
@@ -395,7 +385,6 @@ var blacklist = map[string]struct{}{
 	"pr56837.c":            {},
 	"pr57130.c":            {},
 	"pr57568.c":            {},
-	"pr58365.c":            {},
 	"pr58984.c":            {},
 	"pr60003.c":            {},
 	"pr60017.c":            {},
@@ -416,7 +405,6 @@ var blacklist = map[string]struct{}{
 	"pr80692.c":            {},
 	"pr81281.c":            {},
 	"pr82387.c":            {},
-	"pr82388.c":            {},
 	"pr82524.c":            {},
 	"pr83383.c":            {},
 	"pr85169.c":            {},

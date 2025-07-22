@@ -187,7 +187,6 @@ type fnCtx struct {
 	breakCtx         *breakContinueCtx
 	continueCtx      *breakContinueCtx
 	ctx              *ctx
-	dest             []string
 	exprStatementCtx *exprStatementCtx
 	nextID           int
 	returns          cc.Type
@@ -239,22 +238,6 @@ func (c *ctx) newFnCtx(n *cc.FunctionDefinition) (r *fnCtx) {
 		}
 	})
 	return r
-}
-
-func (f *fnCtx) newDest(s string) {
-	f.dest = append(f.dest, s)
-}
-
-func (f *fnCtx) topDest() (r string) {
-	if n := len(f.dest); n != 0 {
-		return f.dest[n-1]
-	}
-
-	return ""
-}
-
-func (f *fnCtx) popDest() {
-	f.dest = f.dest[:len(f.dest)-1]
 }
 
 func (f *fnCtx) id() (r int) {
