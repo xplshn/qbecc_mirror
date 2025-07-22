@@ -55,9 +55,9 @@ func (t *Task) newCtx(ast *cc.AST, file *compilerFile) (r *ctx) {
 		ast:         ast,
 		file:        file,
 		t:           t,
+		typeID2Name: map[string]string{},
 		typesByID:   map[string]*qtype{},
 		typesByName: map[string]*qtype{},
-		typeID2Name: map[string]string{},
 		wordTag:     t.wordTag,
 	}
 	for _, v := range ast.Scope.Nodes {

@@ -43,7 +43,6 @@ func (c *ctx) baseType(n cc.Node, t cc.Type) string {
 				panic(todo("%v: %s %v", n.Position(), t, t.Kind()))
 			}
 		default:
-			//TODO 2025-07-21
 			// COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/20000419-1.c
 			panic(todo("%v: %s %v", n.Position(), t, t.Kind()))
 		}
@@ -129,7 +128,7 @@ func (c *ctx) newQtype(n cc.Node, t cc.Type) (r qtype) {
 		// trc("OUT: %v: %s %v %q %+v (B)", pos(n), cc.NodeSource(n), t, r.id(), r)
 	}()
 
-	if t = t.Undecay(); t.Size() == 0 {
+	if t = t.Undecay(); t.Size() <= 0 {
 		return nil
 	}
 
@@ -142,7 +141,7 @@ func (c *ctx) newQtype(n cc.Node, t cc.Type) (r qtype) {
 		}
 	case *cc.StructType:
 		groupOff := int64(-1)
-		sz := int64(-1)
+		var sz int64
 		for i := 0; i < x.NumFields(); i++ {
 			f := x.FieldByIndex(i)
 			ft := f.Type()
@@ -154,11 +153,17 @@ func (c *ctx) newQtype(n cc.Node, t cc.Type) (r qtype) {
 			case f.IsBitfield():
 				foff := f.Offset()
 				if foff != groupOff {
+					if foff > sz {
+						r = append(r, qtypeField{foff - sz, sizeToTag[1]})
+					}
 					r = append(r, qtypeField{1, sizeToTag[int64(f.GroupSize())]})
 					groupOff = foff
+					sz = f.Offset() + int64(f.GroupSize())
 				}
-				sz = f.Offset() + int64(f.GroupSize())
 			default:
+				if f.Offset() > sz {
+					r = append(r, qtypeField{f.Offset() - sz, sizeToTag[1]})
+				}
 				r = append(r, c.newQtype(n, ft)...)
 				sz = f.Offset() + ft.Size()
 			}
@@ -168,7 +173,7 @@ func (c *ctx) newQtype(n cc.Node, t cc.Type) (r qtype) {
 		}
 	case *cc.UnionType:
 		var f *cc.Field
-		sz := int64(-1)
+		var sz int64
 		tag := ""
 		tagSz := int64(-1)
 		for i := 0; i < x.NumFields(); i++ {

@@ -56,6 +56,7 @@ type linkerObject struct {
 	defines      map[string]symbolType // export function $foo() { ... }, export data $bar = { ... }
 	signatures   map[string][]string   // "$myfunc": []{"tls *libc.TLS", "x int32"}
 	task         *Task
+	//TODO- types        map[string]int64 // name: size
 }
 
 func (t *Task) newLinkerObject(f *compilerFile) (r *linkerObject) {
@@ -63,6 +64,7 @@ func (t *Task) newLinkerObject(f *compilerFile) (r *linkerObject) {
 		compilerFile: f,
 		defines:      map[string]symbolType{},
 		task:         t,
+		//TODO- types:        map[string]int64{},
 	}
 }
 
@@ -85,8 +87,13 @@ func (l *linkerObject) ssaTyp(s string) string {
 	case "uh":
 		return "uint16"
 	default:
-		// all_test.go:441: GO COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/920726-1.c
-		panic(todo("", s))
+		return "uintptr"
+		//TODO- if sz, ok := l.types[s]; ok {
+		//TODO- 	return fmt.Sprintf("[%v]byte", sz)
+		//TODO- }
+
+		//TODO- // all_test.go:441: GO COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/920726-1.c
+		//TODO- panic(todo("", s))
 	}
 }
 
@@ -160,7 +167,33 @@ func (l *linkerObject) inspectSSA(ssa []byte, nm string) (ok bool) {
 				l.defines[nm[1:]] = st
 			}
 		case *parser.TypeDefNode:
-			// nop
+			// ok
+			//TODO- nm := strings.TrimSpace(string(x.Name.Src()))
+			//TODO- var sz int64
+			//TODO- for _, v := range x.Fields.Fields {
+			//TODO- 	switch x := v.(type) {
+			//TODO- 	case *parser.FieldNode:
+			//TODO- 		n := int64(1)
+			//TODO- 		if x.Number.IsValid() {
+			//TODO- 			n, _ = strconv.ParseInt(strings.TrimSpace(string(x.Number.Src())), 10, 64)
+			//TODO- 		}
+			//TODO- 		switch s := strings.TrimSpace(string(x.Type.Src())); s {
+			//TODO- 		case "b":
+			//TODO- 			sz += n
+			//TODO- 		case "h":
+			//TODO- 			sz += 2 * n
+			//TODO- 		case "w", "s":
+			//TODO- 			sz += 4 * n
+			//TODO- 		case "l", "d":
+			//TODO- 			sz += 8 * n
+			//TODO- 		default:
+			//TODO- 			panic(todo("%q", s))
+			//TODO- 		}
+			//TODO- 	default:
+			//TODO- 		panic(todo("%T", x))
+			//TODO- 	}
+			//TODO- }
+			//TODO- l.types[nm] = sz
 		default:
 			panic(todo("%T", x))
 		}

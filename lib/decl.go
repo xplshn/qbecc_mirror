@@ -440,7 +440,12 @@ func (c *ctx) externalDeclarationFuncDef(n *cc.FunctionDefinition) {
 		switch d, info := c.variable(v.Declarator); x := info.(type) {
 		case *escaped:
 			c.w("\t%%._l =%s add %%.bp., %v\n", c.wordTag, x.offset)
-			c.w("\tstore%s %%%s, %%._l\n", c.abiType(d, d.Type()), d.Name())
+			switch {
+			case c.isAggType(d.Type()):
+				c.w("\tblit %%%s, %%._l, %v\n", d.Name(), d.Type().Size())
+			default:
+				c.w("\tstore%s %%%s, %%._l\n", c.abiType(d, d.Type()), d.Name())
+			}
 		}
 	}
 	c.compoundStatement(n.CompoundStatement)
