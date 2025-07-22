@@ -238,7 +238,7 @@ func (p *parallelTest) err(err error) {
 
 // 2025-07-22
 //	all_test.go:328: CompCert-3.6/test/c: files=24 gcc fails=8 skipped=1 failed=0 passed=15
-//	all_test.go:328: gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute: files=1506 gcc fails=26 skipped=370 failed=0 passed=1110
+//	all_test.go:328: gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute: files=1506 gcc fails=26 skipped=355 failed=0 passed=1125
 //	all_test.go:328: tcc-0.9.27/tests/tests2: files=88 gcc fails=8 skipped=15 failed=0 passed=65
 
 func TestExec(t *testing.T) {

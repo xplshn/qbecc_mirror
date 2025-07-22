@@ -345,7 +345,7 @@ func (c *ctx) value(n cc.Node, mode mode, t cc.Type, v cc.Value, neg bool) (r an
 func (c *ctx) primaryExpressionIdent(n *cc.PrimaryExpression, mode mode, t cc.Type) (r any) {
 	d, info := c.variable(n)
 	switch mode {
-	case lvalue:
+	case lvalue, aggRvalue:
 		switch x := info.(type) {
 		case *local:
 			return x.name
@@ -1438,19 +1438,7 @@ func (c *ctx) unaryExpressionDeref(n *cc.UnaryExpression, mode mode, t cc.Type) 
 			panic(todo("%v: %v %s", n.Position(), et.Kind(), cc.NodeSource(n)))
 		}
 	case lvalue:
-		switch et := n.Type(); {
-		case c.isIntegerType(et) || c.isFloatingPointType(et) || et.Kind() == cc.Ptr:
-			switch sz := c.sizeof(n, et); {
-			case sz <= 8:
-				return c.expr(n.CastExpression, rvalue, n.CastExpression.Type())
-			default:
-				// all_test.go:341: C COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/pr53645-2.c
-				panic(todo("%v: %v %s", n.Position(), et, cc.NodeSource(n)))
-			}
-		default:
-			// COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/pr35472.c
-			panic(todo("%v: %v %s", n.Position(), et, cc.NodeSource(n)))
-		}
+		return c.expr(n.CastExpression, rvalue, n.CastExpression.Type())
 	default:
 		// COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/va-arg-11.c
 		panic(todo("%v: %s %s", n.Position(), mode, cc.NodeSource(n)))
@@ -1559,8 +1547,14 @@ func (c *ctx) unaryExpressionIncDec(n *cc.UnaryExpression, mode mode, t cc.Type,
 			v = c.temp("%s %s %s, %v\n", c.baseType(n, n.UnaryExpression.Type()), op, v, delta)
 			c.store(n, x.d.Type(), v, x.name)
 			return c.expr(n.UnaryExpression, rvalue, n.UnaryExpression.Type())
+		case nil:
+			p := c.expr(n.UnaryExpression, lvalue, n.UnaryExpression.Type())
+			v := c.load(n, p, n.UnaryExpression.Type())
+			v = c.temp("%s %s %s, %v\n", c.baseType(n, n.UnaryExpression.Type()), op, v, delta)
+			c.store(n, n.UnaryExpression.Type(), v, p)
+			r = v
 		default:
-			// COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/990628-1.c
+			// all_test.go:386: C COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/pr37573.c
 			panic(todo("%v: %T", n.Position(), x))
 		}
 	default:

@@ -168,32 +168,6 @@ func (l *linkerObject) inspectSSA(ssa []byte, nm string) (ok bool) {
 			}
 		case *parser.TypeDefNode:
 			// ok
-			//TODO- nm := strings.TrimSpace(string(x.Name.Src()))
-			//TODO- var sz int64
-			//TODO- for _, v := range x.Fields.Fields {
-			//TODO- 	switch x := v.(type) {
-			//TODO- 	case *parser.FieldNode:
-			//TODO- 		n := int64(1)
-			//TODO- 		if x.Number.IsValid() {
-			//TODO- 			n, _ = strconv.ParseInt(strings.TrimSpace(string(x.Number.Src())), 10, 64)
-			//TODO- 		}
-			//TODO- 		switch s := strings.TrimSpace(string(x.Type.Src())); s {
-			//TODO- 		case "b":
-			//TODO- 			sz += n
-			//TODO- 		case "h":
-			//TODO- 			sz += 2 * n
-			//TODO- 		case "w", "s":
-			//TODO- 			sz += 4 * n
-			//TODO- 		case "l", "d":
-			//TODO- 			sz += 8 * n
-			//TODO- 		default:
-			//TODO- 			panic(todo("%q", s))
-			//TODO- 		}
-			//TODO- 	default:
-			//TODO- 		panic(todo("%T", x))
-			//TODO- 	}
-			//TODO- }
-			//TODO- l.types[nm] = sz
 		default:
 			panic(todo("%T", x))
 		}
@@ -293,12 +267,15 @@ func (t *Task) link() {
 			for _, lo := range t.linkerObjects {
 				cf := lo.compilerFile
 				switch cf.outType {
-				case fileHostAsm, fileLib:
+				case fileHostAsm:
 					// ok
+				case fileLib:
+					continue
 				default:
 					panic(todo("", cf.outType))
 				}
 
+				trc("", cf)
 				asm := cf.out.(string)
 				fn := t.o
 				if fn == "" {
