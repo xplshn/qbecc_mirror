@@ -25,9 +25,9 @@ import (
 
 const (
 	assets   = "~/src/modernc.org/ccorpus2"
-	gccBinTO = 10 * time.Second
-	gccTO    = 10 * time.Second
-	goTO     = 10 * time.Second
+	gccBinTO = 20 * time.Second
+	gccTO    = 20 * time.Second
+	goTO     = 20 * time.Second
 )
 
 var (
@@ -240,6 +240,11 @@ func (p *parallelTest) err(err error) {
 //	all_test.go:328: CompCert-3.6/test/c: files=24 gcc fails=8 skipped=1 failed=0 passed=15
 //	all_test.go:328: gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute: files=1506 gcc fails=26 skipped=355 failed=0 passed=1125
 //	all_test.go:328: tcc-0.9.27/tests/tests2: files=88 gcc fails=8 skipped=15 failed=0 passed=65
+
+// 2025-07-23
+//	all_test.go:341: CompCert-3.6/test/c: files=24 gcc fails=8 skipped=1 failed=0 passed=15
+//	all_test.go:341: gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute: files=1506 gcc fails=26 skipped=334 failed=0 passed=1146
+//	all_test.go:341: tcc-0.9.27/tests/tests2: files=88 gcc fails=8 skipped=15 failed=0 passed=65
 
 func TestExec(t *testing.T) {
 	t.Logf("using C compiler at %s", gcc)

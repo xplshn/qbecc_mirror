@@ -468,6 +468,10 @@ func (c *ctx) declaratorOf(n cc.ExpressionNode) (r *cc.Declarator) {
 
 func buildDefs(D, U []string) string {
 	var a []string
+	for _, v := range U {
+		v = v[len("-U"):]
+		a = append(a, fmt.Sprintf("#undef %s", v))
+	}
 	for _, v := range D {
 		v = v[len("-D"):]
 		if i := strings.IndexByte(v, '='); i > 0 {
@@ -476,10 +480,6 @@ func buildDefs(D, U []string) string {
 		}
 
 		a = append(a, fmt.Sprintf("#define %s 1", v))
-	}
-	for _, v := range U {
-		v = v[len("-U"):]
-		a = append(a, fmt.Sprintf("#undef %s", v))
 	}
 	return strings.Join(a, "\n")
 }

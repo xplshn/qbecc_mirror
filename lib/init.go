@@ -163,8 +163,14 @@ func (c *ctx) initEscapedVar(n cc.Node, v *escaped, t cc.Type, m initMap, offs [
 				panic(todo("%v: %s %T", item.expr.Position(), cc.NodeSource(item.expr), x))
 			}
 		default:
-			e := c.expr(item.expr, rvalue, item.t)
-			c.w("\tstore%s %s, %s\n", c.extType(n, item.t), e, p)
+			switch {
+			case c.isAggType(item.t):
+				e := c.expr(item.expr, aggRvalue, item.t)
+				c.w("\tblit %s, %s, %v\n", e, p, item.t.Size())
+			default:
+				e := c.expr(item.expr, rvalue, item.t)
+				c.w("\tstore%s %s, %s\n", c.extType(n, item.t), e, p)
+			}
 		}
 	}
 }
@@ -306,11 +312,34 @@ func (c *ctx) initComplit(n cc.Node, v *complit, t cc.Type, m initMap, offs []in
 			}
 		}
 		p := c.temp("%s add %%.bp., %v\n", c.wordTag, v.offset+off)
-		e := c.expr(item.expr, rvalue, item.t)
-		c.w("\tstore%s %s, %s\n", c.extType(n, item.t), e, p)
+		switch {
+		case c.isAggType(item.t):
+			e := c.expr(item.expr, aggRvalue, item.t)
+			c.w("\tblit %s, %s, %v\n", e, p, item.t.Size())
+		case c.isAggType(item.expr.Type()):
+			e := c.expr(item.expr, aggRvalue, item.t)
+			c.w("\tblit %s, %s, %v\n", e, p, item.expr.Type().Size())
+		default:
+			e := c.expr(item.expr, rvalue, item.t)
+			c.w("\tstore%s %s, %s\n", c.extType(n, item.t), e, p)
+		}
 	}
 }
 
+// Outer
+func (c *ctx) initializerList(n *cc.InitializerList, v variable, t cc.Type) {
+	// trc("==== %v: t=%v", n.Position(), t)
+	c.initializer(
+		&cc.Initializer{
+			Case:            cc.InitializerInitList,
+			InitializerList: n,
+		},
+		v,
+		t,
+	)
+}
+
+// Outer
 func (c *ctx) initializer(n *cc.Initializer, v variable, t cc.Type) {
 	// trc("==== %v: t=%v", n.Position(), t)
 	m := initMap{}

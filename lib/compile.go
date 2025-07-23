@@ -169,11 +169,15 @@ func (c *ctx) isUnsupportedType(t cc.Type) (r bool) {
 				break
 			}
 		}
+	default:
+		if t.VectorSize() > 0 {
+			r = true
+		}
 	}
 	if c.unsupportedTypes == nil {
 		c.unsupportedTypes = map[cc.Type]bool{}
 	}
-	if t.Align() < 0 || t.Align() > 8 {
+	if t.Align() < 0 || t.Align() > 8 || t.Size() < 0 {
 		r = true
 	}
 	c.unsupportedTypes[t] = r

@@ -44,6 +44,10 @@ typedef __builtin_va_list __gnuc_va_list;
 #define __builtin_huge_vall(x) __builtin_huge_val(x)
 #endif
 
+#ifndef __builtin_frame_address
+#define __builtin_frame_address(n) ((void*)-1)
+#endif
+
 __SIZE_TYPE__ __builtin_object_size(void *p, int i);
 __SIZE_TYPE__ __builtin_strcspn(const char *s, const char *reject);
 __SIZE_TYPE__ __builtin_strlen(const char *s);
@@ -163,7 +167,6 @@ int __builtin_vscanf(const char *format, __builtin_va_list ap);
 int __builtin_vsnprintf(char *str, __SIZE_TYPE__ size, const char *format, __builtin_va_list ap);
 int __builtin_vsprintf(char *str, const char *format, __builtin_va_list ap);
 int __builtin_vsscanf(const char *str, const char *format, __builtin_va_list ap);
-int __ccgo__types_compatible_p();
 long __builtin_expect(long, long);
 long __builtin_labs(long j);
 long double __builtin_acosl(long double x);
@@ -212,4 +215,5 @@ void __builtin_abort(void);
 void __builtin_exit(int status);
 void __builtin_free(void *ptr);
 void __builtin_prefetch (void*, ...);
-void __builtin_unreachable();
+void __builtin_trap (void);
+void __builtin_unreachable(void);

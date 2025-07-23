@@ -821,7 +821,7 @@ func (c *ctx) ft(n cc.ExpressionNode) (r *cc.FunctionType) {
 		switch {
 		case strings.HasPrefix(nm, prefix):
 			nm = nm[len(prefix):]
-			a = append(a, c.ast.Scope.Nodes[nm[len(prefix):]]...)
+			a = append(a, c.ast.Scope.Nodes[nm]...)
 		default:
 			a = append(a, c.ast.Scope.Nodes[prefix+nm]...)
 		}
@@ -1215,6 +1215,10 @@ func (c *ctx) postfixExpressionPSelect(n *cc.PostfixExpression, mode mode, t cc.
 		}
 		c.load(n, p, f.Type())
 		return nothing
+	case aggRvalue:
+		p := c.expr(n.PostfixExpression, rvalue, c.ast.PVoid)
+		p = c.temp("%s add %s, %v\n", c.wordTag, p, f.Offset())
+		return p
 	default:
 		// all_test.go:356: C COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/const-addr-expr-1.c
 		panic(todo("%v: %s %s", n.Position(), mode, cc.NodeSource(n)))
@@ -1291,11 +1295,27 @@ func (c *ctx) postfixExpressionIndex(n *cc.PostfixExpression, mode mode, t cc.Ty
 
 // '(' TypeName ')' '{' InitializerList ',' '}'
 func (c *ctx) postfixExpressionComplit(n *cc.PostfixExpression, mode mode, t cc.Type) (r any) {
-	// _, info := c.variable(n)
+	_, info := c.variable(n)
 	switch mode {
+	case lvalue:
+		switch x := info.(type) {
+		case *complit:
+			c.initializerList(n.InitializerList, x, n.TypeName.Type())
+			return c.temp("%s add %%.bp., %v\n", c.wordTag, x.offset)
+		default:
+			panic(todo("%v: %T %s", n.Position(), x, cc.NodeSource(n)))
+		}
+	case aggRvalue:
+		switch x := info.(type) {
+		case *complit:
+			c.initializerList(n.InitializerList, x, n.TypeName.Type())
+			return c.temp("%s add %%.bp., %v\n", c.wordTag, x.offset)
+		default:
+			panic(todo("%v: %T %s", n.Position(), x, cc.NodeSource(n)))
+		}
 	default:
-		// ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/20050929-1.c
-		panic(todo("%v: %v %s", n.Position(), mode, cc.NodeSource(n)))
+		// all_test.go:388: C COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/20020215-1.c
+		panic(todo("%v: %v %s %s->%s", n.Position(), mode, cc.NodeSource(n), n.TypeName.Type(), t))
 	}
 	return r
 }
@@ -1366,10 +1386,7 @@ func (c *ctx) unaryExpressionAddrof(n *cc.UnaryExpression, mode mode, t cc.Type)
 		case nil:
 			return c.expr(n.CastExpression, lvalue, n.Type())
 		case *complit:
-			c.initializer(&cc.Initializer{
-				Case:            cc.InitializerInitList,
-				InitializerList: x.n.InitializerList,
-			}, x, x.n.TypeName.Type())
+			c.initializerList(x.n.InitializerList, x, x.n.TypeName.Type())
 			return c.temp("%s add %%.bp., %v\n", c.wordTag, x.offset)
 		default:
 			panic(todo("%v: %T", n.Position(), x))
@@ -1439,8 +1456,9 @@ func (c *ctx) unaryExpressionDeref(n *cc.UnaryExpression, mode mode, t cc.Type) 
 		}
 	case lvalue:
 		return c.expr(n.CastExpression, rvalue, n.CastExpression.Type())
+	case aggRvalue:
+		return c.expr(n.CastExpression, rvalue, n.CastExpression.Type())
 	default:
-		// COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/va-arg-11.c
 		panic(todo("%v: %s %s", n.Position(), mode, cc.NodeSource(n)))
 	}
 	return r

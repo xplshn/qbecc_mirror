@@ -275,8 +275,10 @@ func (t *Task) link() {
 					panic(todo("", cf.outType))
 				}
 
-				trc("", cf)
 				asm := cf.out.(string)
+
+				defer os.Remove(asm)
+
 				fn := t.o
 				if fn == "" {
 					fn = stripExtS(asm) + ".o"
