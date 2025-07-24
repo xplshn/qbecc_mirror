@@ -403,9 +403,9 @@ func (c *ctx) initList(n cc.Node, r *initListReader, off int64, t cc.Type, m ini
 }
 
 func (c *ctx) initArray(n cc.Node, r *initListReader, off int64, t *cc.ArrayType, m initMap) {
-	// trc("(%s A) %v: off=%v t=%v: %s", t.Kind(), n.Position(), off, t, cc.NodeSource(r.peek()))
+	// trc("(%s IN) %v: off=%v t=%v: %s", t.Kind(), n.Position(), off, t, cc.NodeSource(r.peek()))
 	// defer func() {
-	// 	trc("(%s Z) %v: off=%v t=%v: %s", t.Kind(), n.Position(), off, t, cc.NodeSource(r.peek()))
+	// 	trc("(%s OUT) %v: off=%v t=%v: %s", t.Kind(), n.Position(), off, t, cc.NodeSource(r.peek()))
 	// }()
 	limit := t.Len()
 	if limit < 0 {
@@ -495,9 +495,9 @@ func (c *ctx) fieldDesignator(n *cc.Designator, t fielder) (r *cc.Field) {
 // participate in initialization.
 
 func (c *ctx) initStruct(n cc.Node, r *initListReader, off int64, t *cc.StructType, m initMap) {
-	// trc("(%s A) %v: off=%v t=%v: %s", t.Kind(), n.Position(), off, t, cc.NodeSource(r.peek()))
+	// trc("(%s IN) %v: off=%v t=%v: %s", t.Kind(), n.Position(), off, t, cc.NodeSource(r.peek()))
 	// defer func() {
-	// 	trc("(%s Z) %v: off=%v t=%v: %s", t.Kind(), n.Position(), off, t, cc.NodeSource(r.peek()))
+	// 	trc("(%s OUT) %v: off=%v t=%v: %s", t.Kind(), n.Position(), off, t, cc.NodeSource(r.peek()))
 	// }()
 	limit := t.NumFields()
 	var f *cc.Field
@@ -518,6 +518,12 @@ func (c *ctx) initStruct(n cc.Node, r *initListReader, off int64, t *cc.StructTy
 			f = ln.Initializer.Field()
 			ix = f.Index()
 		default:
+			if ln.Initializer.Case == cc.InitializerExpr && ln.Initializer.AssignmentExpression.Type().IsCompatible(t) {
+				r.consume()
+				m[off] = &initMapItem{ln.Initializer.AssignmentExpression, t}
+				return
+			}
+
 			for f = t.FieldByIndex(ix); f.Name() == ""; f = t.FieldByIndex(ix) {
 				if ix = ix + 1; ix == limit {
 					c.err(ln, "unused initializer element")
@@ -526,12 +532,49 @@ func (c *ctx) initStruct(n cc.Node, r *initListReader, off int64, t *cc.StructTy
 			}
 		}
 		if f.IsBitfield() {
-			// all_test.go:344: C COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/20000113-1.c
+			// "20000113-1.c": {},
+			// "20011113-1.c": {},
+			// "20020404-1.c": {},
+			// "20031201-1.c": {},
+			// "20031211-1.c": {},
+			// "20040307-1.c": {},
+			// "20040331-1.c": {},
+			// "20081117-1.c": {},
+			// "20180921-1.c": {},
+			// "93_integer_promotion.c": {},
+			// "990326-1.c": {},
+			// "991118-1.c": {},
+			// "bf-sign-1.c": {},
+			// "bf64-1.c": {},
+			// "bitfld-3.c": {},
+			// "bitfld-4.c": {},
+			// "compndlit-1.c": {},
+			// "pr23324.c": {},
+			// "pr39339.c": {},
+			// "pr49768.c": {},
+			// "pr52979-1.c": {},
+			// "pr52979-2.c": {},
+			// "pr58984.c": {},
+			// "pr60017.c": {},
+			// "pr65215-3.c": {},
+			// "pr66556.c": {},
+			// "pr70127.c": {},
+			// "pr70602.c": {},
+			// "pr71700.c": {},
+			// "pr78170.c": {},
+			// "pr79737-1.c": {},
+			// "pr89195.c": {},
+			// "struct-ini-2.c": {},
+			// "struct-ini-3.c": {},
 			panic(todo("%v: %s", ln.Initializer.Position(), cc.NodeSource(ln.Initializer)))
 		}
 
 		if f.IsFlexibleArrayMember() {
-			c.err(n, "flexible array members not supported")
+			// all_test.go:261: C COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/20010924-1.c
+			// all_test.go:261: C COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/20030109-1.c
+			// all_test.go:261: C COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/pr28865.c
+			// all_test.go:261: C COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/pr33382.c
+			panic(todo("%v: %s", n.Position(), cc.NodeSource(n)))
 		}
 
 		switch f.Type().Kind() {
@@ -557,9 +600,9 @@ func (c *ctx) initStruct(n cc.Node, r *initListReader, off int64, t *cc.StructTy
 }
 
 func (c *ctx) initUnion(n cc.Node, r *initListReader, off int64, t *cc.UnionType, m initMap) {
-	// trc("(%s A) %v: off=%v t=%v: %s", t.Kind(), n.Position(), off, t, cc.NodeSource(r.peek()))
+	// trc("(%s IN) %v: off=%v t=%v: %s", t.Kind(), n.Position(), off, t, cc.NodeSource(r.peek()))
 	// defer func() {
-	// 	trc("(%s Z) %v: off=%v t=%v: %s", t.Kind(), n.Position(), off, t, cc.NodeSource(r.peek()))
+	// 	trc("(%s OUT) %v: off=%v t=%v: %s", t.Kind(), n.Position(), off, t, cc.NodeSource(r.peek()))
 	// }()
 	limit := 1
 	var f *cc.Field

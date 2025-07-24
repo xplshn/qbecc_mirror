@@ -45,6 +45,7 @@ type ctx struct {
 	typesInDeclOrder []string          // name: qtype
 	unsupportedTypes map[cc.Type]bool
 	variables        variables
+	wordSize         int64
 	wordTag          string
 
 	failed bool
@@ -58,6 +59,7 @@ func (t *Task) newCtx(ast *cc.AST, file *compilerFile) (r *ctx) {
 		typeID2Name: map[string]string{},
 		typesByID:   map[string]*qtype{},
 		typesByName: map[string]*qtype{},
+		wordSize:    t.wordSize,
 		wordTag:     t.wordTag,
 	}
 	for _, v := range ast.Scope.Nodes {
@@ -157,7 +159,17 @@ func (c *ctx) isUnsupportedType(t cc.Type) (r bool) {
 		r = x.Len() < 0 || c.isUnsupportedType(x.Elem()) || c.isVLA(x)
 	case *cc.StructType:
 		for i := 0; i < x.NumFields(); i++ {
-			if c.isUnsupportedType(x.FieldByIndex(i).Type()) {
+			f := x.FieldByIndex(i)
+			if f.IsFlexibleArrayMember() {
+				if c.isUnsupportedType(f.Type().(*cc.ArrayType).Elem()) {
+					r = true
+					break
+				}
+
+				continue
+			}
+
+			if c.isUnsupportedType(f.Type()) {
 				r = true
 				break
 			}
@@ -226,6 +238,8 @@ func (c *ctx) variable(n cc.Node) (d *cc.Declarator, v variable) {
 		if d = c.declaratorOf(x); d != nil {
 			n = d
 		}
+	case *cc.JumpStatement:
+		return d, c.fn.variables[n]
 	default:
 		panic(todo("%T", x))
 	}

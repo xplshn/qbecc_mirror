@@ -39,11 +39,25 @@ func (c *ctx) baseType(n cc.Node, t cc.Type) string {
 			case 8:
 				return "d"
 			default:
-				// all_test.go:356: C COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/pr85331.c
 				panic(todo("%v: %s %v", n.Position(), t, t.Kind()))
 			}
 		default:
-			// COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/20000419-1.c
+			// "20010605-2.c": {},
+			// "20020227-1.c": {},
+			// "20020411-1.c": {},
+			// "20041124-1.c": {},
+			// "20050121-1.c": {},
+			// "20070614-1.c": {},
+			// "960512-1.c": {},
+			// "complex-1.c": {},
+			// "complex-2.c": {},
+			// "complex-4.c": {},
+			// "complex-5.c": {},
+			// "complex-6.c": {},
+			// "complex-7.c": {},
+			// "pr38151.c": {},
+			// "pr38969.c": {},
+			// "pr42248.c": {},
 			panic(todo("%v: %s %v", n.Position(), t, t.Kind()))
 		}
 	}

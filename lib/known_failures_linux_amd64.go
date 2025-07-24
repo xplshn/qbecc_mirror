@@ -4,6 +4,141 @@
 
 package qbecc // import "modernc.org/qbecc/lib"
 
+// 2025-05-22
+//	all_test.go:193: tcc-0.9.27/tests/tests2: gcc fails=0 files=1 skipped=0 failed=0 passed=1
+//	all_test.go:193: CompCert-3.6/test/c: gcc fails=8 files=16 skipped=16 failed=0 passed=0
+//	all_test.go:193: gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute: gcc fails=26 files=1479 skipped=1479 failed=1 passed=0
+//	all_test.go:193: github.com/AbsInt/CompCert/test/c: gcc fails=8 files=16 skipped=16 failed=0 passed=0
+//	all_test.go:193: tcc-0.9.27/tests/tests2: gcc fails=8 files=80 skipped=76 failed=0 passed=4
+
+// 2025-06-17 incl. --goabi0
+//	all_test.go:283: tcc-0.9.27/tests/tests2: gcc fails=0 files=7 skipped=81 failed=0 passed=7
+
+// 2025-06-24
+//	all_test.go:1657: CompCert-3.6/test/c: gcc fails=8 files=2 skipped=14 failed=0 passed=2
+//	all_test.go:1657: gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute: gcc fails=26 files=81 skipped=1399 failed=0 passed=81
+//	all_test.go:1657: tcc-0.9.27/tests/tests2: gcc fails=8 files=55 skipped=25 failed=0 passed=55
+
+// 2025-06-25
+//	all_test.go:219: CompCert-3.6/test/c: files=24 gcc fails=8 skipped=14 failed=0 passed=2
+//	all_test.go:219: gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute: files=1506 gcc fails=26 skipped=1399 failed=0 passed=81
+//	all_test.go:219: tcc-0.9.27/tests/tests2: files=88 gcc fails=8 skipped=24 failed=0 passed=56
+
+// 2025-06-26
+//	all_test.go:219: CompCert-3.6/test/c: files=24 gcc fails=8 skipped=14 failed=0 passed=2
+//	all_test.go:219: gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute: files=1506 gcc fails=26 skipped=1375 failed=0 passed=105
+//	all_test.go:219: tcc-0.9.27/tests/tests2: files=88 gcc fails=8 skipped=24 failed=0 passed=56
+
+// 2025-06-28
+//	all_test.go:234: CompCert-3.6/test/c: files=24 gcc fails=8 skipped=13 failed=0 passed=3
+//	all_test.go:234: gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute: files=1506 gcc fails=26 skipped=1053 failed=0 passed=427
+//	all_test.go:234: tcc-0.9.27/tests/tests2: files=88 gcc fails=8 skipped=19 failed=0 passed=61
+
+// 2025-06-29
+//	all_test.go:244: CompCert-3.6/test/c: files=24 gcc fails=8 skipped=13 failed=0 passed=3
+//	all_test.go:244: gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute: files=1506 gcc fails=26 skipped=827 failed=0 passed=653
+//	all_test.go:244: tcc-0.9.27/tests/tests2: files=88 gcc fails=8 skipped=19 failed=0 passed=61
+
+// 2025-07-01
+//	all_test.go:244: CompCert-3.6/test/c: files=24 gcc fails=8 skipped=13 failed=0 passed=3
+//	all_test.go:244: gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute: files=1506 gcc fails=26 skipped=755 failed=0 passed=725
+//	all_test.go:244: tcc-0.9.27/tests/tests2: files=88 gcc fails=8 skipped=18 failed=0 passed=62
+
+// 2025-07-02
+//	all_test.go:244: CompCert-3.6/test/c: files=24 gcc fails=8 skipped=10 failed=0 passed=6
+//	all_test.go:244: gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute: files=1506 gcc fails=26 skipped=676 failed=0 passed=804
+//	all_test.go:244: tcc-0.9.27/tests/tests2: files=88 gcc fails=8 skipped=18 failed=0 passed=62
+
+// 2025-07-03
+//	all_test.go:265: CompCert-3.6/test/c: files=24 gcc fails=8 skipped=10 failed=0 passed=6
+//	all_test.go:265: gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute: files=1506 gcc fails=26 skipped=627 failed=0 passed=853
+//	all_test.go:265: tcc-0.9.27/tests/tests2: files=88 gcc fails=8 skipped=18 failed=0 passed=62
+
+// 2025-07-04
+//	all_test.go:262: CompCert-3.6/test/c: files=24 gcc fails=8 skipped=9 failed=0 passed=7
+//	all_test.go:262: gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute: files=1506 gcc fails=26 skipped=625 failed=0 passed=855
+//	all_test.go:262: tcc-0.9.27/tests/tests2: files=88 gcc fails=8 skipped=18 failed=0 passed=62
+
+// 2025-07-05
+//	all_test.go:267: CompCert-3.6/test/c: files=24 gcc fails=8 skipped=9 failed=0 passed=7
+//	all_test.go:267: gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute: files=1506 gcc fails=26 skipped=618 failed=0 passed=862
+//	all_test.go:267: tcc-0.9.27/tests/tests2: files=88 gcc fails=8 skipped=18 failed=0 passed=62
+
+// 2025-07-06
+//	all_test.go:272: CompCert-3.6/test/c: files=24 gcc fails=8 skipped=6 failed=0 passed=10
+//	all_test.go:272: gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute: files=1506 gcc fails=26 skipped=607 failed=0 passed=873
+//	all_test.go:272: tcc-0.9.27/tests/tests2: files=88 gcc fails=8 skipped=19 failed=0 passed=61
+
+// 2025-07-07
+//	all_test.go:269: CompCert-3.6/test/c: files=24 gcc fails=8 skipped=5 failed=0 passed=11
+//	all_test.go:269: gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute: files=1506 gcc fails=26 skipped=568 failed=0 passed=912
+//	all_test.go:269: tcc-0.9.27/tests/tests2: files=88 gcc fails=8 skipped=18 failed=0 passed=62
+
+// 2025-07-08
+//	all_test.go:278: CompCert-3.6/test/c: files=24 gcc fails=8 skipped=3 failed=0 passed=13
+//	all_test.go:278: gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute: files=1506 gcc fails=26 skipped=527 failed=0 passed=953
+//	all_test.go:278: tcc-0.9.27/tests/tests2: files=88 gcc fails=8 skipped=16 failed=0 passed=64
+
+// 2025-07-09
+//	all_test.go:287: CompCert-3.6/test/c: files=24 gcc fails=8 skipped=3 failed=0 passed=13
+//	all_test.go:287: gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute: files=1506 gcc fails=26 skipped=475 failed=0 passed=1005
+//	all_test.go:287: tcc-0.9.27/tests/tests2: files=88 gcc fails=8 skipped=16 failed=0 passed=64
+
+// 2025-07-10
+//	all_test.go:292: CompCert-3.6/test/c: files=24 gcc fails=8 skipped=3 failed=0 passed=13
+//	all_test.go:292: gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute: files=1506 gcc fails=26 skipped=457 failed=0 passed=1023
+//	all_test.go:292: tcc-0.9.27/tests/tests2: files=88 gcc fails=8 skipped=16 failed=0 passed=64
+
+// 2025-07-11
+//	all_test.go:301: CompCert-3.6/test/c: files=24 gcc fails=8 skipped=3 failed=0 passed=13
+//	all_test.go:301: gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute: files=1506 gcc fails=26 skipped=447 failed=0 passed=1033
+//	all_test.go:301: tcc-0.9.27/tests/tests2: files=88 gcc fails=8 skipped=16 failed=0 passed=64
+
+// 2025-07-13
+//	all_test.go:289: CompCert-3.6/test/c: files=24 gcc fails=8 skipped=3 failed=0 passed=13
+//	all_test.go:289: gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute: files=1506 gcc fails=26 skipped=444 failed=0 passed=1036
+//	all_test.go:289: tcc-0.9.27/tests/tests2: files=88 gcc fails=8 skipped=16 failed=0 passed=64
+
+// 2025-07-14
+//	all_test.go:307: CompCert-3.6/test/c: files=24 gcc fails=8 skipped=3 failed=0 passed=13
+//	all_test.go:307: gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute: files=1506 gcc fails=26 skipped=428 failed=0 passed=1052
+//	all_test.go:307: tcc-0.9.27/tests/tests2: files=88 gcc fails=8 skipped=16 failed=0 passed=64
+
+// 2025-07-15
+//	all_test.go:304: CompCert-3.6/test/c: files=24 gcc fails=8 skipped=3 failed=0 passed=13
+//	all_test.go:304: gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute: files=1506 gcc fails=26 skipped=425 failed=0 passed=1055
+//	all_test.go:304: tcc-0.9.27/tests/tests2: files=88 gcc fails=8 skipped=16 failed=0 passed=64
+
+// 2025-07-16
+//	all_test.go:313: CompCert-3.6/test/c: files=24 gcc fails=8 skipped=2 failed=0 passed=14
+//	all_test.go:313: gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute: files=1506 gcc fails=26 skipped=423 failed=0 passed=1057
+//	all_test.go:313: tcc-0.9.27/tests/tests2: files=88 gcc fails=8 skipped=15 failed=0 passed=65
+
+// 2025-07-17
+//	all_test.go:311: CompCert-3.6/test/c: files=24 gcc fails=8 skipped=1 failed=0 passed=15
+//	all_test.go:311: gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute: files=1506 gcc fails=26 skipped=418 failed=0 passed=1062
+//	all_test.go:311: tcc-0.9.27/tests/tests2: files=88 gcc fails=8 skipped=15 failed=0 passed=65
+
+// 2025-07-21
+//	all_test.go:319: CompCert-3.6/test/c: files=24 gcc fails=8 skipped=1 failed=0 passed=15
+//	all_test.go:319: gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute: files=1506 gcc fails=26 skipped=418 failed=0 passed=1062
+//	all_test.go:319: tcc-0.9.27/tests/tests2: files=88 gcc fails=8 skipped=15 failed=0 passed=65
+
+// 2025-07-22
+//	all_test.go:328: CompCert-3.6/test/c: files=24 gcc fails=8 skipped=1 failed=0 passed=15
+//	all_test.go:328: gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute: files=1506 gcc fails=26 skipped=355 failed=0 passed=1125
+//	all_test.go:328: tcc-0.9.27/tests/tests2: files=88 gcc fails=8 skipped=15 failed=0 passed=65
+
+// 2025-07-23
+//	all_test.go:341: CompCert-3.6/test/c: files=24 gcc fails=8 skipped=1 failed=0 passed=15
+//	all_test.go:341: gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute: files=1506 gcc fails=26 skipped=334 failed=0 passed=1146
+//	all_test.go:341: tcc-0.9.27/tests/tests2: files=88 gcc fails=8 skipped=15 failed=0 passed=65
+
+// 2025-07-24
+//	all_test.go:199: CompCert-3.6/test/c: files=24 gcc fails=8 skipped=1 failed=0 passed=15
+//	all_test.go:199: gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute: files=1506 gcc fails=26 skipped=322 failed=0 passed=1158
+//	all_test.go:199: tcc-0.9.27/tests/tests2: files=88 gcc fails=8 skipped=15 failed=0 passed=65
+
 var blacklist = map[string]struct{}{
 	// ---------------------------------------------- "CompCert-3.6/test/c"
 
@@ -99,9 +234,7 @@ var blacklist = map[string]struct{}{
 	"20010209-1.c":                 {},
 	"20010904-1.c":                 {},
 	"20010904-2.c":                 {},
-	"20010924-1.c":                 {},
 	"20020412-1.c":                 {},
-	"20030109-1.c":                 {},
 	"20040308-1.c":                 {},
 	"20040411-1.c":                 {},
 	"20040423-1.c":                 {},
@@ -112,7 +245,6 @@ var blacklist = map[string]struct{}{
 	"20050316-3.c":                 {},
 	"20050604-1.c":                 {},
 	"20050607-1.c":                 {},
-	"20050613-1.c":                 {},
 	"20060420-1.c":                 {},
 	"20070919-1.c":                 {},
 	"920721-2.c":                   {},
@@ -124,8 +256,6 @@ var blacklist = map[string]struct{}{
 	"pr22061-1.c":                  {},
 	"pr22061-4.c":                  {},
 	"pr23135.c":                    {},
-	"pr28865.c":                    {},
-	"pr33382.c":                    {},
 	"pr41935.c":                    {},
 	"pr42570.c":                    {},
 	"pr43220.c":                    {},
@@ -263,10 +393,9 @@ var blacklist = map[string]struct{}{
 	// "gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute",
 	"20000113-1.c":         {},
 	"20000917-1.c":         {},
-	"20001024-1.c":         {},
 	"20010325-1.c":         {},
 	"20010605-2.c":         {},
-	"20011008-3.c":         {},
+	"20010924-1.c":         {},
 	"20011113-1.c":         {},
 	"20020206-1.c":         {},
 	"20020227-1.c":         {},
@@ -276,10 +405,8 @@ var blacklist = map[string]struct{}{
 	"20020411-1.c":         {},
 	"20020418-1.c":         {},
 	"20020611-1.c":         {},
-	"20020920-1.c":         {},
 	"20021113-1.c":         {},
-	"20030224-2.c":         {},
-	"20030613-1.c":         {},
+	"20030109-1.c":         {},
 	"20030714-1.c":         {},
 	"20031201-1.c":         {},
 	"20031211-1.c":         {},
@@ -292,15 +419,12 @@ var blacklist = map[string]struct{}{
 	"20041124-1.c":         {},
 	"20041201-1.c":         {},
 	"20050121-1.c":         {},
-	"20050826-2.c":         {},
 	"20050929-1.c":         {},
 	"20060929-1.c":         {},
 	"20070614-1.c":         {},
 	"20070824-1.c":         {},
 	"20080529-1.c":         {},
 	"20081117-1.c":         {},
-	"20111208-1.c":         {},
-	"20170401-1.c":         {},
 	"20180921-1.c":         {},
 	"920501-2.c":           {},
 	"920625-1.c":           {},
@@ -314,7 +438,7 @@ var blacklist = map[string]struct{}{
 	"931004-6.c":           {},
 	"931004-8.c":           {},
 	"941202-1.c":           {},
-	"950628-1.c":           {},
+	"960416-1.c":           {},
 	"960512-1.c":           {},
 	"980604-1.c":           {},
 	"990326-1.c":           {},
@@ -349,8 +473,9 @@ var blacklist = map[string]struct{}{
 	"pr22098-2.c":          {},
 	"pr22098-3.c":          {},
 	"pr23324.c":            {},
-	"pr30185.c":            {},
+	"pr28865.c":            {},
 	"pr31448-2.c":          {},
+	"pr33382.c":            {},
 	"pr36321.c":            {},
 	"pr37780.c":            {},
 	"pr38151.c":            {},
@@ -358,11 +483,9 @@ var blacklist = map[string]struct{}{
 	"pr39339.c":            {},
 	"pr42248.c":            {},
 	"pr42691.c":            {},
-	"pr42833.c":            {},
 	"pr43784.c":            {},
 	"pr43987.c":            {},
 	"pr44575.c":            {},
-	"pr45070.c":            {},
 	"pr49390.c":            {},
 	"pr49644.c":            {},
 	"pr49768.c":            {},

@@ -32,7 +32,9 @@ func (n *local) String() string {
 	return fmt.Sprintf("%v: %T %s %s", n.d.Position(), n, n.d.Name(), n.name)
 }
 
-// declared in function scope, storage automatic, escaped to TLSAlloc.
+// Declared in function scope, storage automatic, escaped to TLSAlloc.  Also
+// used for the non-declared storage required for "return structFunc();" or
+// "func(structFunc());" etc. (d == nil)
 type escaped struct {
 	varinfo
 	d      *cc.Declarator
@@ -139,6 +141,18 @@ func (v *variables) register(n cc.Node, f *fnCtx, c *ctx) {
 				n:      x,
 				offset: f.alloc(x, int64(t.Align()), c.sizeof(x, t)),
 			}
+		case cc.PostfixExpressionCall: // PostfixExpression '(' ArgumentExpressionList ')'
+			m[x] = &escaped{
+				offset: f.alloc(x, c.wordSize, c.sizeof(x, x.Type())),
+			}
+		}
+	case cc.ExpressionNode:
+		m[x] = &escaped{
+			offset: f.alloc(x, c.wordSize, c.sizeof(x, x.Type())),
+		}
+	case *cc.JumpStatement: // return agg type
+		m[x] = &escaped{
+			offset: f.alloc(x, c.wordSize, c.sizeof(x, x.ExpressionList.Type())),
 		}
 	default:
 		c.err(n, "internal error %T", x)
@@ -215,14 +229,25 @@ func (c *ctx) newFnCtx(n *cc.FunctionDefinition) (r *fnCtx) {
 				}
 			case *cc.PostfixExpression:
 				switch x.Case {
-				case cc.PostfixExpressionComplit:
+				case cc.PostfixExpressionComplit: // '(' TypeName ')' '{' InitializerList ',' '}'
 					r.variables.register(x, r, c)
+				case cc.PostfixExpressionCall: // PostfixExpression '(' ArgumentExpressionList ')'
+					if c.isAggType(x.Type()) {
+						r.variables.register(x, r, c)
+					}
 				}
 			case *cc.PrimaryExpression:
 				switch x.Case {
-				case cc.PrimaryExpressionIdent:
+				case cc.PrimaryExpressionIdent: // IDENTIFIER
 					if d, ok := x.ResolvedTo().(*cc.Declarator); ok {
 						r.variables.register(d, r, c)
+					}
+				}
+			case *cc.JumpStatement:
+				switch x.Case {
+				case cc.JumpStatementReturn: // "return" ExpressionList ';'
+					if x.ExpressionList != nil && c.isAggType(x.ExpressionList.Type()) {
+						r.variables.register(x, r, c)
 					}
 				}
 			}
@@ -273,7 +298,7 @@ func (f *fnCtx) newSwitchCtx(expr any, typ cc.Type, cases0 []*cc.LabeledStatemen
 		switch v.Case {
 		case cc.LabeledStatementDefault:
 			defaultCase.LabeledStatement = v
-		default:
+		case cc.LabeledStatementCaseLabel:
 			var val0 any
 			var val int64
 			switch x := v.ConstantExpression.Value().(type) {

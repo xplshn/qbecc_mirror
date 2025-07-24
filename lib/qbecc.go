@@ -113,6 +113,7 @@ type Task struct {
 	linkerObjects []*linkerObject
 	options       *Options // from NewTask
 	parallel      *parallel
+	wordSize      int64  // 32b: 4, 64b: 8
 	wordTag       string // 32b: "w", 64b: "l"
 
 	ansi      bool   // -ansi
@@ -247,8 +248,10 @@ func (t *Task) Main() (err error) {
 
 	switch t.goarch {
 	case "386", "arm":
+		t.wordSize = 4
 		t.wordTag = "w"
 	default:
+		t.wordSize = 8
 		t.wordTag = "l"
 	}
 

@@ -285,7 +285,10 @@ func (c *ctx) convert(n cc.Node, dstType, srcType cc.Type, v any) (r any) {
 			return v
 		}
 	}
-	// all_test.go:381: C COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/20020920-1.c
+	// all_test.go:261: C COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/20030714-1.c
+	// all_test.go:261: C COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/pr49644.c
+	// all_test.go:261: C COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/pr56837.c
+	// all_test.go:261: C COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/pr80692.c
 	panic(todo("%v: %s(%v, %v) <- %s(%v, %v) %v", n.Position(), dstType, dstType.Kind(), dstSize, srcType, srcType.Kind(), srcSize, cc.NodeSource(n)))
 }
 
@@ -298,6 +301,9 @@ func (c *ctx) value(n cc.Node, mode mode, t cc.Type, v cc.Value, neg bool) (r an
 		defer func() { r = c.convert(n, t, vt, r) }()
 	case constRvalue:
 		defer func() { r = c.convertConst(n, t, vt, r) }()
+	case lvalue:
+		// all_test.go:261: C COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/960416-1.c
+		panic(todo("%v: %s %s", n.Position(), mode, cc.NodeSource(n)))
 	default:
 		panic(todo("%v: %s %s", n.Position(), mode, cc.NodeSource(n)))
 	}
@@ -443,7 +449,8 @@ func (c *ctx) primaryExpressionStmt(n *cc.CompoundStatement, mode mode, t cc.Typ
 		c.compoundStatement(n)
 		return c.fn.exprStatementCtx.expr
 	default:
-		// all_test.go:341: C COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/20020320-1.c
+		// all_test.go:261: C COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/20020206-1.c
+		// all_test.go:261: C COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/20020320-1.c
 		panic(todo("%v: mode=%v %v", n.Position(), mode, cc.NodeSource(n)))
 	}
 }
@@ -462,7 +469,8 @@ func (c *ctx) primaryExpression(n *cc.PrimaryExpression, mode mode, t cc.Type) (
 	case cc.PrimaryExpressionString: // STRINGLITERAL
 		return c.primaryExpressionString(n, mode, t)
 	case cc.PrimaryExpressionLString: // LONGSTRINGLITERAL
-		// COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/20010325-1.c
+		// all_test.go:261: C COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/20010325-1.c
+		// all_test.go:261: C COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/widechar-3.c
 		panic(todo("%v: %v %v", n.Position(), n.Case, cc.NodeSource(n)))
 	case cc.PrimaryExpressionExpr: // '(' ExpressionList ')'
 		return c.expr(n.ExpressionList, mode, t)
@@ -475,7 +483,7 @@ func (c *ctx) primaryExpression(n *cc.PrimaryExpression, mode mode, t cc.Type) (
 
 		return c.primaryExpressionStmt(n.CompoundStatement, mode, t)
 	case cc.PrimaryExpressionGeneric: // GenericSelection
-		// ~/src/modernc.org/ccorpus2/assets/tcc-0.9.27/tests/tests2/94_generic.c
+		// all_test.go:261: C COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/tcc-0.9.27/tests/tests2/94_generic.c
 		panic(todo("%v: %v %v", n.Position(), n.Case, cc.NodeSource(n)))
 	default:
 		c.err(n, "internal error %T.%s", n, n.Case)
@@ -542,7 +550,7 @@ func (c *ctx) load(n cc.Node, p any, et cc.Type) (r any) {
 		case 8:
 			return c.temp("%s load%[1]s %s\n", c.baseType(n, et), p)
 		default:
-			// all_test.go:341: C COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/20000412-3.c
+			trc("PANIC %v: p=%q et=%s %s", n.Position(), p, et, cc.NodeSource(n))
 			panic(todo("%v: %q %s %s", n.Position(), p, et, cc.NodeSource(n)))
 		}
 	}
@@ -1029,8 +1037,14 @@ func (c *ctx) postfixExpressionCall(n *cc.PostfixExpression, mode mode, t cc.Typ
 	case aggRvalue:
 		r = c.temp("%s call %s(", c.abiType(n, ct.Result()), c.expr(callee, rvalue, ct))
 	default:
-		// all_test.go:381: C COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/20170401-1.c
-		panic(todo("%v: %s %s", n.Position(), mode, cc.NodeSource(n)))
+		switch _, info := c.variable(n); x := info.(type) {
+		case *escaped:
+			r = c.temp("%s add %%.bp., %v\n", c.wordTag, x.offset)
+			v := c.temp("%s call %s(", c.abiType(n, ct.Result()), c.expr(callee, rvalue, ct))
+			defer c.w("\tblit %s, %s, %v\n", v, r, ct.Result().Size())
+		default:
+			panic(todo("%v: %T %s", n.Position(), x, cc.NodeSource(n)))
+		}
 	}
 	for i, expr := range exprs {
 		if i == len(params) {
@@ -1172,8 +1186,11 @@ func (c *ctx) postfixExpressionSelect(n *cc.PostfixExpression, mode mode, t cc.T
 			// all_test.go:341: C COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/lto-tbaa-1.c
 			panic(todo("%v: %T %s", n.Position(), x, cc.NodeSource(n)))
 		}
+	case aggRvalue:
+		p := c.expr(n.PostfixExpression, mode, nil)
+		p = c.temp("%s add %s, %v\n", c.wordTag, p, f.Offset())
+		return p
 	default:
-		// all_test.go:381: C COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/20001024-1.c
 		panic(todo("%v: %s %s", n.Position(), mode, cc.NodeSource(n)))
 	}
 }
@@ -1239,7 +1256,7 @@ func (c *ctx) postfixExpressionIndex(n *cc.PostfixExpression, mode mode, t cc.Ty
 	elemType := ptrExpr.Type().(*cc.PointerType).Elem()
 	elemSize := elemType.Size()
 	switch mode {
-	case lvalue:
+	case lvalue, aggRvalue:
 		p := c.expr(ptrExpr, rvalue, c.ast.PVoid)
 		x := c.expr(indexExpr, rvalue, c.ast.PVoid)
 		if elemSize != 1 {
@@ -1314,7 +1331,11 @@ func (c *ctx) postfixExpressionComplit(n *cc.PostfixExpression, mode mode, t cc.
 			panic(todo("%v: %T %s", n.Position(), x, cc.NodeSource(n)))
 		}
 	default:
-		// all_test.go:388: C COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/20020215-1.c
+		// all_test.go:261: C COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/20030224-2.c
+		// all_test.go:261: C COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/20050929-1.c
+		// all_test.go:261: C COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/pr22098-1.c
+		// all_test.go:261: C COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/pr22098-2.c
+		// all_test.go:261: C COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/pr22098-3.c
 		panic(todo("%v: %v %s %s->%s", n.Position(), mode, cc.NodeSource(n), n.TypeName.Type(), t))
 	}
 	return r
@@ -1750,7 +1771,7 @@ func (c *ctx) relop(lhs, rhs cc.ExpressionNode, mode mode, t cc.Type, op string)
 
 		return c.temp("w c%s%s %s, %s\n", op, c.baseType(lhs, ct), c.expr(lhs, rvalue, ct), c.expr(rhs, rvalue, ct))
 	default:
-		//	~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/pr85529-1.c
+		// all_test.go:261: C COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/pr85529-1.c
 		panic(todo("%v: %v %s %s %s", lhs.Position(), mode, cc.NodeSource(lhs), op, cc.NodeSource(rhs)))
 	}
 }
@@ -1932,7 +1953,7 @@ func (c *ctx) arithmeticOp(n, lhs, rhs cc.ExpressionNode, mode mode, t cc.Type, 
 					panic(todo("%v: %v %s %s %s %T", lhs.Position(), mode, cc.NodeSource(lhs), op, cc.NodeSource(rhs), rv))
 				}
 			default:
-				// all_test.go:366: C COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/pr23941.c
+				// all_test.go:261: C COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/pr53084.c
 				panic(todo("%v: %v %s %s %s %T", lhs.Position(), mode, cc.NodeSource(lhs), op, cc.NodeSource(rhs), lv))
 			}
 		default:
@@ -2180,12 +2201,27 @@ func (c *ctx) castExpressionCast(n *cc.CastExpression, mode mode, t cc.Type) (r 
 		r = nothing
 		c.expr(n.CastExpression, mode, n.Type())
 	case lvalue:
-		return c.expr(n.CastExpression, rvalue, c.ast.PVoid)
+		return c.expr(n.CastExpression, lvalue, c.ast.PVoid)
 	case constRvalue:
 		defer func() { r = c.convertConst(n, t, n.Type(), r) }()
 
 		r = c.expr(n.CastExpression, mode, n.Type())
+	case aggRvalue:
+		return c.expr(n.CastExpression, aggRvalue, c.ast.PVoid)
 	default:
+		// all_test.go:261: C COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/920908-1.c
+		// all_test.go:261: C COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/931004-10.c
+		// all_test.go:261: C COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/931004-12.c
+		// all_test.go:261: C COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/931004-14.c
+		// all_test.go:261: C COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/931004-2.c
+		// all_test.go:261: C COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/931004-4.c
+		// all_test.go:261: C COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/931004-6.c
+		// all_test.go:261: C COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/931004-8.c
+		// all_test.go:261: C COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/stdarg-3.c
+		// all_test.go:261: C COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/strct-stdarg-1.c
+		// all_test.go:261: C COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/strct-varg-1.c
+		// all_test.go:261: C COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/va-arg-22.c
+		// all_test.go:261: C COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/va-arg-pack-1.c
 		// all_test.go:381: C COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/920625-1.c
 		panic(todo("%v: %s %s", n.Position(), mode, cc.NodeSource(n)))
 	}

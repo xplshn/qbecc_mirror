@@ -34,7 +34,15 @@ func (c *ctx) jumpStatementReturn(n *cc.JumpStatement) {
 		case n.ExpressionList != nil:
 			switch {
 			case c.isAggType(c.fn.returns):
-				s = c.expr(n.ExpressionList, lvalue, c.fn.returns)
+				_, info := c.variable(n)
+				switch x := info.(type) {
+				case *escaped:
+					s = c.temp("%s add %%.bp., %v\n", c.wordTag, x.offset)
+					p := c.expr(n.ExpressionList, aggRvalue, c.fn.returns)
+					c.w("\tblit %s, %s, %v\n", p, s, n.ExpressionList.Type().Size())
+				default:
+					panic(todo("%v: %T %v", n.Position(), x, cc.NodeSource(n)))
+				}
 			default:
 				s = c.expr(n.ExpressionList, rvalue, c.fn.returns)
 			}
