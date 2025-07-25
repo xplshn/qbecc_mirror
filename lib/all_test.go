@@ -58,6 +58,7 @@ func TestMain(m *testing.M) {
 	flag.BoolVar(&skipGoABI0, "skipgoabi0", !enableGoABI0[target], "")
 	flag.BoolVar(&trcOutput, "trco", false, "")
 	flag.BoolVar(&xtrc, "trc", false, "")
+	flag.BoolVar(&dbgInit, "dbginit", false, "")
 	flag.Parse()
 	if s := *oRE; s != "" {
 		re = regexp.MustCompile(s)
@@ -211,7 +212,7 @@ func binPath(s string) string {
 
 func testExec2(t *testing.T, p *parallelTest, suite, testNm, fn, sid, fsName string) (err error) {
 	gccBin := binPath(fmt.Sprintf("%s.cc.out", fn))
-	args := []string{gcc, fn, "-o", gccBin}
+	args := []string{gcc, fn, "-o", gccBin, "-lm"}
 
 	if _, err = shell(gccTO, args[0], args[1:]...); err != nil {
 		p.gccFails.Add(1)

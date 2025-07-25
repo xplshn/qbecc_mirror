@@ -455,6 +455,17 @@ func (c *ctx) primaryExpressionStmt(n *cc.CompoundStatement, mode mode, t cc.Typ
 	}
 }
 
+func (c *ctx) primaryExpressionGeneric(n *cc.PrimaryExpression, mode mode, t cc.Type) (r any) {
+	switch mode {
+	case rvalue:
+		defer func() { r = c.convert(n, t, n.Type(), r) }()
+
+		return c.expr(n.GenericSelection.Associated().AssignmentExpression, mode, n.Type())
+	default:
+		panic(todo("%v: mode=%v %v", n.Position(), mode, cc.NodeSource(n)))
+	}
+}
+
 func (c *ctx) primaryExpression(n *cc.PrimaryExpression, mode mode, t cc.Type) (r any) {
 	switch n.Case {
 	case cc.PrimaryExpressionIdent: // IDENTIFIER
@@ -483,8 +494,7 @@ func (c *ctx) primaryExpression(n *cc.PrimaryExpression, mode mode, t cc.Type) (
 
 		return c.primaryExpressionStmt(n.CompoundStatement, mode, t)
 	case cc.PrimaryExpressionGeneric: // GenericSelection
-		// all_test.go:261: C COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/tcc-0.9.27/tests/tests2/94_generic.c
-		panic(todo("%v: %v %v", n.Position(), n.Case, cc.NodeSource(n)))
+		return c.primaryExpressionGeneric(n, mode, t)
 	default:
 		c.err(n, "internal error %T.%s", n, n.Case)
 		return nothing
@@ -645,10 +655,10 @@ func (c *ctx) assignmentExpressionAssign(n *cc.AssignmentExpression, mode mode, 
 		switch x := info.(type) {
 		case *local:
 			return x.name
-		case *static, nil:
+		case *static, nil, *escaped:
 			return c.load(n, lhs, n.UnaryExpression.Type())
 		default:
-			panic(todo("%T", x))
+			panic(todo("%v: %T %v", n.Position(), x, cc.NodeSource(n)))
 		}
 	default:
 		panic(todo("%v: %v %v", n.Position(), mode, cc.NodeSource(n)))
@@ -1117,7 +1127,7 @@ func (c *ctx) postfixExpressionIncDec(n *cc.PostfixExpression, mode mode, t cc.T
 			r = c.expr(n.PostfixExpression, rvalue, n.PostfixExpression.Type())
 			v := c.temp("%s %s %s, %v\n", c.baseType(n, n.PostfixExpression.Type()), op, r, delta)
 			c.store(n, x.d.Type(), v, x.name)
-		case nil:
+		case nil, *escaped:
 			p := c.expr(n.PostfixExpression, lvalue, n.PostfixExpression.Type())
 			r = c.load(n, p, n.PostfixExpression.Type())
 			v := c.temp("%s %s %s, %v\n", c.baseType(n, n.PostfixExpression.Type()), op, r, delta)
@@ -1586,7 +1596,7 @@ func (c *ctx) unaryExpressionIncDec(n *cc.UnaryExpression, mode mode, t cc.Type,
 			v = c.temp("%s %s %s, %v\n", c.baseType(n, n.UnaryExpression.Type()), op, v, delta)
 			c.store(n, x.d.Type(), v, x.name)
 			return c.expr(n.UnaryExpression, rvalue, n.UnaryExpression.Type())
-		case nil:
+		case nil, *escaped:
 			p := c.expr(n.UnaryExpression, lvalue, n.UnaryExpression.Type())
 			v := c.load(n, p, n.UnaryExpression.Type())
 			v = c.temp("%s %s %s, %v\n", c.baseType(n, n.UnaryExpression.Type()), op, v, delta)
@@ -1950,7 +1960,7 @@ func (c *ctx) arithmeticOp(n, lhs, rhs cc.ExpressionNode, mode mode, t cc.Type, 
 					}
 					return float64Value(f)
 				default:
-					panic(todo("%v: %v %s %s %s %T", lhs.Position(), mode, cc.NodeSource(lhs), op, cc.NodeSource(rhs), rv))
+					panic(todo("%v: %v %s op=%s %s %T %T", lhs.Position(), mode, cc.NodeSource(lhs), op, cc.NodeSource(rhs), lv, rv))
 				}
 			default:
 				// all_test.go:261: C COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/pr53084.c

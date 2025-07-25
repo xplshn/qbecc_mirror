@@ -12,6 +12,36 @@ import (
 	"modernc.org/cc/v4"
 )
 
+var renamed = map[string]struct{}{
+	"chan":      {},
+	"const":     {},
+	"default":   {},
+	"defer":     {},
+	"func":      {},
+	"g":         {},
+	"go":        {},
+	"import":    {},
+	"init":      {},
+	"interface": {},
+	"map":       {},
+	"package":   {},
+	"range":     {},
+	"select":    {},
+	"struct":    {},
+	"switch":    {},
+	"type":      {},
+	"var":       {},
+	//"break":       {},
+	//"case":        {},
+	//"continue":    {},
+	//"else":        {},
+	//"fallthrough": {},
+	//"for":         {},
+	//"goto":        {},
+	//"if":          {},
+	//"return":      {},
+}
+
 type variable interface {
 	isVarinfo()
 	String() string
@@ -98,7 +128,7 @@ func (v *variables) register(n cc.Node, f *fnCtx, c *ctx) {
 				case sc.Parent == nil || x.Type().Kind() == cc.Function || x.IsExtern():
 					m[x] = &static{
 						d:    x,
-						name: fmt.Sprintf("$%s", x.Name()),
+						name: fmt.Sprintf("$%s", c.rename(x.Name())),
 					}
 				default:
 					m[x] = &static{
@@ -127,7 +157,7 @@ func (v *variables) register(n cc.Node, f *fnCtx, c *ctx) {
 				}
 				m[x] = &local{
 					d:    x,
-					name: fmt.Sprintf("%%%s%s%s", prefix, x.Name(), suffix),
+					name: fmt.Sprintf("%%%s%s%s", prefix, c.rename(x.Name()), suffix),
 				}
 			}
 		default:
@@ -157,6 +187,14 @@ func (v *variables) register(n cc.Node, f *fnCtx, c *ctx) {
 	default:
 		c.err(n, "internal error %T", x)
 	}
+}
+
+func (c *ctx) rename(s string) (r string) {
+	if _, ok := renamed[s]; !ok {
+		return s
+	}
+
+	return "__nm_" + s
 }
 
 func (n *static) String() string {
@@ -379,11 +417,12 @@ func (c *ctx) signature(l []*cc.Parameter, isVariadic bool) {
 		case "":
 			c.w("%%.param.%d, ", c.id())
 		default:
-			var prefix string
-			if c.isVaList(v.Declarator) {
+			prefix := ""
+			switch {
+			case c.isVaList(v.Declarator):
 				prefix = "__qbe_va_list_"
 			}
-			c.w("%%%s%s, ", prefix, nm)
+			c.w("%%%s%s, ", prefix, c.rename(nm))
 		}
 	}
 	if isVariadic {
@@ -432,7 +471,7 @@ func (c *ctx) externalDeclarationFuncDef(n *cc.FunctionDefinition) {
 	if f.returns.Kind() != cc.Void {
 		c.w("%s ", c.abiType(d, f.returns))
 	}
-	c.w("$%s", d.Name())
+	c.w("$%s", c.rename(d.Name()))
 	c.signature(ft.Parameters(), ft.IsVariadic())
 	c.w(" {\n")
 	c.w("@start.0\n")
@@ -509,14 +548,15 @@ func (c *ctx) externalDeclarationDeclFull(n *cc.Declaration) {
 			return
 		}
 
+		nm := c.rename(d.Name())
 		switch n := l.InitDeclarator; n.Case {
 		case cc.InitDeclaratorDecl: // Declarator Asm
-			c.w("data $%s = align %d { z %d }", d.Name(), d.Type().Align(), max(c.sizeof(d, d.Type()), 1))
+			c.w("data $%s = align %d { z %d }", nm, d.Type().Align(), max(c.sizeof(d, d.Type()), 1))
 		case cc.InitDeclaratorInit: // Declarator Asm '=' Initializer
-			c.w("data $%s = align %d {\n", d.Name(), d.Type().Align())
+			c.w("data $%s = align %d {\n", nm, d.Type().Align())
 			c.initializer(n.Initializer, &static{
 				d:    d,
-				name: fmt.Sprintf("$%s", d.Name()),
+				name: fmt.Sprintf("$%s", nm),
 			}, d.Type())
 			c.w("}\n")
 		default:

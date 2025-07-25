@@ -12,6 +12,8 @@ import (
 	"modernc.org/cc/v4"
 )
 
+var dbgInit = false
+
 // initializer list reader
 type initListReader struct {
 	d *cc.DesignatorList
@@ -178,12 +180,14 @@ func (c *ctx) initEscapedVar(n cc.Node, v *escaped, t cc.Type, m initMap, offs [
 func (c *ctx) initStaticVar(n cc.Node, v variable, t cc.Type, m initMap, offs []int64) {
 	noff := int64(-1)
 	var size int64
-	// trc("==== t=%s", t)
-	// for _, off := range offs {
-	// 	item := m[off]
-	// 	sz := c.sizeof(item.expr, item.t)
-	// 	trc("%v: off=%v t=%v sz=%v e=%v", item.expr.Position(), off, item.t, sz, cc.NodeSource(item.expr))
-	// }
+	if dbgInit {
+		trc("==== t=%s", t)
+		for _, off := range offs {
+			item := m[off]
+			sz := c.sizeof(item.expr, item.t)
+			trc("%v: off=%v t=%v sz=%v e=%v", item.expr.Position(), off, item.t, sz, cc.NodeSource(item.expr))
+		}
+	}
 	for _, off := range offs {
 		item := m[off]
 		sz := c.sizeof(item.expr, item.t)
@@ -328,7 +332,9 @@ func (c *ctx) initComplit(n cc.Node, v *complit, t cc.Type, m initMap, offs []in
 
 // Outer
 func (c *ctx) initializerList(n *cc.InitializerList, v variable, t cc.Type) {
-	// trc("==== %v: t=%v", n.Position(), t)
+	if dbgInit {
+		trc("==== %v: t=%v", n.Position(), t)
+	}
 	c.initializer(
 		&cc.Initializer{
 			Case:            cc.InitializerInitList,
@@ -341,7 +347,9 @@ func (c *ctx) initializerList(n *cc.InitializerList, v variable, t cc.Type) {
 
 // Outer
 func (c *ctx) initializer(n *cc.Initializer, v variable, t cc.Type) {
-	// trc("==== %v: t=%v", n.Position(), t)
+	if dbgInit {
+		trc("==== %v: t=%v", n.Position(), t)
+	}
 	m := initMap{}
 	c.init(n, 0, t, m)
 	var offs []int64
@@ -366,11 +374,17 @@ func (c *ctx) initializer(n *cc.Initializer, v variable, t cc.Type) {
 func (c *ctx) init(n *cc.Initializer, off int64, t cc.Type, m initMap) {
 	switch n.Case {
 	case cc.InitializerExpr: // AssignmentExpression
-		// trc("%v: case=%v off=%v t=%v: %s", n.Position(), n.Case, off, t, cc.NodeSource(n))
+		if dbgInit {
+			trc("%v: case=%v off=%v t=%v: %s", n.Position(), n.Case, off, t, cc.NodeSource(n))
+		}
 		m[off] = &initMapItem{n.AssignmentExpression, t}
-		// trc("m[%v]=%s", off, cc.NodeSource(n.AssignmentExpression))
+		if dbgInit {
+			trc("m[%v]=%s", off, cc.NodeSource(n.AssignmentExpression))
+		}
 	case cc.InitializerInitList: // '{' InitializerList ',' '}'
-		// trc("%v: case=%v off=%v t=%v: %s", n.Position(), n.Case, off, t, cc.NodeSource(n))
+		if dbgInit {
+			trc("%v: case=%v off=%v t=%v: %s", n.Position(), n.Case, off, t, cc.NodeSource(n))
+		}
 		r := newInitListReader(n.InitializerList)
 		c.initList(n, r, off, t, m)
 		if n := r.peek(); n != nil {
@@ -384,16 +398,24 @@ func (c *ctx) init(n *cc.Initializer, off int64, t cc.Type, m initMap) {
 func (c *ctx) initList(n cc.Node, r *initListReader, off int64, t cc.Type, m initMap) {
 	switch t.Kind() {
 	case cc.Array:
-		// trc("%v: kind=%v off=%v t=%v: %s", n.Position(), t.Kind(), off, t, cc.NodeSource(r.peek()))
+		if dbgInit {
+			trc("%v: kind=%v off=%v t=%v: %s", n.Position(), t.Kind(), off, t, cc.NodeSource(r.peek()))
+		}
 		c.initArray(n, r, off, t.(*cc.ArrayType), m)
 	case cc.Struct:
-		// trc("%v: kind=%v off=%v t=%v: %s", n.Position(), t.Kind(), off, t, cc.NodeSource(r.peek()))
+		if dbgInit {
+			trc("%v: kind=%v off=%v t=%v: %s", n.Position(), t.Kind(), off, t, cc.NodeSource(r.peek()))
+		}
 		c.initStruct(n, r, off, t.(*cc.StructType), m)
 	case cc.Union:
-		// trc("%v: kind=%v off=%v t=%v: %s", n.Position(), t.Kind(), off, t, cc.NodeSource(r.peek()))
+		if dbgInit {
+			trc("%v: kind=%v off=%v t=%v: %s", n.Position(), t.Kind(), off, t, cc.NodeSource(r.peek()))
+		}
 		c.initUnion(n, r, off, t.(*cc.UnionType), m)
 	default:
-		// trc("%v: kind=%v off=%v t=%v: %s", n.Position(), t.Kind(), off, t, cc.NodeSource(r.peek()))
+		if dbgInit {
+			trc("%v: kind=%v off=%v t=%v: %s", n.Position(), t.Kind(), off, t, cc.NodeSource(r.peek()))
+		}
 		// all_test.go:336: C COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/20050316-1.c
 		// panic(todo("%v: %s off=%v t=%v m=%v kind=%v", n.Position(), cc.NodeSource(n), off, t, m, t.Kind()))
 		ln := r.peek()
@@ -403,10 +425,12 @@ func (c *ctx) initList(n cc.Node, r *initListReader, off int64, t cc.Type, m ini
 }
 
 func (c *ctx) initArray(n cc.Node, r *initListReader, off int64, t *cc.ArrayType, m initMap) {
-	// trc("(%s IN) %v: off=%v t=%v: %s", t.Kind(), n.Position(), off, t, cc.NodeSource(r.peek()))
-	// defer func() {
-	// 	trc("(%s OUT) %v: off=%v t=%v: %s", t.Kind(), n.Position(), off, t, cc.NodeSource(r.peek()))
-	// }()
+	if dbgInit {
+		trc("(%s IN) %v: off=%v t=%v: %s", t.Kind(), n.Position(), off, t, cc.NodeSource(r.peek()))
+		defer func() {
+			trc("(%s OUT) %v: off=%v t=%v: %s", t.Kind(), n.Position(), off, t, cc.NodeSource(r.peek()))
+		}()
+	}
 	limit := t.Len()
 	if limit < 0 {
 		c.err(n, "unsupported type")
@@ -438,7 +462,7 @@ func (c *ctx) initArray(n cc.Node, r *initListReader, off int64, t *cc.ArrayType
 		}
 
 		if d := r.peekDesignator(); d != nil {
-			panic(todo(""))
+			r.consumeDesignator()
 			ix = ln.Initializer.Offset() / sz
 		}
 
@@ -491,14 +515,13 @@ func (c *ctx) fieldDesignator(n *cc.Designator, t fielder) (r *cc.Field) {
 	return r
 }
 
-// 6.7.8/9: unnamed members of objects of structure and union type do not
-// participate in initialization.
-
 func (c *ctx) initStruct(n cc.Node, r *initListReader, off int64, t *cc.StructType, m initMap) {
-	// trc("(%s IN) %v: off=%v t=%v: %s", t.Kind(), n.Position(), off, t, cc.NodeSource(r.peek()))
-	// defer func() {
-	// 	trc("(%s OUT) %v: off=%v t=%v: %s", t.Kind(), n.Position(), off, t, cc.NodeSource(r.peek()))
-	// }()
+	if dbgInit {
+		trc("(%s IN) %v: off=%v t=%v: %s", t.Kind(), n.Position(), off, t, cc.NodeSource(r.peek()))
+		defer func() {
+			trc("(%s OUT) %v: off=%v t=%v: %s", t.Kind(), n.Position(), off, t, cc.NodeSource(r.peek()))
+		}()
+	}
 	limit := t.NumFields()
 	var f *cc.Field
 	for ix := 0; ix < limit; ix++ {
@@ -509,13 +532,15 @@ func (c *ctx) initStruct(n cc.Node, r *initListReader, off int64, t *cc.StructTy
 
 		switch d := r.peekDesignator(); {
 		case d != nil:
+			if dbgInit {
+				trc("designator=%s", cc.NodeSource(d))
+			}
 			if f = c.fieldDesignator(d, t); f == nil {
 				r.consume()
 				continue
 			}
 
 			r.consumeDesignator()
-			f = ln.Initializer.Field()
 			ix = f.Index()
 		default:
 			if ln.Initializer.Case == cc.InitializerExpr && ln.Initializer.AssignmentExpression.Type().IsCompatible(t) {
@@ -524,12 +549,10 @@ func (c *ctx) initStruct(n cc.Node, r *initListReader, off int64, t *cc.StructTy
 				return
 			}
 
-			for f = t.FieldByIndex(ix); f.Name() == ""; f = t.FieldByIndex(ix) {
-				if ix = ix + 1; ix == limit {
-					c.err(ln, "unused initializer element")
-					return
-				}
-			}
+			f = t.FieldByIndex(ix)
+		}
+		if dbgInit {
+			trc("f=%q ix=%v", f.Name(), ix)
 		}
 		if f.IsBitfield() {
 			// "20000113-1.c": {},
@@ -600,10 +623,12 @@ func (c *ctx) initStruct(n cc.Node, r *initListReader, off int64, t *cc.StructTy
 }
 
 func (c *ctx) initUnion(n cc.Node, r *initListReader, off int64, t *cc.UnionType, m initMap) {
-	// trc("(%s IN) %v: off=%v t=%v: %s", t.Kind(), n.Position(), off, t, cc.NodeSource(r.peek()))
-	// defer func() {
-	// 	trc("(%s OUT) %v: off=%v t=%v: %s", t.Kind(), n.Position(), off, t, cc.NodeSource(r.peek()))
-	// }()
+	if dbgInit {
+		trc("(%s IN) %v: off=%v t=%v: %s", t.Kind(), n.Position(), off, t, cc.NodeSource(r.peek()))
+		defer func() {
+			trc("(%s OUT) %v: off=%v t=%v: %s", t.Kind(), n.Position(), off, t, cc.NodeSource(r.peek()))
+		}()
+	}
 	limit := 1
 	var f *cc.Field
 	for ix := 0; ix < limit; ix++ {
@@ -614,21 +639,21 @@ func (c *ctx) initUnion(n cc.Node, r *initListReader, off int64, t *cc.UnionType
 
 		switch d := r.peekDesignator(); {
 		case d != nil:
+			if dbgInit {
+				trc("designator=%s", cc.NodeSource(d))
+			}
 			if f = c.fieldDesignator(d, t); f == nil {
 				r.consume()
 				continue
 			}
 
 			r.consumeDesignator()
-			f = ln.Initializer.Field()
 			ix = f.Index()
 		default:
-			for f = t.FieldByIndex(ix); f.Name() == ""; f = t.FieldByIndex(ix) {
-				if ix = ix + 1; ix == limit {
-					c.err(ln, "unused initializer element")
-					return
-				}
-			}
+			f = t.FieldByIndex(ix)
+		}
+		if dbgInit {
+			trc("f=%q ix=%v", f.Name(), ix)
 		}
 		if f.IsBitfield() {
 			// all_test.go:336: C COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/pr88739.c
@@ -638,7 +663,7 @@ func (c *ctx) initUnion(n cc.Node, r *initListReader, off int64, t *cc.UnionType
 		case cc.Array, cc.Struct, cc.Union:
 			switch ln.Initializer.Case {
 			case cc.InitializerExpr:
-				panic(todo("%v: %s", ln.Initializer.Position(), cc.NodeSource(ln.Initializer)))
+				c.initList(ln.Initializer, r, off+f.Offset(), f.Type(), m)
 			case cc.InitializerInitList:
 				r.consume()
 				c.init(ln.Initializer, off+f.Offset(), f.Type(), m)

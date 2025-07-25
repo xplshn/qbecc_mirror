@@ -167,6 +167,9 @@ int __builtin_vscanf(const char *format, __builtin_va_list ap);
 int __builtin_vsnprintf(char *str, __SIZE_TYPE__ size, const char *format, __builtin_va_list ap);
 int __builtin_vsprintf(char *str, const char *format, __builtin_va_list ap);
 int __builtin_vsscanf(const char *str, const char *format, __builtin_va_list ap);
+int __isfinite(double x);
+int __isfinitef(float x);
+int __isfinitel(long double x);
 long __builtin_expect(long, long);
 long __builtin_labs(long j);
 long double __builtin_acosl(long double x);
@@ -217,3 +220,11 @@ void __builtin_free(void *ptr);
 void __builtin_prefetch (void*, ...);
 void __builtin_trap (void);
 void __builtin_unreachable(void);
+
+#ifndef __builtin_isfinite
+#define __builtin_isfinite(x) _Generic((x), \
+    float: __isfinitef, \
+    double: __isfinite, \
+    long double: __isfinitel \
+)(x)
+#endif

@@ -139,6 +139,11 @@ package qbecc // import "modernc.org/qbecc/lib"
 //	all_test.go:199: gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute: files=1506 gcc fails=26 skipped=322 failed=0 passed=1158
 //	all_test.go:199: tcc-0.9.27/tests/tests2: files=88 gcc fails=8 skipped=15 failed=0 passed=65
 
+// 2025-07-25
+//	all_test.go:200: CompCert-3.6/test/c: files=24 gcc fails=1 skipped=1 failed=0 passed=22
+//	all_test.go:200: gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute: files=1506 gcc fails=24 skipped=321 failed=0 passed=1161
+//	all_test.go:200: tcc-0.9.27/tests/tests2: files=88 gcc fails=8 skipped=14 failed=0 passed=66
+
 var blacklist = map[string]struct{}{
 	// ---------------------------------------------- "CompCert-3.6/test/c"
 
@@ -388,7 +393,6 @@ var blacklist = map[string]struct{}{
 	"87_dead_code.c":              {},
 	"88_codeopt.c":                {},
 	"93_integer_promotion.c":      {},
-	"94_generic.c":                {},
 
 	// "gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute",
 	"20000113-1.c":         {},
@@ -511,7 +515,6 @@ var blacklist = map[string]struct{}{
 	"pr85331.c":            {},
 	"pr85529-1.c":          {},
 	"pr86528.c":            {},
-	"pr87053.c":            {},
 	"pr88739.c":            {},
 	"pr89195.c":            {},
 	"pr89826.c":            {},

@@ -56,7 +56,6 @@ type linkerObject struct {
 	defines      map[string]symbolType // export function $foo() { ... }, export data $bar = { ... }
 	signatures   map[string][]string   // "$myfunc": []{"tls *libc.TLS", "x int32"}
 	task         *Task
-	//TODO- types        map[string]int64 // name: size
 }
 
 func (t *Task) newLinkerObject(f *compilerFile) (r *linkerObject) {
@@ -64,7 +63,6 @@ func (t *Task) newLinkerObject(f *compilerFile) (r *linkerObject) {
 		compilerFile: f,
 		defines:      map[string]symbolType{},
 		task:         t,
-		//TODO- types:        map[string]int64{},
 	}
 }
 
@@ -88,12 +86,6 @@ func (l *linkerObject) ssaTyp(s string) string {
 		return "uint16"
 	default:
 		return "uintptr"
-		//TODO- if sz, ok := l.types[s]; ok {
-		//TODO- 	return fmt.Sprintf("[%v]byte", sz)
-		//TODO- }
-
-		//TODO- // all_test.go:441: GO COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/920726-1.c
-		//TODO- panic(todo("", s))
 	}
 }
 
@@ -183,16 +175,6 @@ func (l *linkerObject) goabi0(w io.Writer, ssa []byte, nm string, externs map[st
 	}
 
 	rewritten := parser.RewriteSource(func(nm string) (r string) {
-		switch nm { // Rename Go conflicts
-		case "%g":
-			return "%__qbe_g" // assembler reserved
-		case "%map":
-			return "%__qbe_map" // Go reserved
-		case "%type":
-			return "%__qbe_type" // Go reserved
-		case "%var":
-			return "%__qbe_var" // Go reserved
-		}
 		cname := nm[1:]
 		// defer func() { trc("(nm=%s cname=%s)->%s", nm, cname, r) }()
 		if !isQBEExported(nm) {
