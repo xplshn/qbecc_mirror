@@ -1022,7 +1022,7 @@ func (c *ctx) postfixExpressionCall(n *cc.PostfixExpression, mode mode, t cc.Typ
 		types = append(types, et)
 	}
 	if len(exprs) > len(params) && (len(params) == 0 || !ct.IsVariadic()) {
-		c.err(n, "arguments '%s' do not match signature '%s' (missing prototype?)", cc.NodeSource(n.ArgumentExpressionList), ct)
+		c.err(n, "arguments in '%s' do not match signature '%s' (missing prototype?)", cc.NodeSource(n), ct)
 	}
 	r = nothing
 	switch mode {
@@ -1046,7 +1046,7 @@ func (c *ctx) postfixExpressionCall(n *cc.PostfixExpression, mode mode, t cc.Typ
 		}
 	case aggRvalue:
 		r = c.temp("%s call %s(", c.abiType(n, ct.Result()), c.expr(callee, rvalue, ct))
-	default:
+	case lvalue:
 		switch _, info := c.variable(n); x := info.(type) {
 		case *escaped:
 			r = c.temp("%s add %%.bp., %v\n", c.wordTag, x.offset)
@@ -1055,6 +1055,21 @@ func (c *ctx) postfixExpressionCall(n *cc.PostfixExpression, mode mode, t cc.Typ
 		default:
 			panic(todo("%v: %T %s", n.Position(), x, cc.NodeSource(n)))
 		}
+	case constRvalue:
+		defer func() { r = c.convert(n, t, n.Type(), r) }()
+
+		if x, ok := unparen(n.PostfixExpression).(*cc.PrimaryExpression); ok && x.Case == cc.PrimaryExpressionIdent {
+			switch x.Token.SrcStr() {
+			case "__builtin_nanf":
+				return float32Value(float32(math.NaN()))
+			case "__builtin_inff":
+				return float32Value(float32(math.Inf(1)))
+			}
+		}
+
+		panic(todo("%v: %v %s", n.Position(), mode, cc.NodeSource(n)))
+	default:
+		panic(todo("%v: %v %s", n.Position(), mode, cc.NodeSource(n)))
 	}
 	for i, expr := range exprs {
 		if i == len(params) {
@@ -1375,6 +1390,26 @@ func (c *ctx) postfixExpression(n *cc.PostfixExpression, mode mode, t cc.Type) (
 	}
 }
 
+func (c *ctx) valueof(n cc.Node) (r cc.Value) {
+	if x, ok := n.(cc.ExpressionNode); ok {
+		if r = x.Value(); r != nil && r != cc.Unknown {
+			return r
+		}
+
+		v := c.expr(x, constRvalue, x.Type())
+		switch y := v.(type) {
+		case float32Value:
+			return cc.Float64Value(y)
+		case float64Value:
+			return cc.Float64Value(y)
+		default:
+			panic(todo("%v: %s %T", n.Position(), cc.NodeSource(n), y))
+		}
+	}
+
+	panic(todo("%v: %s", n.Position(), cc.NodeSource(n)))
+}
+
 // '-' CastExpression
 func (c *ctx) unaryExpressionMinus(n *cc.UnaryExpression, mode mode, t cc.Type) (r any) {
 	switch mode {
@@ -1384,7 +1419,7 @@ func (c *ctx) unaryExpressionMinus(n *cc.UnaryExpression, mode mode, t cc.Type) 
 		e := c.expr(n.CastExpression, mode, n.Type())
 		return c.temp("%s neg %s\n", c.baseType(n, n.Type()), e)
 	case constRvalue:
-		return c.value(n, mode, t, n.CastExpression.Value(), true)
+		return c.value(n, mode, t, c.valueof(n.CastExpression), true)
 	default:
 		panic(todo("%v: %s %s", n.Position(), mode, cc.NodeSource(n)))
 	}
@@ -2264,10 +2299,22 @@ func (c *ctx) conditionalExpressionCond(n *cc.ConditionalExpression, mode mode, 
 	x := c.label()
 	z := c.label()
 	switch mode {
+	case lvalue:
+		defer func() { r = c.convert(n, t, n.Type(), r) }()
+
+		e := c.expr(n.LogicalOrExpression, rvalue, n.LogicalOrExpression.Type())
+		c.w("\tjnz %s, %s, %s\n", e, a, b)
+		c.w("%s\n", a)
+		r = c.expr(n.ExpressionList, mode, n.ExpressionList.Type())
+		c.w("%s\n", x)
+		c.w("\tjmp %s\n", z)
+		c.w("%s\n", b)
+		r = c.expr(n.ConditionalExpression, mode, n.ExpressionList.Type())
+		c.w("%s\n", z)
 	case rvalue:
 		defer func() { r = c.convert(n, t, n.Type(), r) }()
 
-		e := c.expr(n.LogicalOrExpression, mode, n.LogicalOrExpression.Type())
+		e := c.expr(n.LogicalOrExpression, rvalue, n.LogicalOrExpression.Type())
 		c.w("\tjnz %s, %s, %s\n", e, a, b)
 		c.w("%s\n", a)
 		el := c.expr(n.ExpressionList, mode, n.ExpressionList.Type())
@@ -2288,8 +2335,17 @@ func (c *ctx) conditionalExpressionCond(n *cc.ConditionalExpression, mode mode, 
 		c.w("%s\n", b)
 		c.expr(n.ConditionalExpression, mode, n.ExpressionList.Type())
 		c.w("%s\n", z)
+	case aggRvalue:
+		e := c.expr(n.LogicalOrExpression, rvalue, n.LogicalOrExpression.Type())
+		c.w("\tjnz %s, %s, %s\n", e, a, b)
+		c.w("%s\n", a)
+		r = c.expr(n.ExpressionList, mode, n.ExpressionList.Type())
+		c.w("%s\n", x)
+		c.w("\tjmp %s\n", z)
+		c.w("%s\n", b)
+		r = c.expr(n.ConditionalExpression, mode, n.ExpressionList.Type())
+		c.w("%s\n", z)
 	default:
-		// COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/20071120-1.c
 		panic(todo("%v: %s %s", n.Position(), mode, cc.NodeSource(n)))
 	}
 	return r
@@ -2316,6 +2372,15 @@ func (c *ctx) expressionList(n *cc.ExpressionList, mode mode, t cc.Type) (r any)
 		r = c.expr(n.AssignmentExpression, m, t)
 	}
 	return r
+}
+
+// ConditionalExpression
+func (c *ctx) ConstantExpression(n *cc.ConstantExpression, mode mode, t cc.Type) (r any) {
+	if v := n.ConditionalExpression.Value(); v != nil {
+		return c.value(n, mode, t, v, false)
+	}
+
+	panic(todo("%v: %s", n.Position(), cc.NodeSource(n)))
 }
 
 func (c *ctx) expr(n cc.ExpressionNode, mode mode, t cc.Type) (r any) {

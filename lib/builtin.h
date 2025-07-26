@@ -167,9 +167,6 @@ int __builtin_vscanf(const char *format, __builtin_va_list ap);
 int __builtin_vsnprintf(char *str, __SIZE_TYPE__ size, const char *format, __builtin_va_list ap);
 int __builtin_vsprintf(char *str, const char *format, __builtin_va_list ap);
 int __builtin_vsscanf(const char *str, const char *format, __builtin_va_list ap);
-int __isfinite(double x);
-int __isfinitef(float x);
-int __isfinitel(long double x);
 long __builtin_expect(long, long);
 long __builtin_labs(long j);
 long double __builtin_acosl(long double x);
@@ -222,9 +219,141 @@ void __builtin_trap (void);
 void __builtin_unreachable(void);
 
 #ifndef __builtin_isfinite
+int __isfinite(double x);
+int __isfinitef(float x);
+int __isfinitel(long double x);
 #define __builtin_isfinite(x) _Generic((x), \
     float: __isfinitef, \
     double: __isfinite, \
     long double: __isfinitel \
 )(x)
+#endif
+
+#ifndef __builtin_signbit
+int __signbit(double x);
+int __signbitf(float x);
+int __signbitl(long double x);
+#define __builtin_signbit(x) _Generic((x), \
+    float: __signbitf, \
+    double: __signbit, \
+    long double: __signbitl \
+)(x)
+#endif
+
+#ifndef __atomic_fetch_add
+unsigned char  __atomic_fetch_addUint8(unsigned char*, unsigned char, int);
+unsigned short __atomic_fetch_addUint16(unsigned short*, unsigned short, int);
+unsigned int   __atomic_fetch_addUint32(unsigned int*, unsigned int, int);
+unsigned long  __atomic_fetch_addUint64(unsigned long*, unsigned long long, int);
+#define __atomic_fetch_add(p, v, m) _Generic((p), \
+    unsigned char*:  __atomic_fetch_addUint8, \
+    unsigned short*: __atomic_fetch_addUint16, \
+    unsigned int*:   __atomic_fetch_addUint32, \
+    unsigned long*:  __atomic_fetch_addUint64 \
+)(p, v, m)
+#endif
+
+#ifndef __atomic_fetch_and
+unsigned char  __atomic_fetch_andUint8(unsigned char*, unsigned char, int);
+unsigned short __atomic_fetch_andUint16(unsigned short*, unsigned short, int);
+unsigned int   __atomic_fetch_andUint32(unsigned int*, unsigned int, int);
+unsigned long  __atomic_fetch_andUint64(unsigned long*, unsigned long long, int);
+#define __atomic_fetch_and(p, v, m) _Generic((p), \
+    unsigned char*:  __atomic_fetch_andUint8, \
+    unsigned short*: __atomic_fetch_andUint16, \
+    unsigned int*:   __atomic_fetch_andUint32, \
+    unsigned long*:  __atomic_fetch_andUint64 \
+)(p, v, m)
+#endif
+
+#ifndef __atomic_fetch_or
+unsigned char  __atomic_fetch_orUint8(unsigned char*, unsigned char, int);
+unsigned short __atomic_fetch_orUint16(unsigned short*, unsigned short, int);
+unsigned int   __atomic_fetch_orUint32(unsigned int*, unsigned int, int);
+unsigned long  __atomic_fetch_orUint64(unsigned long*, unsigned long long, int);
+#define __atomic_fetch_or(p, v, m) _Generic((p), \
+    unsigned char*:  __atomic_fetch_orUint8, \
+    unsigned short*: __atomic_fetch_orUint16, \
+    unsigned int*:   __atomic_fetch_orUint32, \
+    unsigned long*:  __atomic_fetch_orUint64 \
+)(p, v, m)
+#endif
+
+#ifndef __atomic_fetch_sub
+unsigned char  __atomic_fetch_subUint8(unsigned char*, unsigned char, int);
+unsigned short __atomic_fetch_subUint16(unsigned short*, unsigned short, int);
+unsigned int   __atomic_fetch_subUint32(unsigned int*, unsigned int, int);
+unsigned long  __atomic_fetch_subUint64(unsigned long*, unsigned long long, int);
+#define __atomic_fetch_sub(p, v, m) _Generic((p), \
+    unsigned char*:  __atomic_fetch_subUint8, \
+    unsigned short*: __atomic_fetch_subUint16, \
+    unsigned int*:   __atomic_fetch_subUint32, \
+    unsigned long*:  __atomic_fetch_subUint64 \
+)(p, v, m)
+#endif
+
+#ifndef __atomic_fetch_xor
+unsigned char  __atomic_fetch_xorUint8(unsigned char*, unsigned char, int);
+unsigned short __atomic_fetch_xorUint16(unsigned short*, unsigned short, int);
+unsigned int   __atomic_fetch_xorUint32(unsigned int*, unsigned int, int);
+unsigned long  __atomic_fetch_xorUint64(unsigned long*, unsigned long long, int);
+#define __atomic_fetch_xor(p, v, m) _Generic((p), \
+    unsigned char*:  __atomic_fetch_xorUint8, \
+    unsigned short*: __atomic_fetch_xorUint16, \
+    unsigned int*:   __atomic_fetch_xorUint32, \
+    unsigned long*:  __atomic_fetch_xorUint64 \
+)(p, v, m)
+#endif
+
+
+#ifndef __atomic_exchange
+void __atomic_exchangeUint8(unsigned char*, unsigned char*, unsigned char*, int);
+void __atomic_exchangeUint16(unsigned short*, unsigned short*, unsigned short*, int);
+void __atomic_exchangeUint32(unsigned int*, unsigned int*, unsigned int*, int);
+void __atomic_exchangeUint64(unsigned long*, unsigned long*, unsigned long*, int);
+#define __atomic_exchange(p, v, e, m) _Generic((p), \
+    unsigned char*:  __atomic_exchangeUint8, \
+    unsigned short*: __atomic_exchangeUint16, \
+    unsigned int*:   __atomic_exchangeUint32, \
+    unsigned long*:  __atomic_exchangeUint64 \
+)(p, v, e, m)
+#endif
+
+#ifndef __atomic_load
+void __atomic_loadUint8(unsigned char*, unsigned char*, int);
+void __atomic_loadUint16(unsigned short*, unsigned short*, int);
+void __atomic_loadUint32(unsigned int*, unsigned int*, int);
+void __atomic_loadUint64(unsigned long*, unsigned long*, int);
+#define __atomic_load(p, v, m) _Generic((p), \
+    unsigned char*:  __atomic_loadUint8, \
+    unsigned short*: __atomic_loadUint16, \
+    unsigned int*:   __atomic_loadUint32, \
+    unsigned long*:  __atomic_loadUint64 \
+)(p, v, m)
+#endif
+
+#ifndef __atomic_store
+void __atomic_storeUint8(unsigned char*, unsigned char*, int);
+void __atomic_storeUint16(unsigned short*, unsigned short*, int);
+void __atomic_storeUint32(unsigned int*, unsigned int*, int);
+void __atomic_storeUint64(unsigned long*, unsigned long*, int);
+#define __atomic_store(p, v, m) _Generic((p), \
+    unsigned char*:  __atomic_storeUint8, \
+    unsigned short*: __atomic_storeUint16, \
+    unsigned int*:   __atomic_storeUint32, \
+    unsigned long*:  __atomic_storeUint64 \
+)(p, v, m)
+#endif
+
+#ifndef __atomic_compare_exchange
+void __atomic_compare_exchangeUint8(unsigned char*, unsigned char*, unsigned char*, int, int, int);
+void __atomic_compare_exchangeUint16(unsigned short*, unsigned short*, unsigned short*, int, int, int);
+void __atomic_compare_exchangeUint32(unsigned int*, unsigned int*, unsigned int*, int, int, int);
+void __atomic_compare_exchangeUint64(unsigned long*, unsigned long*, unsigned long*, int, int, int);
+#define __atomic_compare_exchange(p, v, d, x, y, z) _Generic((p), \
+    unsigned char*:  __atomic_compare_exchangeUint8, \
+    unsigned short*: __atomic_compare_exchangeUint16, \
+    unsigned int*:   __atomic_compare_exchangeUint32, \
+    unsigned long*:  __atomic_compare_exchangeUint64 \
+)(p, v, d, x, y, z)
 #endif

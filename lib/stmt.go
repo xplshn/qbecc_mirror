@@ -520,7 +520,14 @@ func (c *ctx) blockItemDecl(n *cc.Declaration) {
 	case cc.DeclarationAssert: // StaticAssertDeclaration
 		panic(todo("%v: %v %s", n.Position(), n.Case, cc.NodeSource(n)))
 	case cc.DeclarationAuto: // "__auto_type" Declarator '=' Initializer ';'
-		panic(todo("%v: %v %s", n.Position(), n.Case, cc.NodeSource(n)))
+		switch n.Declarator.StorageDuration() {
+		case cc.Automatic:
+			_, info := c.variable(n.Declarator)
+			c.initializer(n.Initializer, info, n.Declarator.Type())
+		default:
+			trc("%v: %v %s", n.Position(), n.Declarator.StorageDuration(), cc.NodeSource(n))
+			panic(todo("%v: %v %s", n.Position(), n.Declarator.StorageDuration(), cc.NodeSource(n)))
+		}
 	default:
 		c.err(n, "internal error %T.%s", n, n.Case)
 	}

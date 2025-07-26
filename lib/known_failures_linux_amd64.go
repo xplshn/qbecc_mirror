@@ -144,6 +144,11 @@ package qbecc // import "modernc.org/qbecc/lib"
 //	all_test.go:200: gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute: files=1506 gcc fails=24 skipped=321 failed=0 passed=1161
 //	all_test.go:200: tcc-0.9.27/tests/tests2: files=88 gcc fails=8 skipped=14 failed=0 passed=66
 
+// 2025-07-26
+//	all_test.go:200: CompCert-3.6/test/c: files=24 gcc fails=1 skipped=1 failed=0 passed=22
+//	all_test.go:200: gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute: files=1506 gcc fails=24 skipped=321 failed=0 passed=1161
+//	all_test.go:200: tcc-0.9.27/tests/tests2: files=88 gcc fails=8 skipped=14 failed=0 passed=66
+
 var blacklist = map[string]struct{}{
 	// ---------------------------------------------- "CompCert-3.6/test/c"
 
