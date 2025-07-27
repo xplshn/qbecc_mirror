@@ -36,6 +36,7 @@ type ctx struct {
 	buf              // QBE SSA
 	file             *compilerFile
 	fn               *fnCtx
+	inlineFns        map[*cc.Declarator]*cc.FunctionDefinition
 	nextID           int
 	strings          map[string]string // value: name
 	t                *Task
@@ -55,6 +56,7 @@ func (t *Task) newCtx(ast *cc.AST, file *compilerFile) (r *ctx) {
 	r = &ctx{
 		ast:         ast,
 		file:        file,
+		inlineFns:   map[*cc.Declarator]*cc.FunctionDefinition{},
 		t:           t,
 		typeID2Name: map[string]string{},
 		typesByID:   map[string]*qtype{},
@@ -73,7 +75,7 @@ func (t *Task) newCtx(ast *cc.AST, file *compilerFile) (r *ctx) {
 				if r.isUnsupportedType(x.Type()) && !x.IsExtern() {
 					r.err(x, "unsupported type")
 				}
-				r.variables.register(x, nil, r)
+				r.variables.register(x, nil, r, 0)
 			}
 		}
 	}
@@ -332,35 +334,37 @@ var (
 
 func (t *Task) asmFile(in string, c *ctx) (err error) {
 	ssa := bytes.TrimSpace(c.b.Bytes())
-	var enc bytes.Buffer
-	if _, _, err := ace.Compress(&enc, bytes.NewBuffer(ssa)); err != nil {
-		return err
-	}
-
 	strippedNm := stripExtCH(in)
 	fn := strippedNm + ".ssa"
 	var asm buf
-	asm.w(".section %s, \"\", @progbits\n", ssaSection)
-	asm.w(".global .%s_start\n", ssaSection)
-	asm.w(".global .%s_end\n", ssaSection)
-	asm.w(".global .%s_size\n\n", ssaSection)
-	asm.w("%s_start:\n", ssaSection)
-	b := enc.Bytes()
-	asm.w("\t.ascii \"%x\\x00\"\n", len(b))
-	for len(b) != 0 {
-		n := min(16, len(b))
-		asm.w("\t.byte ")
-		for i, v := range b[:n] {
-			if i != 0 {
-				asm.w(", ")
-			}
-			asm.w("%#02x", v)
+	if t.keepSSA {
+		var enc bytes.Buffer
+		if _, _, err := ace.Compress(&enc, bytes.NewBuffer(ssa)); err != nil {
+			return err
 		}
-		asm.w("\n")
-		b = b[n:]
+
+		asm.w(".section %s, \"\", @progbits\n", ssaSection)
+		asm.w(".global .%s_start\n", ssaSection)
+		asm.w(".global .%s_end\n", ssaSection)
+		asm.w(".global .%s_size\n\n", ssaSection)
+		asm.w("%s_start:\n", ssaSection)
+		b := enc.Bytes()
+		asm.w("\t.ascii \"%x\\x00\"\n", len(b))
+		for len(b) != 0 {
+			n := min(16, len(b))
+			asm.w("\t.byte ")
+			for i, v := range b[:n] {
+				if i != 0 {
+					asm.w(", ")
+				}
+				asm.w("%#02x", v)
+			}
+			asm.w("\n")
+			b = b[n:]
+		}
+		asm.w("%s_end:\n", ssaSection)
+		asm.w("\n.set %s_size, %[1]s_end - %[1]s_start\n\n", ssaSection)
 	}
-	asm.w("%s_end:\n", ssaSection)
-	asm.w("\n.set %s_size, %[1]s_end - %[1]s_start\n\n", ssaSection)
 	cb := c.b.Bytes()
 	cb = bytes.ReplaceAll(cb, __builtin_, dlr)
 	if err := libqbe.Main(t.target, fn, bytes.NewReader(cb), &asm.b, nil); err != nil {
@@ -461,6 +465,11 @@ func (t *Task) compile() (ok bool) {
 			})
 		case fileELF:
 			if t.optE {
+				break
+			}
+
+			if !t.goabi0 {
+				v.outType = fileELF
 				break
 			}
 

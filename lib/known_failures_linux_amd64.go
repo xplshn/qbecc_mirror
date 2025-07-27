@@ -149,6 +149,11 @@ package qbecc // import "modernc.org/qbecc/lib"
 //	all_test.go:200: gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute: files=1506 gcc fails=24 skipped=321 failed=0 passed=1161
 //	all_test.go:200: tcc-0.9.27/tests/tests2: files=88 gcc fails=8 skipped=14 failed=0 passed=66
 
+// 2025-07-27
+//	all_test.go:200: CompCert-3.6/test/c: files=24 gcc fails=1 skipped=1 failed=0 passed=22
+//	all_test.go:200: gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute: files=1506 gcc fails=24 skipped=317 failed=0 passed=1165
+//	all_test.go:200: tcc-0.9.27/tests/tests2: files=88 gcc fails=8 skipped=14 failed=0 passed=66
+
 var blacklist = map[string]struct{}{
 	// ---------------------------------------------- "CompCert-3.6/test/c"
 
@@ -431,7 +436,6 @@ var blacklist = map[string]struct{}{
 	"20050929-1.c":         {},
 	"20060929-1.c":         {},
 	"20070614-1.c":         {},
-	"20070824-1.c":         {},
 	"20080529-1.c":         {},
 	"20081117-1.c":         {},
 	"20180921-1.c":         {},
@@ -455,7 +459,6 @@ var blacklist = map[string]struct{}{
 	"alias-2.c":            {},
 	"alias-3.c":            {},
 	"alias-4.c":            {},
-	"alloca-1.c":           {},
 	"bf-sign-1.c":          {},
 	"bf64-1.c":             {},
 	"bitfld-3.c":           {},
@@ -485,7 +488,6 @@ var blacklist = map[string]struct{}{
 	"pr28865.c":            {},
 	"pr31448-2.c":          {},
 	"pr33382.c":            {},
-	"pr36321.c":            {},
 	"pr37780.c":            {},
 	"pr38151.c":            {},
 	"pr38969.c":            {},
@@ -519,7 +521,6 @@ var blacklist = map[string]struct{}{
 	"pr83383.c":            {},
 	"pr85331.c":            {},
 	"pr85529-1.c":          {},
-	"pr86528.c":            {},
 	"pr88739.c":            {},
 	"pr89195.c":            {},
 	"pr89826.c":            {},

@@ -125,8 +125,10 @@ int __builtin___vsnprintf_chk(char * s, __SIZE_TYPE__ maxlen, int flag, __SIZE_T
 int __builtin_abs(int j);
 int __builtin_clz (unsigned int x);
 int __builtin_clzl (unsigned long x);
+int __builtin_clzll (unsigned long long);
 int __builtin_ctz (unsigned int x);
 int __builtin_ctzl (unsigned long x);
+int __builtin_ctzll (unsigned long long);
 int __builtin_dprintf(int fd, const char *format, ...);
 int __builtin_fprintf(void *stream, const char *format, ...);
 int __builtin_fputc(int c, void *stream);
@@ -223,8 +225,8 @@ int __isfinite(double x);
 int __isfinitef(float x);
 int __isfinitel(long double x);
 #define __builtin_isfinite(x) _Generic((x), \
-    float: __isfinitef, \
-    double: __isfinite, \
+    float:       __isfinitef, \
+    double:      __isfinite, \
     long double: __isfinitel \
 )(x)
 #endif
@@ -234,9 +236,20 @@ int __signbit(double x);
 int __signbitf(float x);
 int __signbitl(long double x);
 #define __builtin_signbit(x) _Generic((x), \
-    float: __signbitf, \
-    double: __signbit, \
+    float:       __signbitf, \
+    double:      __signbit, \
     long double: __signbitl \
+)(x)
+#endif
+
+#ifndef __builtin_isnan
+int __isnan(double x);
+int __isnanf(float x);
+int __isnanl(long double x);
+#define __builtin_isnan(x) _Generic((x), \
+    float:       __isnanf, \
+    double:      __isnan, \
+    long double: __isnanl \
 )(x)
 #endif
 

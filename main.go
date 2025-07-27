@@ -265,6 +265,11 @@
 //
 // # --goos <string>: target GOOS
 //
+// # --keep-ssa: Store the IR in output files
+//
+// Preserve the IR in the object/executable files so they can be later used
+// with --goabi0.
+//
 // Select Go target OS for cross compiling when/where supported.
 //
 // # --positions {base,full}: Line number info

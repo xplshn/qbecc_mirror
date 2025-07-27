@@ -12,10 +12,13 @@ import (
 	"modernc.org/cc/v4"
 )
 
+const (
+	maxInlineDepth = 10
+)
+
 var renamed = map[string]struct{}{
+	// Go keywords not reserved by C and Go assembler reserved names
 	"chan":      {},
-	"const":     {},
-	"default":   {},
 	"defer":     {},
 	"func":      {},
 	"g":         {},
@@ -27,19 +30,24 @@ var renamed = map[string]struct{}{
 	"package":   {},
 	"range":     {},
 	"select":    {},
-	"struct":    {},
-	"switch":    {},
 	"type":      {},
 	"var":       {},
-	//"break":       {},
-	//"case":        {},
-	//"continue":    {},
-	//"else":        {},
-	//"fallthrough": {},
-	//"for":         {},
-	//"goto":        {},
-	//"if":          {},
-	//"return":      {},
+
+	// Go keywords reserved by C
+
+	// "break":       {},
+	// "case":        {},
+	// "const":       {},
+	// "continue":    {},
+	// "default":     {},
+	// "else":        {},
+	// "fallthrough": {},
+	// "for":         {},
+	// "goto":        {},
+	// "if":          {},
+	// "return":      {},
+	// "struct":      {},
+	// "switch":      {},
 }
 
 type variable interface {
@@ -94,7 +102,7 @@ type static struct {
 
 type variables map[cc.Node]variable
 
-func (v *variables) register(n cc.Node, f *fnCtx, c *ctx) {
+func (v *variables) register(n cc.Node, f *fnCtx, c *ctx, inlineLevel int) {
 	m := *v
 	if m == nil {
 		m = variables{}
@@ -149,7 +157,7 @@ func (v *variables) register(n cc.Node, f *fnCtx, c *ctx) {
 				}
 			default:
 				var prefix, suffix string
-				if !x.IsParam() {
+				if !x.IsParam() || inlineLevel != 0 {
 					suffix = fmt.Sprintf(".%d", f.id())
 				}
 				if x.IsParam() && c.isVaList(x) {
@@ -251,6 +259,16 @@ func (c *ctx) newFnCtx(n *cc.FunctionDefinition) (r *fnCtx) {
 	r = &fnCtx{
 		ctx: c,
 	}
+	r.fill(c, n, 0)
+	return r
+}
+
+func (fn *fnCtx) fill(c *ctx, n *cc.FunctionDefinition, inlineLevel int) {
+	if inlineLevel == maxInlineDepth {
+		c.err(n, "max inline depth reached")
+		return
+	}
+
 	ignore := 0
 	walk(n, func(n cc.Node, mode int) {
 		switch mode {
@@ -260,7 +278,7 @@ func (c *ctx) newFnCtx(n *cc.FunctionDefinition) (r *fnCtx) {
 				ignore++
 			case *cc.Declarator:
 				if ignore == 0 {
-					r.variables.register(x, r, c)
+					fn.variables.register(x, fn, c, inlineLevel)
 					if x.IsParam() {
 						ignore++
 					}
@@ -268,24 +286,27 @@ func (c *ctx) newFnCtx(n *cc.FunctionDefinition) (r *fnCtx) {
 			case *cc.PostfixExpression:
 				switch x.Case {
 				case cc.PostfixExpressionComplit: // '(' TypeName ')' '{' InitializerList ',' '}'
-					r.variables.register(x, r, c)
+					fn.variables.register(x, fn, c, inlineLevel)
 				case cc.PostfixExpressionCall: // PostfixExpression '(' ArgumentExpressionList ')'
 					if c.isAggType(x.Type()) {
-						r.variables.register(x, r, c)
+						fn.variables.register(x, fn, c, inlineLevel)
+					}
+					if d := c.funcDeclarator(x.PostfixExpression); d != nil && d.IsInline() && c.isHeader(d) {
+						fn.fill(c, c.inlineFns[d], inlineLevel+1)
 					}
 				}
 			case *cc.PrimaryExpression:
 				switch x.Case {
 				case cc.PrimaryExpressionIdent: // IDENTIFIER
 					if d, ok := x.ResolvedTo().(*cc.Declarator); ok {
-						r.variables.register(d, r, c)
+						fn.variables.register(d, fn, c, inlineLevel)
 					}
 				}
 			case *cc.JumpStatement:
 				switch x.Case {
 				case cc.JumpStatementReturn: // "return" ExpressionList ';'
 					if x.ExpressionList != nil && c.isAggType(x.ExpressionList.Type()) {
-						r.variables.register(x, r, c)
+						fn.variables.register(x, fn, c, inlineLevel)
 					}
 				}
 			}
@@ -300,7 +321,6 @@ func (c *ctx) newFnCtx(n *cc.FunctionDefinition) (r *fnCtx) {
 			}
 		}
 	})
-	return r
 }
 
 func (f *fnCtx) id() (r int) {
@@ -444,6 +464,7 @@ func (c *ctx) externalDeclarationFuncDef(n *cc.FunctionDefinition) {
 
 	d := n.Declarator
 	if d.IsInline() && c.isHeader(d) {
+		c.inlineFns[d] = n
 		return
 	}
 
@@ -489,9 +510,9 @@ func (c *ctx) externalDeclarationFuncDef(n *cc.FunctionDefinition) {
 			c.w("\t%%._l =%s add %%.bp., %v\n", c.wordTag, x.offset)
 			switch {
 			case c.isAggType(d.Type()):
-				c.w("\tblit %%%s, %%._l, %v\n", d.Name(), d.Type().Size())
+				c.w("\tblit %%%s, %%._l, %v\n", c.rename(d.Name()), d.Type().Size())
 			default:
-				c.w("\tstore%s %%%s, %%._l\n", c.abiType(d, d.Type()), d.Name())
+				c.w("\tstore%s %%%s, %%._l\n", c.extType(d, d.Type()), d.Name())
 			}
 		}
 	}
@@ -548,6 +569,37 @@ func (c *ctx) externalDeclarationDeclFull(n *cc.Declaration) {
 			return
 		}
 
+		var sel *cc.Declarator
+		for _, v := range c.ast.Scope.Nodes[d.Name()] {
+			x, ok := v.(*cc.Declarator)
+			if !ok {
+				continue
+			}
+
+			if sel == nil {
+				sel = x
+				continue
+			}
+
+			switch {
+			case sel.HasInitializer():
+				switch {
+				case x.HasInitializer():
+					c.err(x, "declarator has multiple initializers: %v and %v", sel.Position(), x.Position())
+					return
+				}
+			default:
+				switch {
+				case x.HasInitializer():
+					sel = x
+				}
+			}
+		}
+		if sel != d {
+			return
+		}
+
+		c.w("\n# sel=%v: d=%v:\n", sel.Position(), d.Position())
 		nm := c.rename(d.Name())
 		switch n := l.InitDeclarator; n.Case {
 		case cc.InitDeclaratorDecl: // Declarator Asm

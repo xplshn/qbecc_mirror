@@ -237,6 +237,7 @@ func testExec2(t *testing.T, p *parallelTest, suite, testNm, fn, sid, fsName str
 	args = []string{
 		os.Args[0],
 		"-o", qbeccBin,
+		"--keep-ssa",
 		"--ssa-header", fmt.Sprintf("# %s\n\n", fsName),
 		fn,
 		"-lm",

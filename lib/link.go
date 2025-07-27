@@ -287,6 +287,8 @@ func (t *Task) link() {
 				fn := cf.out.(string)
 				args = append(args, fn)
 				asm = append(asm, fn)
+			case fileELF:
+				args = append(args, cf.name)
 			case fileLib:
 				args = append(args, "-l", cf.name)
 			default:

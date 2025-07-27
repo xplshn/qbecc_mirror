@@ -7,6 +7,8 @@
 // [QBE]: https://c9x.me/compile/
 package qbecc // import "modernc.org/qbecc/lib"
 
+//TODO handla alloca
+
 //TODO use blit for small copies only
 //TODO proper inlining
 //TODO zero small values without memset
@@ -128,6 +130,7 @@ type Task struct {
 	idirafter []string // -idirafter
 	iquote    []string // -iquote, #include "foo.h" search path
 	isystem   []string // -isystem, #include <foo.h> search path
+	keepSSA   bool     // --keep-ssa
 	o         string   // -o=<file>, Place the primary output in file <file>.
 	optD      []string // -D
 	optE      bool     // -E, stop after the preprocessing stage; do not run the compiler proper.
@@ -205,6 +208,7 @@ func (t *Task) Main() (err error) {
 	set.Opt("-dump-ssa", func(string) error { t.dumpSSA = true; return nil })
 	set.Opt("-extended-errors", func(string) error { t.errs.extendedErrors = true; return nil })
 	set.Opt("-goabi0", func(string) error { t.goabi0 = true; return nil })
+	set.Opt("-keep-ssa", func(string) error { t.keepSSA = true; return nil })
 	set.Opt("-panic", func(arg string) error { t.errs.panic = true; return nil })
 	set.Opt("E", func(string) error { t.optE = true; return nil })
 	set.Opt("S", func(string) error { t.optS = true; return nil })

@@ -136,7 +136,14 @@ func (c *ctx) convertConst(n cc.Node, dstType, srcType cc.Type, v any) (r any) {
 	case dstType.Kind() == cc.Float && srcType.Kind() == cc.Double:
 		switch x := v.(type) {
 		case float64Value:
-			return float32Value(float64(x))
+			return float32Value(x)
+		default:
+			panic(todo("%v: %s(%v, %v) <- %s(%v, %v) %v %T", n.Position(), dstType, dstType.Kind(), dstSize, srcType, srcType.Kind(), srcSize, cc.NodeSource(n), x))
+		}
+	case dstType.Kind() == cc.Double && srcType.Kind() == cc.Float:
+		switch x := v.(type) {
+		case float32Value:
+			return float64Value(x)
 		default:
 			panic(todo("%v: %s(%v, %v) <- %s(%v, %v) %v %T", n.Position(), dstType, dstType.Kind(), dstSize, srcType, srcType.Kind(), srcSize, cc.NodeSource(n), x))
 		}
@@ -824,7 +831,37 @@ func (c *ctx) assignmentExpression(n *cc.AssignmentExpression, mode mode, t cc.T
 	}
 }
 
-func (c *ctx) ft(n cc.ExpressionNode) (r *cc.FunctionType) {
+func (c *ctx) funcDeclarator(n cc.ExpressionNode) (r *cc.Declarator) {
+	if d := c.declaratorOf(unparen(n)); d != nil && d.Type().Kind() == cc.Function {
+		if t := d.Type().(*cc.FunctionType); len(t.Parameters()) != 0 {
+			return d
+		}
+
+		// d is an implicit or incomplete prototype of the form '[type] f()', try to
+		// find a better definition/prototype.
+		nm := d.Name()
+		a := c.ast.Scope.Nodes[nm]
+		a = a[:len(a):len(a)]
+		const prefix = "__builtin_"
+		switch {
+		case strings.HasPrefix(nm, prefix):
+			nm = nm[len(prefix):]
+			a = append(a, c.ast.Scope.Nodes[nm]...)
+		default:
+			a = append(a, c.ast.Scope.Nodes[prefix+nm]...)
+		}
+		for _, v := range a {
+			if x, ok := v.(*cc.Declarator); ok && x.Type().Kind() == cc.Function {
+				if t := x.Type().(*cc.FunctionType); len(t.Parameters()) != 0 {
+					return x
+				}
+			}
+		}
+	}
+	return nil
+}
+
+func (c *ctx) funcType(n cc.ExpressionNode) (r *cc.FunctionType) {
 	if d := c.declaratorOf(unparen(n)); d != nil && d.Type().Kind() == cc.Function {
 		if r = d.Type().(*cc.FunctionType); len(r.Parameters()) != 0 {
 			return r
@@ -919,6 +956,22 @@ func (c *ctx) vaArg(n *cc.PostfixExpression, mode mode, t cc.Type) (r any) {
 			return c.temp("%s vaarg %s\n", c.baseType(n, t), vaList)
 		}
 	default:
+		// "920625-1.c": {},
+		// "920908-1.c": {},
+		// "931004-10.c": {},
+		// "931004-12.c": {},
+		// "931004-2.c": {},
+		// "931004-14.c": {},
+		// "931004-4.c": {},
+		// "931004-8.c": {},
+		// "931004-6.c": {},
+		// "pr44575.c": {},
+		// "stdarg-3.c": {},
+		// "strct-varg-1.c": {},
+		// "strct-stdarg-1.c": {},
+		// "va-arg-22.c": {},
+		// "va-arg-pack-1.c": {},
+		// "73_arm64.c": {},
 		panic(todo("%v: %s %s %s", n.Position(), mode, cc.NodeSource(n), t))
 	}
 	return r
@@ -948,9 +1001,60 @@ func (c *ctx) isMemcpy(n cc.ExpressionNode) (r bool) {
 }
 
 // PostfixExpression '(' ArgumentExpressionList ')'
+func (c *ctx) builtinAlloca(n *cc.PostfixExpression, mode mode, t cc.Type) (r any) {
+	if n.ArgumentExpressionList == nil {
+		c.err(n, "missing argument")
+		return nothing
+	}
+
+	switch mode {
+	case rvalue:
+		defer func() { r = c.convert(n, t, n.Type(), r) }()
+
+		sz := c.expr(n.ArgumentExpressionList.AssignmentExpression, rvalue, c.ast.ULongLong)
+		return c.temp("%s alloc16 %v\n", c.wordTag, sz)
+	default:
+		panic(todo("%v: %s %s", n.Position(), mode, cc.NodeSource(n)))
+	}
+	return r
+}
+
+// PostfixExpression '(' ArgumentExpressionList ')'
+func (c *ctx) builtinInff(n *cc.PostfixExpression, mode mode, t cc.Type) (r any) {
+	switch mode {
+	case rvalue, constRvalue:
+		defer func() { r = c.convertConst(n, t, n.Type(), r) }()
+
+		return float32Value(math.Inf(1))
+	default:
+		panic(todo("%v: %s %s", n.Position(), mode, cc.NodeSource(n)))
+	}
+	return r
+}
+
+// PostfixExpression '(' ArgumentExpressionList ')'
+func (c *ctx) builtinNanf(n *cc.PostfixExpression, mode mode, t cc.Type) (r any) {
+	switch mode {
+	case rvalue, constRvalue:
+		defer func() { r = c.convertConst(n, t, n.Type(), r) }()
+
+		return float32Value(math.NaN())
+	default:
+		panic(todo("%v: %s %s", n.Position(), mode, cc.NodeSource(n)))
+	}
+	return r
+}
+
+// PostfixExpression '(' ArgumentExpressionList ')'
 func (c *ctx) postfixExpressionCall(n *cc.PostfixExpression, mode mode, t cc.Type) (r any) {
 	if x, ok := unparen(n.PostfixExpression).(*cc.PrimaryExpression); ok && x.Case == cc.PrimaryExpressionIdent {
 		switch x.Token.SrcStr() {
+		case "__builtin_alloca":
+			return c.builtinAlloca(n, mode, t)
+		case "__builtin_nanf":
+			return c.builtinNanf(n, mode, t)
+		case "__builtin_inff":
+			return c.builtinInff(n, mode, t)
 		case "__builtin_va_start":
 			return c.vaStart(n, mode, t)
 		case "__builtin_va_arg":
@@ -962,7 +1066,9 @@ func (c *ctx) postfixExpressionCall(n *cc.PostfixExpression, mode mode, t cc.Typ
 
 	callee := n.PostfixExpression
 	isMemcpy := c.isMemcpy(callee)
-	ct := c.ft(callee)
+	d := c.funcDeclarator(callee)
+	inline := d != nil && d.IsInline() && c.isHeader(d)
+	ct := c.funcType(callee)
 	//trc("%v: %v %T %v", n.Position(), cc.NodeSource(n), ct, ct)
 	params := ct.Parameters()
 	switch {
@@ -1025,63 +1131,64 @@ func (c *ctx) postfixExpressionCall(n *cc.PostfixExpression, mode mode, t cc.Typ
 		c.err(n, "arguments in '%s' do not match signature '%s' (missing prototype?)", cc.NodeSource(n), ct)
 	}
 	r = nothing
-	switch mode {
-	case void:
-		switch {
-		case n.Type().Kind() != cc.Void:
-			c.temp("%s call %s(", c.abiType(n, n.Type()), c.expr(callee, rvalue, ct))
+	switch {
+	case inline:
+		switch mode {
+		//TODO case void:
+		//TODO case rvalue:
+		//TODO case aggRvalue:
+		//TODO case lvalue:
 		default:
-			c.w("\tcall %s(", c.expr(callee, rvalue, ct))
-		}
-	case rvalue:
-		defer func() { r = c.convert(n, t, n.Type(), r) }()
-
-		switch {
-		case c.isIntegerType(n.Type()) || c.isFloatingPointType(n.Type()) || n.Type().Kind() == cc.Ptr:
-			r = c.temp("%s call %s(", c.abiType(n, ct.Result()), c.expr(callee, rvalue, ct))
-		default:
-			// COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/990525-2.c
-			// struct typed function result
-			panic(todo("%v: %s %s", n.Position(), mode, cc.NodeSource(n)))
-		}
-	case aggRvalue:
-		r = c.temp("%s call %s(", c.abiType(n, ct.Result()), c.expr(callee, rvalue, ct))
-	case lvalue:
-		switch _, info := c.variable(n); x := info.(type) {
-		case *escaped:
-			r = c.temp("%s add %%.bp., %v\n", c.wordTag, x.offset)
-			v := c.temp("%s call %s(", c.abiType(n, ct.Result()), c.expr(callee, rvalue, ct))
-			defer c.w("\tblit %s, %s, %v\n", v, r, ct.Result().Size())
-		default:
-			panic(todo("%v: %T %s", n.Position(), x, cc.NodeSource(n)))
-		}
-	case constRvalue:
-		defer func() { r = c.convert(n, t, n.Type(), r) }()
-
-		if x, ok := unparen(n.PostfixExpression).(*cc.PrimaryExpression); ok && x.Case == cc.PrimaryExpressionIdent {
-			switch x.Token.SrcStr() {
-			case "__builtin_nanf":
-				return float32Value(float32(math.NaN()))
-			case "__builtin_inff":
-				return float32Value(float32(math.Inf(1)))
-			}
+			panic(todo("%v: %v %s", n.Position(), mode, cc.NodeSource(n)))
 		}
 
-		panic(todo("%v: %v %s", n.Position(), mode, cc.NodeSource(n)))
+		fallthrough
 	default:
-		panic(todo("%v: %v %s", n.Position(), mode, cc.NodeSource(n)))
-	}
-	for i, expr := range exprs {
-		if i == len(params) {
-			c.w("...,")
+		switch mode {
+		case void:
+			switch {
+			case n.Type().Kind() != cc.Void:
+				c.temp("%s call %s(", c.abiType(n, n.Type()), c.expr(callee, rvalue, ct))
+			default:
+				c.w("\tcall %s(", c.expr(callee, rvalue, ct))
+			}
+		case rvalue:
+			defer func() { r = c.convert(n, t, n.Type(), r) }()
+
+			switch {
+			case c.isIntegerType(n.Type()) || c.isFloatingPointType(n.Type()) || n.Type().Kind() == cc.Ptr:
+				r = c.temp("%s call %s(", c.abiType(n, ct.Result()), c.expr(callee, rvalue, ct))
+			default:
+				// COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/990525-2.c
+				// struct typed function result
+				panic(todo("%v: %s %s", n.Position(), mode, cc.NodeSource(n)))
+			}
+		case aggRvalue:
+			r = c.temp("%s call %s(", c.abiType(n, ct.Result()), c.expr(callee, rvalue, ct))
+		case lvalue:
+			switch _, info := c.variable(n); x := info.(type) {
+			case *escaped:
+				r = c.temp("%s add %%.bp., %v\n", c.wordTag, x.offset)
+				v := c.temp("%s call %s(", c.abiType(n, ct.Result()), c.expr(callee, rvalue, ct))
+				defer c.w("\tblit %s, %s, %v\n", v, r, ct.Result().Size())
+			default:
+				panic(todo("%v: %T %s", n.Position(), x, cc.NodeSource(n)))
+			}
+		default:
+			panic(todo("%v: %v %s", n.Position(), mode, cc.NodeSource(n)))
 		}
-		c.w("%s %s,", c.abiType(args[i], types[i]), expr)
+		for i, expr := range exprs {
+			if i == len(params) {
+				c.w("...,")
+			}
+			c.w("%s %s,", c.abiType(args[i], types[i]), expr)
+		}
+		if ct.IsVariadic() && len(exprs) == len(params) {
+			c.w("...,w 0")
+		}
+		c.w(")\n")
+		return r
 	}
-	if ct.IsVariadic() && len(exprs) == len(params) {
-		c.w("...,w 0")
-	}
-	c.w(")\n")
-	return r
 }
 
 func unparen(n cc.ExpressionNode) cc.ExpressionNode {
@@ -1356,7 +1463,6 @@ func (c *ctx) postfixExpressionComplit(n *cc.PostfixExpression, mode mode, t cc.
 			panic(todo("%v: %T %s", n.Position(), x, cc.NodeSource(n)))
 		}
 	default:
-		// all_test.go:261: C COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/20030224-2.c
 		// all_test.go:261: C COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/20050929-1.c
 		// all_test.go:261: C COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/pr22098-1.c
 		// all_test.go:261: C COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/pr22098-2.c
@@ -1929,7 +2035,8 @@ func (c *ctx) arithmeticOp(n, lhs, rhs cc.ExpressionNode, mode mode, t cc.Type, 
 			if div != 1 {
 				v = c.temp("%s udiv %s, %v\n", c.wordTag, v, div)
 			}
-			c.store(lhs, lhs.Type(), v, r)
+			fv := c.convert(lhs, lhs.Type(), ct, v)
+			c.store(lhs, lhs.Type(), fv, r)
 		case *local:
 			rv := c.expr(rhs, rvalue, ct)
 			lv := c.convert(lhs, ct, lhs.Type(), x.name)
@@ -1943,7 +2050,8 @@ func (c *ctx) arithmeticOp(n, lhs, rhs cc.ExpressionNode, mode mode, t cc.Type, 
 			if div != 1 {
 				v = c.temp("%s udiv %s, %v\n", c.wordTag, v, div)
 			}
-			c.w("\t%s =%s copy %s\n", x.name, c.baseType(lhs, lhs.Type()), v)
+			fv := c.convert(lhs, lhs.Type(), ct, v)
+			c.w("\t%s =%s copy %s\n", x.name, c.baseType(lhs, lhs.Type()), fv)
 		default:
 			// ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/const-addr-expr-1.c
 			panic(todo("%v: %T", lhs.Position(), x))
