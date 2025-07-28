@@ -53,7 +53,17 @@ func (c *ctx) jumpStatementReturn(n *cc.JumpStatement) {
 			c.expr(n.ExpressionList, void, c.fn.returns)
 		}
 	}
-	c.w("\tret %s\n", s)
+	switch {
+	case c.fn.inlineStack != nil:
+		switch {
+		case c.isAggType(c.fn.returns):
+			c.w("\t%s =%s copy %s\n", c.fn.inlineStack.returnVar, c.wordTag, s)
+		default:
+			c.w("\t%s =%s copy %s\n", c.fn.inlineStack.returnVar, c.baseType(n, c.fn.returns), s)
+		}
+	default:
+		c.w("\tret %s\n", s)
+	}
 }
 
 func (c *ctx) jumpStatement(n *cc.JumpStatement) {

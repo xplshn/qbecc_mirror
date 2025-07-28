@@ -241,6 +241,12 @@ type exprStatementCtx struct {
 	typ  cc.Type
 }
 
+type inlineStackItem struct {
+	outerResult cc.Type
+	returnVar   any
+	next        *inlineStackItem
+}
+
 // Function compile context
 type fnCtx struct {
 	allocs           int64
@@ -248,6 +254,7 @@ type fnCtx struct {
 	continueCtx      *breakContinueCtx
 	ctx              *ctx
 	exprStatementCtx *exprStatementCtx
+	inlineStack      *inlineStackItem
 	nextID           int
 	returns          cc.Type
 	static           []*cc.InitDeclarator
@@ -652,8 +659,10 @@ func (c *ctx) isHeader(n cc.Node) bool {
 		return false
 	}
 
-	return strings.HasSuffix(n.Position().Filename, ".h") ||
-		c.t.goos == "windows" && strings.HasSuffix(n.Position().Filename, ".inl")
+	nm := n.Position().Filename
+	return strings.HasSuffix(nm, ".h") ||
+		nm == "<builtin>" ||
+		c.t.goos == "windows" && strings.HasSuffix(nm, ".inl")
 }
 
 // v has no initializer

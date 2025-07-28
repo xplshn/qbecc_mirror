@@ -567,7 +567,6 @@ func (c *ctx) load(n cc.Node, p any, et cc.Type) (r any) {
 		case 8:
 			return c.temp("%s load%[1]s %s\n", c.baseType(n, et), p)
 		default:
-			trc("PANIC %v: p=%q et=%s %s", n.Position(), p, et, cc.NodeSource(n))
 			panic(todo("%v: %q %s %s", n.Position(), p, et, cc.NodeSource(n)))
 		}
 	}
@@ -1133,16 +1132,52 @@ func (c *ctx) postfixExpressionCall(n *cc.PostfixExpression, mode mode, t cc.Typ
 	r = nothing
 	switch {
 	case inline:
-		switch mode {
-		//TODO case void:
-		//TODO case rvalue:
-		//TODO case aggRvalue:
-		//TODO case lvalue:
-		default:
+		ifn := c.inlineFns[d]
+		if ifn == nil {
 			panic(todo("%v: %v %s", n.Position(), mode, cc.NodeSource(n)))
 		}
 
-		fallthrough
+		for i, expr := range exprs {
+			if i == len(params) {
+				panic(todo("%v: %v %s", n.Position(), mode, cc.NodeSource(n)))
+			}
+
+			param := params[i]
+			pd := param.Declarator
+			if pd == nil {
+				panic(todo("%v: %v %s", n.Position(), mode, cc.NodeSource(n)))
+			}
+
+			switch _, info := c.variable(pd); x := info.(type) {
+			case *local:
+				c.w("\t%s =%s copy %s\n", x.name, c.baseType(args[i], types[i]), expr)
+			case *escaped:
+				dst := c.temp("%s add %%.bp., %v\n", c.wordTag, x.offset)
+				switch {
+				case c.isAggType(pd.Type()):
+					c.w("\tblit %s, %s, %v\n", expr, dst, pd.Type().Size())
+				default:
+					c.store(pd, pd.Type(), expr, dst)
+				}
+			default:
+				panic(todo("%v: %T %s", n.Position(), info, cc.NodeSource(n)))
+			}
+		}
+		switch mode {
+		case void:
+			c.inline(ifn, ct)
+			return nothing
+		case rvalue:
+			defer func() { r = c.convert(n, t, n.Type(), r) }()
+
+			return c.inline(ifn, ct)
+		case aggRvalue:
+			return c.inline(ifn, ct)
+		case lvalue:
+			return c.inline(ifn, ct)
+		default:
+			panic(todo("%v: %v %s", n.Position(), mode, cc.NodeSource(n)))
+		}
 	default:
 		switch mode {
 		case void:
@@ -1189,6 +1224,24 @@ func (c *ctx) postfixExpressionCall(n *cc.PostfixExpression, mode mode, t cc.Typ
 		c.w(")\n")
 		return r
 	}
+}
+
+func (c *ctx) inline(n *cc.FunctionDefinition, ct *cc.FunctionType) (r any) {
+	r = fmt.Sprintf("%%.ret%v", c.fn.id())
+	c.fn.inlineStack = &inlineStackItem{
+		outerResult: c.fn.returns,
+		returnVar:   r,
+		next:        c.fn.inlineStack,
+	}
+
+	defer func() {
+		c.fn.returns = c.fn.inlineStack.outerResult
+		c.fn.inlineStack = c.fn.inlineStack.next
+	}()
+
+	c.fn.returns = ct.Result()
+	c.compoundStatement(n.CompoundStatement)
+	return r
 }
 
 func unparen(n cc.ExpressionNode) cc.ExpressionNode {

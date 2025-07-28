@@ -123,9 +123,9 @@ int __builtin___snprintf_chk (char *s, __SIZE_TYPE__ maxlen, int flag, __SIZE_TY
 int __builtin___sprintf_chk(char * str, int flag, __SIZE_TYPE__ strlen, char * format, ...);
 int __builtin___vsnprintf_chk(char * s, __SIZE_TYPE__ maxlen, int flag, __SIZE_TYPE__ slen, char * format, __builtin_va_list args);
 int __builtin_abs(int j);
-int __builtin_clz (unsigned int x);
-int __builtin_clzl (unsigned long x);
-int __builtin_clzll (unsigned long long);
+int __builtin_clz(unsigned int x);
+int __builtin_clzl(unsigned long x);
+int __builtin_clzll(unsigned long long x);
 int __builtin_ctz (unsigned int x);
 int __builtin_ctzl (unsigned long x);
 int __builtin_ctzll (unsigned long long);
@@ -169,7 +169,6 @@ int __builtin_vscanf(const char *format, __builtin_va_list ap);
 int __builtin_vsnprintf(char *str, __SIZE_TYPE__ size, const char *format, __builtin_va_list ap);
 int __builtin_vsprintf(char *str, const char *format, __builtin_va_list ap);
 int __builtin_vsscanf(const char *str, const char *format, __builtin_va_list ap);
-long __builtin_expect(long, long);
 long __builtin_labs(long j);
 long double __builtin_acosl(long double x);
 long double __builtin_asinl(long double x);
@@ -219,6 +218,10 @@ void __builtin_free(void *ptr);
 void __builtin_prefetch (void*, ...);
 void __builtin_trap (void);
 void __builtin_unreachable(void);
+
+#ifndef __builtin_expect
+#define __builtin_expect(x, y) ((long)(x))
+#endif
 
 #ifndef __builtin_isfinite
 int __isfinite(double x);

@@ -7,8 +7,6 @@
 // [QBE]: https://c9x.me/compile/
 package qbecc // import "modernc.org/qbecc/lib"
 
-//TODO handla alloca
-
 //TODO use blit for small copies only
 //TODO proper inlining
 //TODO zero small values without memset
