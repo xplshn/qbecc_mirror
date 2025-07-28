@@ -462,6 +462,7 @@ func (c *ctx) primaryExpressionStmt(n *cc.CompoundStatement, mode mode, t cc.Typ
 	}
 }
 
+// GenericSelection
 func (c *ctx) primaryExpressionGeneric(n *cc.PrimaryExpression, mode mode, t cc.Type) (r any) {
 	switch mode {
 	case rvalue:
@@ -1046,20 +1047,44 @@ func (c *ctx) builtinNanf(n *cc.PostfixExpression, mode mode, t cc.Type) (r any)
 
 // PostfixExpression '(' ArgumentExpressionList ')'
 func (c *ctx) postfixExpressionCall(n *cc.PostfixExpression, mode mode, t cc.Type) (r any) {
-	if x, ok := unparen(n.PostfixExpression).(*cc.PrimaryExpression); ok && x.Case == cc.PrimaryExpressionIdent {
-		switch x.Token.SrcStr() {
-		case "__builtin_alloca":
-			return c.builtinAlloca(n, mode, t)
-		case "__builtin_nanf":
-			return c.builtinNanf(n, mode, t)
-		case "__builtin_inff":
-			return c.builtinInff(n, mode, t)
-		case "__builtin_va_start":
-			return c.vaStart(n, mode, t)
-		case "__builtin_va_arg":
-			return c.vaArg(n, mode, t)
-		case "__builtin_va_end":
-			return nothing
+	if x, ok := unparen(n.PostfixExpression).(*cc.PrimaryExpression); ok {
+		switch x.Case {
+		case cc.PrimaryExpressionIdent:
+			switch x.Token.SrcStr() {
+			case "__builtin_alloca":
+				return c.builtinAlloca(n, mode, t)
+			case "__builtin_nanf":
+				return c.builtinNanf(n, mode, t)
+			case "__builtin_inff":
+				return c.builtinInff(n, mode, t)
+			case "__builtin_va_start":
+				return c.vaStart(n, mode, t)
+			case "__builtin_va_arg":
+				return c.vaArg(n, mode, t)
+			case "__builtin_va_end":
+				return nothing
+			case "__builtin_clz":
+				return c.clz(n.ArgumentExpressionList.AssignmentExpression, mode, t)
+			case "__builtin_clzl":
+				return c.clzl(n.ArgumentExpressionList.AssignmentExpression, mode, t)
+			case "__builtin_clzll":
+				return c.clzll(n.ArgumentExpressionList.AssignmentExpression, mode, t)
+			case "__builtin_ctz":
+				return c.ctz(n.ArgumentExpressionList.AssignmentExpression, mode, t)
+			case "__builtin_ctzl":
+				return c.ctzl(n.ArgumentExpressionList.AssignmentExpression, mode, t)
+			case "__builtin_ctzll":
+				return c.ctzll(n.ArgumentExpressionList.AssignmentExpression, mode, t)
+			}
+		case cc.PrimaryExpressionGeneric:
+			switch cc.NodeSource(x.GenericSelection.Associated().AssignmentExpression) {
+			case "__isfinitef":
+				return c.isfinitef(n.ArgumentExpressionList.AssignmentExpression, mode, t)
+			case "__isfinite":
+				return c.isfinite(n.ArgumentExpressionList.AssignmentExpression, mode, t)
+			case "__isfinitel":
+				return c.isfinitel(n.ArgumentExpressionList.AssignmentExpression, mode, t)
+			}
 		}
 	}
 
