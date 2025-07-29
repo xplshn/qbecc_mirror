@@ -69,7 +69,7 @@ func (n *initMapItem) String() string {
 // initializer renderer
 type initMap map[int64]*initMapItem // offset: item
 
-func (c *ctx) initLocalVar(n cc.Node, v *local, t cc.Type, m initMap, offs []int64) {
+func (c *ctx) initLocalVar(n cc.Node, v *localVar, t cc.Type, m initMap, offs []int64) {
 	switch t.Kind() {
 	case cc.Struct, cc.Union, cc.Array:
 		c.w("\t%s =%s copy 0\n", v.name, c.baseType(n, v.d.Type()))
@@ -95,7 +95,7 @@ func (c *ctx) littleEndianUTF32string(s cc.UTF32StringValue) (r string) {
 	return b.String()
 }
 
-func (c *ctx) initEscapedVar(n cc.Node, v *escaped, t cc.Type, m initMap, offs []int64) {
+func (c *ctx) initEscapedVar(n cc.Node, v *escapedVar, t cc.Type, m initMap, offs []int64) {
 	zeroed := false
 	switch t.Kind() {
 	case cc.Struct, cc.Union, cc.Array:
@@ -289,7 +289,7 @@ func (c *ctx) initStaticVar(n cc.Node, v variable, t cc.Type, m initMap, offs []
 	}
 }
 
-func (c *ctx) initComplit(n cc.Node, v *complit, t cc.Type, m initMap, offs []int64) {
+func (c *ctx) initComplit(n cc.Node, v *complitVar, t cc.Type, m initMap, offs []int64) {
 	zeroed := false
 	switch t.Kind() {
 	case cc.Struct, cc.Union, cc.Array:
@@ -358,13 +358,13 @@ func (c *ctx) initializer(n *cc.Initializer, v variable, t cc.Type) {
 	}
 	slices.Sort(offs)
 	switch x := v.(type) {
-	case *local:
+	case *localVar:
 		c.initLocalVar(n, x, t, m, offs)
-	case *escaped:
+	case *escapedVar:
 		c.initEscapedVar(n, x, t, m, offs)
-	case *static:
+	case *staticVar:
 		c.initStaticVar(n, x, t, m, offs)
-	case *complit:
+	case *complitVar:
 		c.initComplit(n, x, t, m, offs)
 	default:
 		panic(todo("", n.Position(), cc.NodeSource(n), x, t, m))

@@ -2,11 +2,17 @@
 # Use of this source code is governed by a BSD-style
 # license that can be found in the LICENSE file.
 
-.PHONY:	all clean edit editor work shorttest test todo review
+.PHONY:	all asm clean edit editor work shorttest test todo review
 
 all: editor
 	golint
 	staticcheck
+
+asm:
+	echo "//go:build ignore" > atomic_linux_amd64.s
+	gcc atomic.c -S
+	cat atomic.s >> atomic_linux_amd64.s
+	rm atomic.s
 
 clean:
 	rm -f log-* cpu.test mem.test *.out go.work*
@@ -16,7 +22,7 @@ edit:
 	@touch log
 	@if [ -f "Session.vim" ]; then gvim -S & else gvim -p Makefile ../go.mod builder.json *.h *.go & fi
 
-editor:
+editor: asm
 	stringer -type=fileType,symbolType,mode,refType
 	gofmt -l -s -w .
 	go test -c -o /dev/null ./...

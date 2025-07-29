@@ -36,7 +36,7 @@ func (c *ctx) jumpStatementReturn(n *cc.JumpStatement) {
 			case c.isAggType(c.fn.returns):
 				_, info := c.variable(n)
 				switch x := info.(type) {
-				case *escaped:
+				case *escapedVar:
 					s = c.temp("%s add %%.bp., %v\n", c.wordTag, x.offset)
 					p := c.expr(n.ExpressionList, aggRvalue, c.fn.returns)
 					c.w("\tblit %s, %s, %v\n", p, s, n.ExpressionList.Type().Size())

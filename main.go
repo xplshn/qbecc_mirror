@@ -239,6 +239,18 @@
 //
 // Select the C standard to use, for example -std=c99.
 //
+// # Environment variables
+//
+// # QBECCFLAGS: additional compiler flags
+//
+// A comma separated list of options or option=value. For example:
+//
+//	QBECCFLAGS=--keep-ssa qbecc main.c
+//
+// is the same as
+//
+//	qbecc main.c --keep-ssa
+//
 // # QBECC specific flags
 //
 // These flags are used only by QBECC.

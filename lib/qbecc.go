@@ -8,7 +8,6 @@
 package qbecc // import "modernc.org/qbecc/lib"
 
 //TODO use blit for small copies only
-//TODO proper inlining
 //TODO zero small values without memset
 
 import (
@@ -28,6 +27,10 @@ import (
 //  [0]: http://www.open-std.org/jtc1/sc22/wg14/www/docs/n1256.pdf
 
 type fileType int
+
+const (
+	qbeccEnvVar = "QBECCFLAGS"
+)
 
 const (
 	fileInvalid fileType = iota
@@ -64,6 +67,8 @@ var (
 	predefined string
 	//go:embed builtin.h
 	builtin string
+	//go:embed atomic_linux_amd64.s
+	atomicLinuxAmd64 string
 )
 
 func init() {
@@ -157,6 +162,9 @@ func NewTask(options *Options, args ...string) (r *Task, err error) {
 		return nil, err
 	}
 
+	if s := os.Getenv(qbeccEnvVar); s != "" {
+		args = append(args, strings.Split(s, ",")...)
+	}
 	return &Task{
 		args:    args,
 		cc:      gcc,

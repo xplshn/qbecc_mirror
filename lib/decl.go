@@ -14,6 +14,8 @@ import (
 
 const (
 	maxInlineDepth = 10
+	maxQBEName     = nString - 1
+	nString        = 80 // qbe/all.h:43
 )
 
 var renamed = map[string]struct{}{
@@ -59,45 +61,59 @@ type varinfo struct{}
 
 func (varinfo) isVarinfo() {}
 
-// declared in function scope, storage automatic
-type local struct {
+// declared in function scope, storage duration automatic
+type localVar struct {
 	varinfo
 	d    *cc.Declarator
 	name string
 }
 
-func (n *local) String() string {
+func (n *localVar) String() string {
 	return fmt.Sprintf("%v: %T %s %s", n.d.Position(), n, n.d.Name(), n.name)
 }
 
-// Declared in function scope, storage automatic, escaped to TLSAlloc.  Also
-// used for the non-declared storage required for "return structFunc();" or
-// "func(structFunc());" etc. (d == nil)
-type escaped struct {
+// Declared in function scope, storage duration automatic, escaped to TLSAlloc.
+// Also used for the non-declared storage required for "return structFunc();"
+// or "func(structFunc());" etc. (d == nil)
+type escapedVar struct {
 	varinfo
 	d      *cc.Declarator
 	offset int64 // into %.bp.
 }
 
-func (n *escaped) String() string {
+func (n *escapedVar) String() string {
 	return fmt.Sprintf("%v: %T %s", n.d.Position(), n, n.d.Name())
 }
 
-type complit struct {
+type complitVar struct {
 	varinfo
 	n      *cc.PostfixExpression
 	offset int64 // into %.bp.
 }
 
-func (n *complit) String() string {
+func (n *complitVar) String() string {
 	return fmt.Sprintf("%v: %T", n.n.Position(), n)
 }
 
-// storage static
-type static struct {
+// storage duration static
+type staticVar struct {
 	varinfo
 	d    *cc.Declarator
 	name string
+}
+
+func shortName(prefix, nm string, id int) (r string) {
+	var suffix string
+	if id >= 0 {
+		suffix = fmt.Sprintf(".%v", id)
+	}
+	switch lp, ln, ls := len(prefix), len(nm), len(suffix); {
+	case lp+ln+ls <= maxQBEName:
+		return prefix + nm + suffix
+	default:
+		r = prefix + nm
+		return r[:len(r)-len(suffix)] + suffix
+	}
 }
 
 type variables map[cc.Node]variable
@@ -126,7 +142,7 @@ func (v *variables) register(n cc.Node, f *fnCtx, c *ctx, inlineLevel int) {
 			switch sc := x.ResolvedIn(); sc {
 			case nil:
 				if strings.HasPrefix(x.Name(), "__builtin_") {
-					m[x] = &static{
+					m[x] = &staticVar{
 						d:    x,
 						name: fmt.Sprintf("$%s", x.Name()[len("__builtin_"):]),
 					}
@@ -134,14 +150,14 @@ func (v *variables) register(n cc.Node, f *fnCtx, c *ctx, inlineLevel int) {
 			default:
 				switch {
 				case sc.Parent == nil || x.Type().Kind() == cc.Function || x.IsExtern():
-					m[x] = &static{
+					m[x] = &staticVar{
 						d:    x,
 						name: fmt.Sprintf("$%s", c.rename(x.Name())),
 					}
 				default:
-					m[x] = &static{
+					m[x] = &staticVar{
 						d:    x,
-						name: fmt.Sprintf("$.%s.%v.", x.Name(), f.ctx.id()),
+						name: shortName("$.", x.Name(), f.ctx.id()),
 					}
 				}
 			}
@@ -151,21 +167,22 @@ func (v *variables) register(n cc.Node, f *fnCtx, c *ctx, inlineLevel int) {
 				if x.IsParam() && c.isVaList(x) {
 					panic(todo("", x.Position(), x.Type()))
 				}
-				m[x] = &escaped{
+				m[x] = &escapedVar{
 					d:      x,
 					offset: f.alloc(x, int64(dt.Align()), c.sizeof(x, dt)),
 				}
 			default:
-				var prefix, suffix string
+				var prefix string
+				suffix := -1
 				if !x.IsParam() || inlineLevel != 0 {
-					suffix = fmt.Sprintf(".%d", f.id())
+					suffix = f.id()
 				}
 				if x.IsParam() && c.isVaList(x) {
 					prefix = "__qbe_va_list_"
 				}
-				m[x] = &local{
+				m[x] = &localVar{
 					d:    x,
-					name: fmt.Sprintf("%%%s%s%s", prefix, c.rename(x.Name()), suffix),
+					name: shortName("%"+prefix, c.rename(x.Name()), suffix),
 				}
 			}
 		default:
@@ -175,21 +192,21 @@ func (v *variables) register(n cc.Node, f *fnCtx, c *ctx, inlineLevel int) {
 		switch x.Case {
 		case cc.PostfixExpressionComplit: // '(' TypeName ')' '{' InitializerList ',' '}'
 			t := x.TypeName.Type()
-			m[x] = &complit{
+			m[x] = &complitVar{
 				n:      x,
 				offset: f.alloc(x, int64(t.Align()), c.sizeof(x, t)),
 			}
 		case cc.PostfixExpressionCall: // PostfixExpression '(' ArgumentExpressionList ')'
-			m[x] = &escaped{
+			m[x] = &escapedVar{
 				offset: f.alloc(x, c.wordSize, c.sizeof(x, x.Type())),
 			}
 		}
 	case cc.ExpressionNode:
-		m[x] = &escaped{
+		m[x] = &escapedVar{
 			offset: f.alloc(x, c.wordSize, c.sizeof(x, x.Type())),
 		}
 	case *cc.JumpStatement: // return agg type
-		m[x] = &escaped{
+		m[x] = &escapedVar{
 			offset: f.alloc(x, c.wordSize, c.sizeof(x, x.ExpressionList.Type())),
 		}
 	default:
@@ -202,10 +219,10 @@ func (c *ctx) rename(s string) (r string) {
 		return s
 	}
 
-	return "__nm_" + s
+	return "__qbe__" + s
 }
 
-func (n *static) String() string {
+func (n *staticVar) String() string {
 	return fmt.Sprintf("%v: %T %s %s", n.d.Position(), n, n.d.Name(), n.name)
 }
 
@@ -513,7 +530,7 @@ func (c *ctx) externalDeclarationFuncDef(n *cc.FunctionDefinition) {
 		}
 
 		switch d, info := c.variable(v.Declarator); x := info.(type) {
-		case *escaped:
+		case *escapedVar:
 			c.w("\t%%._l =%s add %%.bp., %v\n", c.wordTag, x.offset)
 			switch {
 			case c.isAggType(d.Type()):
@@ -539,7 +556,7 @@ func (c *ctx) externalDeclarationFuncDef(n *cc.FunctionDefinition) {
 		}
 
 		_, info := c.variable(d)
-		c.w("data %s = align %d ", info.(*static).name, d.Type().Align())
+		c.w("data %s = align %d ", info.(*staticVar).name, d.Type().Align())
 		switch {
 		case v.Initializer != nil:
 			c.w("{")
@@ -613,7 +630,7 @@ func (c *ctx) externalDeclarationDeclFull(n *cc.Declaration) {
 			c.w("data $%s = align %d { z %d }", nm, d.Type().Align(), max(c.sizeof(d, d.Type()), 1))
 		case cc.InitDeclaratorInit: // Declarator Asm '=' Initializer
 			c.w("data $%s = align %d {\n", nm, d.Type().Align())
-			c.initializer(n.Initializer, &static{
+			c.initializer(n.Initializer, &staticVar{
 				d:    d,
 				name: fmt.Sprintf("$%s", nm),
 			}, d.Type())
@@ -668,9 +685,9 @@ func (c *ctx) isHeader(n cc.Node) bool {
 // v has no initializer
 func (c *ctx) declare(n cc.Node, v variable) {
 	switch x := v.(type) {
-	case *local:
+	case *localVar:
 		c.w("\t%s =%s copy 0\n", x.name, c.baseType(n, x.d.Type()))
-	case *escaped:
+	case *escapedVar:
 		// nop
 	default:
 		panic(todo("%v: %T %s", n.Position(), x, cc.NodeSource(n)))

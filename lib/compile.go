@@ -49,7 +49,8 @@ type ctx struct {
 	wordSize         int64
 	wordTag          string
 
-	failed bool
+	failed      bool
+	needAtomics bool
 }
 
 func (t *Task) newCtx(ast *cc.AST, file *compilerFile) (r *ctx) {
@@ -329,6 +330,7 @@ func (t *Task) sourcesFor(file *compilerFile) (r []cc.Source, err error) {
 
 var (
 	__builtin_ = []byte("$__builtin_")
+	__qbe__    = []byte("__qbe__")
 	dlr        = []byte{'$'}
 )
 
@@ -367,10 +369,21 @@ func (t *Task) asmFile(in string, c *ctx) (err error) {
 	}
 	cb := c.b.Bytes()
 	cb = bytes.ReplaceAll(cb, __builtin_, dlr)
+	cb = bytes.ReplaceAll(cb, __qbe__, nil)
 	if err := libqbe.Main(t.target, fn, bytes.NewReader(cb), &asm.b, nil); err != nil {
 		return err
 	}
 
+	if c.needAtomics {
+		switch s := fmt.Sprintf("%s/%s", t.goos, t.goarch); s {
+		case "linux/amd64":
+			asm.w("\n%s\n", atomicLinuxAmd64)
+		default:
+			err := fmt.Errorf("%s: atomic builtins not supported on %s", in, s)
+			t.err(fileNode(in), "atomic builtins not supported on %s", s)
+			return err
+		}
+	}
 	fn = strippedNm + ".s"
 	if err = os.WriteFile(fn, asm.b.Bytes(), 0660); err != nil {
 		return err
