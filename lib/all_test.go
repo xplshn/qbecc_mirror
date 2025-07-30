@@ -51,6 +51,7 @@ func TestMain(m *testing.M) {
 	}
 
 	oRE := flag.String("re", "", "")
+	flag.BoolVar(&dbgInit, "dbginit", false, "")
 	flag.BoolVar(&disableVet, "disable-vet", false, "")
 	flag.BoolVar(&dumpSSA, "dump-ssa", false, "")
 	flag.BoolVar(&extendedErrors, "extended-errors", false, "")
@@ -58,7 +59,6 @@ func TestMain(m *testing.M) {
 	flag.BoolVar(&skipGoABI0, "skipgoabi0", !enableGoABI0[target], "")
 	flag.BoolVar(&trcOutput, "trco", false, "")
 	flag.BoolVar(&xtrc, "trc", false, "")
-	flag.BoolVar(&dbgInit, "dbginit", false, "")
 	flag.Parse()
 	if s := *oRE; s != "" {
 		re = regexp.MustCompile(s)

@@ -1,4 +1,5 @@
-// cc/v4 specific
+// ------------------------------------------------------------- cc/v4 specific
+
 typedef int __predefined_declarator;
 
 #undef __SIZEOF_INT128__
@@ -27,6 +28,8 @@ typedef __PTRDIFF_TYPE__ __predefined_ptrdiff_t;
 #ifndef __PRETTY_FUNCTION__
 #define __PRETTY_FUNCTION__ __func__
 #endif
+
+// ------------------------------------------------------------- qbecc specific
 
 struct __qbe_complex { double real; double imag; };
 struct __qbe_complexf { float real; float imag; };

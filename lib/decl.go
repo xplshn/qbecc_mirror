@@ -325,6 +325,11 @@ func (fn *fnCtx) fill(c *ctx, n *cc.FunctionDefinition, inlineLevel int) {
 					if d, ok := x.ResolvedTo().(*cc.Declarator); ok {
 						fn.variables.register(d, fn, c, inlineLevel)
 					}
+				case cc.PrimaryExpressionFloat: // FLOATCONST
+					switch x.Value().(type) {
+					case cc.Complex64Value, cc.Complex128Value:
+						fn.variables.register(x, fn, c, inlineLevel)
+					}
 				}
 			case *cc.JumpStatement:
 				switch x.Case {

@@ -226,6 +226,11 @@ func (c *ctx) newQtype(n cc.Node, t cc.Type) (r qtype) {
 	case *cc.PredefinedType:
 		switch x.Kind() {
 		case cc.ComplexFloat:
+			// "20020227-1.c": {},
+			panic(todo(""))
+		case cc.ComplexDouble:
+			panic(todo(""))
+		case cc.ComplexLongDouble:
 			panic(todo(""))
 		default:
 			r = append(r, qtypeField{1, c.extType(n, x)})

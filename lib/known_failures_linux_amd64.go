@@ -161,11 +161,7 @@ package qbecc // import "modernc.org/qbecc/lib"
 
 // 2025-07-29
 //	all_test.go:200: CompCert-3.6/test/c: files=24 gcc fails=1 skipped=1 failed=0 passed=22
-//	all_test.go:200: gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute: files=1506 gcc fails=24 skipped=314 failed=0 passed=1168
-//	all_test.go:200: tcc-0.9.27/tests/tests2: files=88 gcc fails=8 skipped=12 failed=0 passed=68
-
-//	all_test.go:200: CompCert-3.6/test/c: files=24 gcc fails=1 skipped=1 failed=0 passed=22
-//	all_test.go:200: gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute: files=1506 gcc fails=24 skipped=313 failed=0 passed=1169
+//	all_test.go:200: gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute: files=1506 gcc fails=24 skipped=310 failed=0 passed=1172
 //	all_test.go:200: tcc-0.9.27/tests/tests2: files=88 gcc fails=8 skipped=12 failed=0 passed=68
 
 var blacklist = map[string]struct{}{
@@ -179,7 +175,7 @@ var blacklist = map[string]struct{}{
 
 	// C COMPILE FAIL
 
-	// Wont'fix: unsupported type
+	// Won't fix: unsupported type
 	"78_vla_label.c":    {},
 	"79_vla_continue.c": {},
 	"80_flexarray.c":    {},
@@ -189,7 +185,7 @@ var blacklist = map[string]struct{}{
 
 	// C COMPILE FAIL
 
-	// Wont'fix: assembler statements not supported
+	// Won't fix: assembler statements not supported
 	"20001009-2.c":              {},
 	"20030222-1.c":              {},
 	"20050203-1.c":              {},
@@ -252,10 +248,10 @@ var blacklist = map[string]struct{}{
 	"pr88904.c":                 {},
 	"stkalign.c":                {},
 
-	// Wont'fix: assembler not supported
+	// Won't fix: assembler not supported
 	"pr51447.c": {},
 
-	// Wont'fix: unsupported type
+	// Won't fix: unsupported type
 	"20010209-1.c":                 {},
 	"20010904-1.c":                 {},
 	"20010904-2.c":                 {},
@@ -304,7 +300,7 @@ var blacklist = map[string]struct{}{
 	"simd-6.c":                     {},
 	"vla-dealloc-1.c":              {},
 
-	// Wont'fix: nested functions not supported
+	// Won't fix: nested functions not supported
 	"20000822-1.c":   {},
 	"20010605-1.c":   {},
 	"20030501-1.c":   {},
@@ -322,7 +318,7 @@ var blacklist = map[string]struct{}{
 	"nestfunc-7.c":   {},
 	"pr22061-3.c":    {},
 
-	// Wont'fix: taking address of a label not supported
+	// Won't fix: taking address of a label not supported
 	"920302-1.c":    {},
 	"920501-5.c":    {},
 	"990208-1.c":    {},
@@ -330,14 +326,14 @@ var blacklist = map[string]struct{}{
 	"pr70460.c":     {},
 	"pr71494.c":     {},
 
-	// Wont'fix: indirect goto statements not supported
+	// Won't fix: indirect goto statements not supported
 	"20040302-1.c": {},
 	"20041214-1.c": {},
 	"20071210-1.c": {},
 	"920501-3.c":   {},
 	"920501-4.c":   {},
 
-	// Wont'fix: arguments ... do not match signature ... (missing prototype?)
+	// Won't fix: arguments ... do not match signature ... (missing prototype?)
 	"20010122-1.c":       {},
 	"20030323-1.c":       {},
 	"20030330-1.c":       {},
@@ -370,7 +366,7 @@ var blacklist = map[string]struct{}{
 	"pr85095.c":          {},
 	"pr89434.c":          {},
 
-	// Wont'fix: label declarations not supported
+	// Won't fix: label declarations not supported
 	"920415-1.c":    {},
 	"920428-2.c":    {},
 	"920501-7.c":    {},
@@ -382,8 +378,10 @@ var blacklist = map[string]struct{}{
 	"nestfunc-6.c":  {},
 	"pr24135.c":     {},
 
-	// Wont'fix: case ranges not supported
-	"pr34154.c": {},
+	"73_arm64.c":                  {}, // Won't fix: struct va_arg
+	"76_dollars_in_identifiers.c": {}, // Won't fix: '$' in identifiers
+	"931004-10.c":                 {}, // Won't fix: struct va_arg
+	"pr34154.c":                   {}, // Won't fix: case ranges not supported
 
 	// C EXEC FAIL
 
@@ -406,17 +404,14 @@ var blacklist = map[string]struct{}{
 	// ====================================================================
 
 	// "tcc-0.9.27/tests/tests2",
-	"73_arm64.c":                  {},
-	"76_dollars_in_identifiers.c": {},
-	"83_utf8_in_identifiers.c":    {},
-	"87_dead_code.c":              {},
-	"93_integer_promotion.c":      {},
+	"83_utf8_in_identifiers.c": {},
+	"87_dead_code.c":           {},
+	"93_integer_promotion.c":   {},
 
 	// "gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute",
 	"20000113-1.c":         {},
 	"20000917-1.c":         {},
 	"20010325-1.c":         {},
-	"20010605-2.c":         {},
 	"20010924-1.c":         {},
 	"20011113-1.c":         {},
 	"20020206-1.c":         {},
@@ -450,7 +445,6 @@ var blacklist = map[string]struct{}{
 	"920625-1.c":           {},
 	"920908-1.c":           {},
 	"930513-1.c":           {},
-	"931004-10.c":          {},
 	"931004-12.c":          {},
 	"931004-14.c":          {},
 	"931004-2.c":           {},
@@ -479,7 +473,6 @@ var blacklist = map[string]struct{}{
 	"builtin-prefetch-4.c": {},
 	"builtin-prefetch-5.c": {},
 	"builtin-prefetch-6.c": {},
-	"complex-1.c":          {},
 	"complex-2.c":          {},
 	"complex-4.c":          {},
 	"complex-5.c":          {},
@@ -525,7 +518,6 @@ var blacklist = map[string]struct{}{
 	"pr81281.c":            {},
 	"pr83383.c":            {},
 	"pr85331.c":            {},
-	"pr85529-1.c":          {},
 	"pr88739.c":            {},
 	"pr89195.c":            {},
 	"pr89826.c":            {},

@@ -24,7 +24,7 @@ const (
 	constRvalue
 )
 
-// type c64 struct{ re, im any }
+type c64 struct{ re, im any }
 type c128 struct{ re, im any }
 
 func (c c128) String() string {
@@ -317,8 +317,30 @@ func (c *ctx) value(n cc.Node, mode mode, t cc.Type, v cc.Value, neg bool) (r an
 	case lvalue:
 		// all_test.go:261: C COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/960416-1.c
 		panic(todo("%v: %s %s", n.Position(), mode, cc.NodeSource(n)))
+	case aggRvalue:
+		_, info := c.variable(n)
+		switch t.Kind() {
+		case cc.ComplexDouble:
+			switch x := info.(type) {
+			case *escapedVar:
+				switch y := v.(type) {
+				case cc.Complex128Value:
+					r = c.temp("%s add %%.bp., %v\n", c.wordTag, x.offset)
+					c.w("\tstored %v, %v\n", float64Value(real(y)), r)
+					im := c.temp("%s add %s, 8\n", c.wordTag, r)
+					c.w("\tstored %v, %v\n", float64Value(imag(y)), im)
+					return r
+				default:
+					panic(todo("%v: %s %s %T %v", n.Position(), mode, cc.NodeSource(n), y, t.Kind()))
+				}
+			default:
+				panic(todo("%v: %s %s %T %v %T", n.Position(), mode, cc.NodeSource(n), v, t.Kind(), x))
+			}
+		default:
+			panic(todo("%v: %s %s %T %v", n.Position(), mode, cc.NodeSource(n), v, t.Kind()))
+		}
 	default:
-		panic(todo("%v: %s %s", n.Position(), mode, cc.NodeSource(n)))
+		panic(todo("%v: %s %s %T", n.Position(), mode, cc.NodeSource(n), v))
 	}
 
 	switch x := v.(type) {
@@ -373,8 +395,6 @@ func (c *ctx) primaryExpressionIdent(n *cc.PrimaryExpression, mode mode, t cc.Ty
 		case *staticVar:
 			return c.temp("%s copy %s\n", c.wordTag, x.name)
 		default:
-			// ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/20000412-3.c
-			// struct function argument
 			panic(todo("%v: %T", n.Position(), x))
 		}
 	case rvalue:
@@ -412,7 +432,6 @@ func (c *ctx) primaryExpressionIdent(n *cc.PrimaryExpression, mode mode, t cc.Ty
 		case *staticVar:
 			return &symbolValue{sym: x.name}
 		default:
-			// all_test.go:341: C COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/20030224-2.c
 			panic(todo("%v: %T", n.Position(), x))
 		}
 	case constRvalue:
@@ -574,6 +593,7 @@ func (c *ctx) load(n cc.Node, p any, et cc.Type) (r any) {
 		case 8:
 			return c.temp("%s load%[1]s %s\n", c.baseType(n, et), p)
 		default:
+			// "complex-2.c": {},
 			panic(todo("%v: %q %s %s", n.Position(), p, et, cc.NodeSource(n)))
 		}
 	}
@@ -991,7 +1011,6 @@ func (c *ctx) vaArg(n *cc.PostfixExpression, mode mode, t cc.Type) (r any) {
 		// "strct-stdarg-1.c": {},
 		// "va-arg-22.c": {},
 		// "va-arg-pack-1.c": {},
-		// "73_arm64.c": {},
 		panic(todo("%v: %s %s %s", n.Position(), mode, cc.NodeSource(n), t))
 	}
 	return r
@@ -1160,6 +1179,8 @@ func (c *ctx) postfixExpressionCall(n *cc.PostfixExpression, mode mode, t cc.Typ
 			expr = c.expr(e, rvalue, et)
 		default:
 			switch {
+			case c.isComplexType(et):
+				expr = c.expr(e, aggRvalue, et)
 			case c.isAggType(et):
 				expr = c.expr(e, lvalue, et)
 			default:
@@ -1247,8 +1268,6 @@ func (c *ctx) postfixExpressionCall(n *cc.PostfixExpression, mode mode, t cc.Typ
 			case c.isIntegerType(n.Type()) || c.isFloatingPointType(n.Type()) || n.Type().Kind() == cc.Ptr:
 				r = c.temp("%s call %s(", c.abiType(n, ct.Result()), c.expr(callee, rvalue, ct))
 			default:
-				// COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/990525-2.c
-				// struct typed function result
 				panic(todo("%v: %s %s", n.Position(), mode, cc.NodeSource(n)))
 			}
 		case aggRvalue:
@@ -1396,8 +1415,6 @@ func (c *ctx) postfixExpressionSelect(n *cc.PostfixExpression, mode mode, t cc.T
 		c.w("\t%s =%s add %s, %v\n", p, c.wordTag, p, f.Offset())
 		if f.IsBitfield() {
 			p = &bitfieldPtr{f: f, ptr: p}
-			// all_test.go:345: C COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/20000914-1.c
-			//TODO aborts
 		}
 		return c.load(n, p, f.Type())
 	case void:
@@ -1410,8 +1427,6 @@ func (c *ctx) postfixExpressionSelect(n *cc.PostfixExpression, mode mode, t cc.T
 		c.w("\t%s =%s add %s, %v\n", p, c.wordTag, p, f.Offset())
 		if f.IsBitfield() {
 			p = &bitfieldPtr{f: f, ptr: p}
-			// all_test.go:345: C COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/20000914-1.c
-			//TODO aborts
 		}
 		c.load(n, p, f.Type())
 		return nothing
@@ -1729,7 +1744,6 @@ func (c *ctx) unaryExpressionDeref(n *cc.UnaryExpression, mode mode, t cc.Type) 
 		case et.Kind() == cc.Function:
 			return c.expr(n.CastExpression, rvalue, et)
 		default:
-			// COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/931004-10.c
 			panic(todo("%v: %v %s", n.Position(), et.Kind(), cc.NodeSource(n)))
 		}
 	case lvalue:
@@ -1758,7 +1772,6 @@ func (c *ctx) unaryExpressionSizeofExpr(n *cc.UnaryExpression, mode mode, t cc.T
 	case void:
 		return nothing
 	default:
-		// ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/pr58831.c
 		panic(todo("%v: %s %s", n.Position(), mode, cc.NodeSource(n)))
 	}
 	return r
@@ -1871,7 +1884,8 @@ func (c *ctx) unaryExpressionCpl(n *cc.UnaryExpression, mode mode, t cc.Type) (r
 		}
 		r = c.temp("%s xor %s, %v\n", c.baseType(n, n.Type()), v, k)
 	default:
-		panic(todo("%v: %v %s", n.Position(), mode, cc.NodeSource(n)))
+		// "complex-6.c": {},
+		panic(todo("%v: %v %s %s<-%s", n.Position(), mode, cc.NodeSource(n), t, n.Type()))
 	}
 	return r
 }
@@ -1907,11 +1921,12 @@ func (c *ctx) unaryExpressionRealImag(n *cc.UnaryExpression, mode mode, t cc.Typ
 	_, info := c.variable(n.UnaryExpression)
 	var et cc.Type
 	switch n.UnaryExpression.Type().Kind() {
-	case cc.ComplexDouble:
+	case cc.ComplexDouble, cc.ComplexLongDouble:
 		et = c.ast.Double
 	case cc.ComplexFloat:
 		et = c.ast.Float
 	default:
+		// "20050121-1.c": {},
 		panic(todo("%v: %v %s", n.Position(), n.UnaryExpression.Type(), cc.NodeSource(n)))
 	}
 	var off int64
@@ -1925,6 +1940,7 @@ func (c *ctx) unaryExpressionRealImag(n *cc.UnaryExpression, mode mode, t cc.Typ
 			p := c.expr(n.UnaryExpression, lvalue, c.ast.PVoid)
 			return c.temp("%s add %s, %v\n", c.wordTag, p, off)
 		default:
+			// "20020411-1.c": {},
 			panic(todo("%v: %T", n.Position(), x))
 		}
 	case rvalue:
@@ -1935,7 +1951,7 @@ func (c *ctx) unaryExpressionRealImag(n *cc.UnaryExpression, mode mode, t cc.Typ
 			p := c.expr(n.UnaryExpression, lvalue, c.ast.PVoid)
 			p = c.temp("%s add %s, %v\n", c.wordTag, p, off)
 			switch n.UnaryExpression.Type().Kind() {
-			case cc.ComplexDouble:
+			case cc.ComplexDouble, cc.ComplexLongDouble:
 				return c.load(n, p, c.ast.Double)
 			case cc.ComplexFloat:
 				return c.load(n, p, c.ast.Float)
@@ -2023,12 +2039,14 @@ func (c *ctx) relop(lhs, rhs cc.ExpressionNode, mode mode, t cc.Type, op string)
 		}
 	}
 	switch mode {
+	case void:
+		c.temp("w c%s%s %s, %s\n", op, c.baseType(lhs, ct), c.expr(lhs, rvalue, ct), c.expr(rhs, rvalue, ct))
+		return nothing
 	case rvalue:
 		defer func() { r = c.convert(lhs, t, c.ast.Int, r) }()
 
 		return c.temp("w c%s%s %s, %s\n", op, c.baseType(lhs, ct), c.expr(lhs, rvalue, ct), c.expr(rhs, rvalue, ct))
 	default:
-		// all_test.go:261: C COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/pr85529-1.c
 		panic(todo("%v: %v %s %s %s", lhs.Position(), mode, cc.NodeSource(lhs), op, cc.NodeSource(rhs)))
 	}
 }
@@ -2096,42 +2114,47 @@ func (c *ctx) arithmeticOpRvalue(n, lhs, rhs cc.ExpressionNode, mode mode, t cc.
 
 func (c *ctx) arithmeticOpLvalue(n, lhs, rhs cc.ExpressionNode, mode mode, t cc.Type, op string, ct cc.Type, lmul, rmul, div int64) (r any) {
 	_, info := c.variable(lhs)
-	switch x := info.(type) {
-	case *escapedVar, nil:
-		r = c.expr(lhs, lvalue, lhs.Type())
-		rv := c.expr(rhs, rvalue, ct)
-		lv := c.load(lhs, r, lhs.Type())
-		lv = c.convert(lhs, ct, lhs.Type(), lv)
-		if lmul != 1 {
-			lv = c.temp("%s mul %s, %v\n", c.baseType(lhs, ct), lv, lmul)
+	switch mode {
+	case lvalue:
+		switch x := info.(type) {
+		case *escapedVar, nil:
+			r = c.expr(lhs, lvalue, lhs.Type())
+			rv := c.expr(rhs, rvalue, ct)
+			lv := c.load(lhs, r, lhs.Type())
+			lv = c.convert(lhs, ct, lhs.Type(), lv)
+			if lmul != 1 {
+				lv = c.temp("%s mul %s, %v\n", c.baseType(lhs, ct), lv, lmul)
+			}
+			if rmul != 1 {
+				rv = c.temp("%s mul %s, %v\n", c.baseType(rhs, ct), rv, rmul)
+			}
+			v := c.temp("%s %s %s, %s\n", c.baseType(lhs, ct), op, lv, rv)
+			if div != 1 {
+				v = c.temp("%s udiv %s, %v\n", c.wordTag, v, div)
+			}
+			fv := c.convert(lhs, lhs.Type(), ct, v)
+			c.store(lhs, lhs.Type(), fv, r)
+		case *localVar:
+			rv := c.expr(rhs, rvalue, ct)
+			lv := c.convert(lhs, ct, lhs.Type(), x.name)
+			if lmul != 1 {
+				lv = c.temp("%s mul %s, %v\n", c.baseType(lhs, ct), lv, lmul)
+			}
+			if rmul != 1 {
+				rv = c.temp("%s mul %s, %v\n", c.baseType(rhs, ct), rv, rmul)
+			}
+			v := c.temp("%s %s %s, %s\n", c.baseType(lhs, ct), op, lv, rv)
+			if div != 1 {
+				v = c.temp("%s udiv %s, %v\n", c.wordTag, v, div)
+			}
+			fv := c.convert(lhs, lhs.Type(), ct, v)
+			c.w("\t%s =%s copy %s\n", x.name, c.baseType(lhs, lhs.Type()), fv)
+		default:
+			// ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/const-addr-expr-1.c
+			panic(todo("%v: %T", lhs.Position(), x))
 		}
-		if rmul != 1 {
-			rv = c.temp("%s mul %s, %v\n", c.baseType(rhs, ct), rv, rmul)
-		}
-		v := c.temp("%s %s %s, %s\n", c.baseType(lhs, ct), op, lv, rv)
-		if div != 1 {
-			v = c.temp("%s udiv %s, %v\n", c.wordTag, v, div)
-		}
-		fv := c.convert(lhs, lhs.Type(), ct, v)
-		c.store(lhs, lhs.Type(), fv, r)
-	case *localVar:
-		rv := c.expr(rhs, rvalue, ct)
-		lv := c.convert(lhs, ct, lhs.Type(), x.name)
-		if lmul != 1 {
-			lv = c.temp("%s mul %s, %v\n", c.baseType(lhs, ct), lv, lmul)
-		}
-		if rmul != 1 {
-			rv = c.temp("%s mul %s, %v\n", c.baseType(rhs, ct), rv, rmul)
-		}
-		v := c.temp("%s %s %s, %s\n", c.baseType(lhs, ct), op, lv, rv)
-		if div != 1 {
-			v = c.temp("%s udiv %s, %v\n", c.wordTag, v, div)
-		}
-		fv := c.convert(lhs, lhs.Type(), ct, v)
-		c.w("\t%s =%s copy %s\n", x.name, c.baseType(lhs, lhs.Type()), fv)
 	default:
-		// ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/const-addr-expr-1.c
-		panic(todo("%v: %T", lhs.Position(), x))
+		panic(todo("%v: %v %s %s %s", lhs.Position(), mode, cc.NodeSource(lhs), op, cc.NodeSource(rhs)))
 	}
 	return r
 }
@@ -2329,6 +2352,118 @@ func (c *ctx) arithmeticOpAggRvalueComplexDouble(n, lhs, rhs cc.ExpressionNode, 
 	return r
 }
 
+func (c *ctx) arithmeticOpAggRvalueComplexFloat(n, lhs, rhs cc.ExpressionNode, mode mode, t cc.Type, op string, lt, rt, ct cc.Type, lmul, rmul, div int64) (r any) {
+	if lmul != 1 || rmul != 1 || div != 1 {
+		panic(todo("%v: %v %s %s %s", lhs.Position(), mode, cc.NodeSource(lhs), op, cc.NodeSource(rhs)))
+	}
+
+	var v any
+	var a, b c64
+	switch nv := n.Value().(type) {
+	case *cc.UnknownValue:
+		switch lv := lhs.Value().(type) {
+		case *cc.UnknownValue:
+			switch lt.Kind() {
+			case cc.ComplexFloat:
+				p := c.expr(rhs, aggRvalue, lt)
+				a = c64{re: ptr{p}}
+				a.im = ptr{c.temp("%s add %s, 8\n", c.wordTag, p)}
+			default:
+				panic(todo("%v: %v %s %s %s lt=%v", lhs.Position(), mode, cc.NodeSource(lhs), op, cc.NodeSource(rhs), lt))
+			}
+			switch rv := rhs.Value().(type) {
+			case *cc.UnknownValue:
+				switch rt.Kind() {
+				case cc.ComplexFloat:
+					p := c.expr(rhs, aggRvalue, rt)
+					b = c64{re: ptr{p}}
+					b.im = ptr{c.temp("%s add %s, 8\n", c.wordTag, p)}
+				default:
+					panic(todo("%v: %v %s %s %s rt=%v", lhs.Position(), mode, cc.NodeSource(lhs), op, cc.NodeSource(rhs), rt))
+				}
+			default:
+				_ = b
+				panic(todo("%v: %v %s op=%s %s %T %T", lhs.Position(), mode, cc.NodeSource(lhs), op, cc.NodeSource(rhs), lv, rv))
+			}
+		default:
+			panic(todo("%v: %v %s %s %s %T", lhs.Position(), mode, cc.NodeSource(lhs), op, cc.NodeSource(rhs), lv))
+		}
+	default:
+		panic(todo("%v: %v %s %s %s %T", lhs.Position(), mode, cc.NodeSource(lhs), op, cc.NodeSource(rhs), nv))
+	}
+	switch {
+	case v != nil:
+		switch _, info := c.variable(n); x := info.(type) {
+		default:
+			panic(todo("%v: %v %s op=%s %s x=%T", lhs.Position(), mode, cc.NodeSource(lhs), op, cc.NodeSource(rhs), x))
+		}
+	default:
+		switch _, info := c.variable(n); x := info.(type) {
+		case *escapedVar:
+			switch t.Kind() {
+			case cc.ComplexFloat:
+				r = c.temp("%s add %%.bp., %v\n", c.wordTag, x.offset)
+				im := c.temp("%s add %s, 4\n", c.wordTag, r)
+				ar, ai := c.complexFloat(n, a)
+				br, bi := c.complexFloat(n, b)
+				switch op {
+				case "add", "sub":
+					// (ar + ai*i) + (br + bi*i) = (ar+br) + (ai+bi)i
+					x := c.temp("s %s %s, %s\n", op, ar, br)
+					c.w("\tstores %s, %s\n", x, r)
+					x = c.temp("s %s %s, %s\n", op, ai, bi)
+					c.w("\tstores %s, %s\n", x, im)
+				case "div":
+					// (ar+ai*i)/(br+bi*i) = ((ar*br + ai*bi) / (br^2 + bi^2)) + ((ai*br - ar*bi) / (br^2 + bi^2))i
+					x := c.temp("s mul %s, %s\n", br, br)
+					y := c.temp("s mul %s, %s\n", bi, bi)
+					d := c.temp("s add %s, %s\n", x, y)
+					x = c.temp("s mul %s, %s\n", ar, br)
+					y = c.temp("s mul %s, %s\n", ai, bi)
+					z := c.temp("s add %s, %s\n", x, y)
+					z = c.temp("s div %s, %s\n", z, d)
+					c.w("\tstores %s, %s\n", z, r)
+					x = c.temp("s mul %s, %s\n", ai, br)
+					y = c.temp("s mul %s, %s\n", ar, bi)
+					z = c.temp("s sub %s, %s\n", x, y)
+					z = c.temp("s div %s, %s\n", z, d)
+					c.w("\tstores %s, %s\n", z, im)
+				case "mul":
+					// (ar + ai*i) * (br + bi*i) = (ar*br - ai*bi) + (ar*bi + ai*br)i
+					x := c.temp("s mul %s, %s\n", ar, br)
+					y := c.temp("s mul %s, %s\n", ai, bi)
+					z := c.temp("s sub %s, %s\n", x, y)
+					c.w("\tstores %s, %s\n", z, r)
+					x = c.temp("s mul %s, %s\n", ar, bi)
+					y = c.temp("s mul %s, %s\n", ai, br)
+					z = c.temp("s add %s, %s\n", x, y)
+					c.w("\tstores %s, %s\n", z, im)
+				default:
+					panic(todo("%v: %v %s %s %s %q", lhs.Position(), mode, cc.NodeSource(lhs), op, cc.NodeSource(rhs), op))
+				}
+			default:
+				panic(todo("%v: %v %s op=%s %s t=%s", lhs.Position(), mode, cc.NodeSource(lhs), op, cc.NodeSource(rhs), t))
+			}
+		default:
+			panic(todo("%v: %v %s op=%s %s x=%T", lhs.Position(), mode, cc.NodeSource(lhs), op, cc.NodeSource(rhs), x))
+		}
+	}
+	return r
+}
+
+func (c *ctx) complexFloat(n cc.Node, v c64) (re, im any) {
+	return c.complexFloatPart(n, v.re), c.complexFloatPart(n, v.im)
+}
+
+func (c *ctx) complexFloatPart(n cc.Node, v any) any {
+	switch x := v.(type) {
+	case ptr:
+		return c.load(n, x.any, c.ast.Float)
+	default:
+		return x
+	}
+}
+
 func (c *ctx) complexDouble(n cc.Node, v c128) (re, im any) {
 	return c.complexDoublePart(n, v.re), c.complexDoublePart(n, v.im)
 }
@@ -2381,7 +2516,7 @@ func (c *ctx) arithmeticOp(n, lhs, rhs cc.ExpressionNode, mode mode, t cc.Type, 
 	case aggRvalue:
 		switch ct.Kind() {
 		case cc.ComplexFloat:
-			panic(todo("%v: %v %s op=%s %s", lhs.Position(), mode, cc.NodeSource(lhs), op, cc.NodeSource(rhs)))
+			return c.arithmeticOpAggRvalueComplexFloat(n, lhs, rhs, mode, t, op, lt, rt, ct, lmul, rmul, div)
 		case cc.ComplexDouble, cc.ComplexLongDouble:
 			return c.arithmeticOpAggRvalueComplexDouble(n, lhs, rhs, mode, t, op, lt, rt, ct, lmul, rmul, div)
 		default:
