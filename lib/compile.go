@@ -34,6 +34,9 @@ type compilerFile struct {
 type ctx struct {
 	ast              *cc.AST
 	buf              // QBE SSA
+	complexT         cc.Type
+	complexfT        cc.Type
+	complexlT        cc.Type
 	file             *compilerFile
 	fn               *fnCtx
 	inlineFns        map[*cc.Declarator]*cc.FunctionDefinition
@@ -77,6 +80,21 @@ func (t *Task) newCtx(ast *cc.AST, file *compilerFile) (r *ctx) {
 					r.err(x, "unsupported type")
 				}
 				r.variables.register(x, nil, r, 0)
+			case *cc.StructOrUnionSpecifier:
+				nm := x.Token.SrcStr()
+				t := x.Type()
+				switch nm {
+				case "__qbe_complex":
+					r.complexT = t
+				case "__qbe_complexf":
+					r.complexfT = t
+				case "__qbe_complexl":
+					r.complexlT = t
+				default:
+					continue
+				}
+
+				r.registerQType(x, nm, t)
 			}
 		}
 	}
@@ -107,9 +125,6 @@ func (t *Task) newCtx(ast *cc.AST, file *compilerFile) (r *ctx) {
 }
 
 func (c *ctx) registerQType(n cc.Node, nm string, t cc.Type) {
-	if nm == "" {
-		nm = fmt.Sprintf("__qbe_type%v", c.id())
-	}
 	for {
 		switch x := t.Undecay().(type) {
 		case *cc.ArrayType:
@@ -122,6 +137,9 @@ func (c *ctx) registerQType(n cc.Node, nm string, t cc.Type) {
 			qt := c.newQtype(n, t)
 			id := qt.id()
 			if c.typesByID[id] == nil {
+				if nm == "" {
+					nm = fmt.Sprintf("__qbe_type%v", c.id())
+				}
 				c.typesByID[id] = &qt
 				c.typesByName[nm] = &qt
 				c.typesInDeclOrder = append(c.typesInDeclOrder, nm)
@@ -131,6 +149,9 @@ func (c *ctx) registerQType(n cc.Node, nm string, t cc.Type) {
 			qt := c.newQtype(n, t)
 			id := qt.id()
 			if c.typesByID[id] == nil {
+				if nm == "" {
+					nm = fmt.Sprintf("__qbe_type%v", c.id())
+				}
 				c.typesByID[id] = &qt
 				c.typesByName[nm] = &qt
 				c.typesInDeclOrder = append(c.typesInDeclOrder, nm)

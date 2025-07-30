@@ -27,3 +27,7 @@ typedef __PTRDIFF_TYPE__ __predefined_ptrdiff_t;
 #ifndef __PRETTY_FUNCTION__
 #define __PRETTY_FUNCTION__ __func__
 #endif
+
+struct __qbe_complex { double real; double imag; };
+struct __qbe_complexf { float real; float imag; };
+struct __qbe_complexl { long double real; long double imag; };

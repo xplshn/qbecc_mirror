@@ -93,6 +93,12 @@ func (c *ctx) abiType(n cc.Node, t cc.Type) string {
 	switch t.Kind() {
 	case cc.Struct, cc.Union:
 		return ":" + c.typename(n, t)
+	case cc.ComplexFloat:
+		return ":" + c.typename(n, c.complexfT)
+	case cc.ComplexDouble:
+		return ":" + c.typename(n, c.complexT)
+	case cc.ComplexLongDouble:
+		return ":" + c.typename(n, c.complexlT)
 	default:
 		isInt := c.isIntegerType(t)
 		sign := "u"
@@ -218,7 +224,12 @@ func (c *ctx) newQtype(n cc.Node, t cc.Type) (r qtype) {
 			r = append(r, qtypeField{rem, "b"})
 		}
 	case *cc.PredefinedType:
-		r = append(r, qtypeField{1, c.extType(n, x)})
+		switch x.Kind() {
+		case cc.ComplexFloat:
+			panic(todo(""))
+		default:
+			r = append(r, qtypeField{1, c.extType(n, x)})
+		}
 	case *cc.PointerType:
 		r = append(r, qtypeField{1, c.wordTag})
 	case *cc.EnumType:

@@ -14,7 +14,6 @@ type args map[string]any
 
 // %a -> %.n, %b -> %.n+1, ...
 func (c *ctx) builtin(s string, args args) (r any) {
-	f := c.fn
 	m := map[string]string{}
 	for s != "" {
 		sigil := s[0]
@@ -44,7 +43,7 @@ func (c *ctx) builtin(s string, args args) (r any) {
 				if nm2 == "" {
 					switch sigil {
 					case '%':
-						nm2 = fmt.Sprintf(".%v", f.id())
+						nm2 = fmt.Sprintf(".%v", c.fn.id())
 					default:
 						nm2 = fmt.Sprintf(".%v", c.id())
 					}

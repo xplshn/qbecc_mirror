@@ -29,10 +29,6 @@ import (
 type fileType int
 
 const (
-	qbeccEnvVar = "QBECCFLAGS"
-)
-
-const (
 	fileInvalid fileType = iota
 
 	fileC       // .c
@@ -121,30 +117,31 @@ type Task struct {
 	wordSize      int64  // 32b: 4, 64b: 8
 	wordTag       string // 32b: "w", 64b: "l"
 
-	ansi      bool   // -ansi
-	c         bool   // -c, compile or assemble the source files, but do not link.
-	cc        string // --cc=<string>, C compiler to use for linking.
-	cfgArgs   []string
-	dumpSSA   bool     // --dump-ssa
-	fnoAsm    bool     // -fno-asm
-	goabi0    bool     // --goabi0, produce Go asm file.
-	goarch    string   // --goarch=<string>, target GOARCH
-	goos      string   // --goos=<string>, target GOOS
-	idirafter []string // -idirafter
-	iquote    []string // -iquote, #include "foo.h" search path
-	isystem   []string // -isystem, #include <foo.h> search path
-	keepSSA   bool     // --keep-ssa
-	o         string   // -o=<file>, Place the primary output in file <file>.
-	optD      []string // -D
-	optE      bool     // -E, stop after the preprocessing stage; do not run the compiler proper.
-	optI      []string // -I, include files search path
-	optO      string   // -O
-	optS      bool     // -S, stop after the stage of compilation proper; do not assemble.
-	optU      []string // -U
-	positions int      // --positions={base,full}, annotate SSA with source position info
-	ssaHeader string   // --ssa-header=<string>, injected into SSA
-	std       string   // -std
-	target    string   // --target=<string>, QBE target string, like amd64_sysv.
+	ansi          bool   // -ansi
+	c             bool   // -c, compile or assemble the source files, but do not link.
+	cc            string // --cc=<string>, C compiler to use for linking.
+	cfgArgs       []string
+	dumpSSA       bool     // --dump-ssa
+	fnoAsm        bool     // -fno-asm
+	goabi0        bool     // --goabi0, produce Go asm file.
+	goarch        string   // --goarch=<string>, target GOARCH
+	goos          string   // --goos=<string>, target GOOS
+	idirafter     []string // -idirafter
+	iquote        []string // -iquote, #include "foo.h" search path
+	isystem       []string // -isystem, #include <foo.h> search path
+	keepSSA       bool     // --keep-ssa
+	o             string   // -o=<file>, Place the primary output in file <file>.
+	optD          []string // -D
+	optE          bool     // -E, stop after the preprocessing stage; do not run the compiler proper.
+	optI          []string // -I, include files search path
+	optO          string   // -O
+	optS          bool     // -S, stop after the stage of compilation proper; do not assemble.
+	optU          []string // -U
+	positions     int      // --positions={base,full}, annotate SSA with source position info
+	ssaHeader     string   // --ssa-header=<string>, injected into SSA
+	std           string   // -std
+	target        string   // --target=<string>, QBE target string, like amd64_sysv.
+	unsignedEnums bool     // --unsigned-enums
 }
 
 // NewTask returns a newly created Task. args[0] is the command name. For example
@@ -162,9 +159,6 @@ func NewTask(options *Options, args ...string) (r *Task, err error) {
 		return nil, err
 	}
 
-	if s := os.Getenv(qbeccEnvVar); s != "" {
-		args = append(args, strings.Split(s, ",")...)
-	}
 	return &Task{
 		args:    args,
 		cc:      gcc,
@@ -216,6 +210,7 @@ func (t *Task) Main() (err error) {
 	set.Opt("-goabi0", func(string) error { t.goabi0 = true; return nil })
 	set.Opt("-keep-ssa", func(string) error { t.keepSSA = true; return nil })
 	set.Opt("-panic", func(arg string) error { t.errs.panic = true; return nil })
+	set.Opt("-unsigned-enums", func(string) error { t.unsignedEnums = true; return nil })
 	set.Opt("E", func(string) error { t.optE = true; return nil })
 	set.Opt("S", func(string) error { t.optS = true; return nil })
 	set.Opt("ansi", func(arg string) error { t.ansi = true; return nil })
@@ -301,9 +296,7 @@ func (t *Task) Main() (err error) {
 		return err
 	}
 
-	// Do not do this
-	// cfg.UnsignedEnums = true
-
+	cfg.UnsignedEnums = t.unsignedEnums
 	t.cfg = cfg
 	if ldflag == "" {
 		if err = cfg.AdjustLongDouble(); err != nil {

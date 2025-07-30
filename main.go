@@ -299,6 +299,12 @@
 //
 //	--target=amd64_sysv.
 //
+// # --unsigned-enums: GCC compatible enum signedness
+//
+// The signedndess of enum types is implementation defined. Some non-portable C
+// code depends on GCC-specific enum signedness rules. This flag may help in
+// compiling such code.
+//
 // [ABI0]: https://tip.golang.org/doc/asm
 // [QBE]: https://c9x.me/compile/
 // [TCC]: https://bellard.org/tcc/
@@ -307,15 +313,24 @@ package main // import "modernc.org/qbecc"
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"modernc.org/qbecc/lib"
 )
 
+const (
+	qbeccEnvVar = "QBECCFLAGS"
+)
+
 func main() {
+	args := append([]string(nil), os.Args...)
+	if s := os.Getenv(qbeccEnvVar); s != "" {
+		args = append(args, strings.Split(s, ",")...)
+	}
 	t, err := qbecc.NewTask(&qbecc.Options{
 		Stdout: os.Stdout,
 		Stderr: os.Stderr,
-	}, os.Args...)
+	}, args...)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)

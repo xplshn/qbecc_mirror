@@ -163,7 +163,7 @@ func (v *variables) register(n cc.Node, f *fnCtx, c *ctx, inlineLevel int) {
 			}
 		case cc.Automatic:
 			switch {
-			case x.AddressTaken() || k == cc.Array || k == cc.Struct || k == cc.Union:
+			case x.AddressTaken() || k == cc.Array || k == cc.Struct || k == cc.Union || c.isComplexType(dt):
 				if x.IsParam() && c.isVaList(x) {
 					panic(todo("", x.Position(), x.Type()))
 				}
@@ -332,6 +332,14 @@ func (fn *fnCtx) fill(c *ctx, n *cc.FunctionDefinition, inlineLevel int) {
 					if x.ExpressionList != nil && c.isAggType(x.ExpressionList.Type()) {
 						fn.variables.register(x, fn, c, inlineLevel)
 					}
+				}
+			case
+				*cc.MultiplicativeExpression,
+				*cc.AdditiveExpression,
+				*cc.UnaryExpression:
+
+				if c.isComplexType(x.(cc.ExpressionNode).Type()) {
+					fn.variables.register(x, fn, c, inlineLevel)
 				}
 			}
 		case walkPost:
@@ -623,7 +631,6 @@ func (c *ctx) externalDeclarationDeclFull(n *cc.Declaration) {
 			return
 		}
 
-		c.w("\n# sel=%v: d=%v:\n", sel.Position(), d.Position())
 		nm := c.rename(d.Name())
 		switch n := l.InitDeclarator; n.Case {
 		case cc.InitDeclaratorDecl: // Declarator Asm

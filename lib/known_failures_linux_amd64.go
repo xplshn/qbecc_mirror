@@ -159,6 +159,15 @@ package qbecc // import "modernc.org/qbecc/lib"
 //	all_test.go:200: gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute: files=1506 gcc fails=24 skipped=316 failed=0 passed=1166
 //	all_test.go:200: tcc-0.9.27/tests/tests2: files=88 gcc fails=8 skipped=13 failed=0 passed=67
 
+// 2025-07-29
+//	all_test.go:200: CompCert-3.6/test/c: files=24 gcc fails=1 skipped=1 failed=0 passed=22
+//	all_test.go:200: gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute: files=1506 gcc fails=24 skipped=314 failed=0 passed=1168
+//	all_test.go:200: tcc-0.9.27/tests/tests2: files=88 gcc fails=8 skipped=12 failed=0 passed=68
+
+//	all_test.go:200: CompCert-3.6/test/c: files=24 gcc fails=1 skipped=1 failed=0 passed=22
+//	all_test.go:200: gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute: files=1506 gcc fails=24 skipped=313 failed=0 passed=1169
+//	all_test.go:200: tcc-0.9.27/tests/tests2: files=88 gcc fails=8 skipped=12 failed=0 passed=68
+
 var blacklist = map[string]struct{}{
 	// ---------------------------------------------- "CompCert-3.6/test/c"
 
@@ -175,10 +184,6 @@ var blacklist = map[string]struct{}{
 	"79_vla_continue.c": {},
 	"80_flexarray.c":    {},
 	"90_struct-init.c":  {},
-
-	// C EQUAL FAIL
-
-	"92_enum_bitfield.c": {}, // Won't fix: Depends on GCC-specific unsigned enums
 
 	// -------------------- "gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute"
 
@@ -382,7 +387,6 @@ var blacklist = map[string]struct{}{
 
 	// C EXEC FAIL
 
-	"20000914-1.c": {}, // Won't fix: Depends on GCC-specific unsigned enums
 	"20021127-1.c": {}, // Won't fix: linker specific resolution order
 	"20031003-1.c": {}, // Won't fix: platform specific floating point handling
 	"20090113-2.c": {}, // Won't fix: https://g.co/gemini/share/bcd5c858c626
@@ -425,7 +429,6 @@ var blacklist = map[string]struct{}{
 	"20020611-1.c":         {},
 	"20021113-1.c":         {},
 	"20030109-1.c":         {},
-	"20030714-1.c":         {},
 	"20031201-1.c":         {},
 	"20031211-1.c":         {},
 	"20040223-1.c":         {},
@@ -501,7 +504,6 @@ var blacklist = map[string]struct{}{
 	"pr43987.c":            {},
 	"pr44575.c":            {},
 	"pr49390.c":            {},
-	"pr49644.c":            {},
 	"pr49768.c":            {},
 	"pr52979-1.c":          {},
 	"pr52979-2.c":          {},

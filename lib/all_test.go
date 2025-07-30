@@ -210,6 +210,13 @@ func binPath(s string) string {
 	}
 }
 
+// These tests use gcc-specific enum signedness
+var gccEnums = map[string]struct{}{
+	"20030714-1.c":       {},
+	"92_enum_bitfield.c": {},
+	"20000914-1.c":       {},
+}
+
 func testExec2(t *testing.T, p *parallelTest, suite, testNm, fn, sid, fsName string) (err error) {
 	gccBin := binPath(fmt.Sprintf("%s.cc.out", fn))
 	args := []string{gcc, fn, "-o", gccBin, "-lm"}
@@ -247,6 +254,9 @@ func testExec2(t *testing.T, p *parallelTest, suite, testNm, fn, sid, fsName str
 	}
 	if dumpSSA {
 		args = append(args, "--dump-ssa")
+	}
+	if _, ok := gccEnums[filepath.Base(fsName)]; ok {
+		args = append(args, "--unsigned-enums")
 	}
 	task, err := NewTask(&Options{
 		Stdout:     io.Discard,
@@ -297,7 +307,8 @@ func testExec2(t *testing.T, p *parallelTest, suite, testNm, fn, sid, fsName str
 		return
 	}
 
-	qbeccAsm := filepath.Join(dir, fmt.Sprintf("%s.s", filepath.Base(fn)))
+	base := filepath.Base(fn)
+	qbeccAsm := filepath.Join(dir, fmt.Sprintf("%s.s", base))
 	args = []string{
 		os.Args[0],
 		"-o", qbeccAsm,
@@ -325,7 +336,7 @@ func testExec2(t *testing.T, p *parallelTest, suite, testNm, fn, sid, fsName str
 		return err
 	}
 
-	mainGo := filepath.Join(dir, fmt.Sprintf("%s.go", filepath.Base(fn)))
+	mainGo := filepath.Join(dir, fmt.Sprintf("%s.go", base))
 	b := bytes.NewBuffer([]byte(`package main
 
 import (
