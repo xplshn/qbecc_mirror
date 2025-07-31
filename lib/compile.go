@@ -80,6 +80,8 @@ func (t *Task) newCtx(ast *cc.AST, file *compilerFile) (r *ctx) {
 					r.err(x, "unsupported type")
 				}
 				r.variables.register(x, nil, r, 0)
+			case *cc.FunctionDefinition:
+				r.variables.register(x.Declarator, nil, r, 0)
 			case *cc.StructOrUnionSpecifier:
 				nm := x.Token.SrcStr()
 				t := x.Type()
@@ -327,7 +329,7 @@ func (c *ctx) addString(s string) (r string) {
 		c.strings = map[string]string{}
 	}
 	if r = c.strings[s]; r == "" {
-		r = fmt.Sprintf("$.ts.%d", c.id())
+		r = fmt.Sprintf("$\".ts.%d\"", c.id())
 		c.strings[s] = r
 	}
 	return r
@@ -350,9 +352,9 @@ func (t *Task) sourcesFor(file *compilerFile) (r []cc.Source, err error) {
 }
 
 var (
-	__builtin_ = []byte("$__builtin_")
+	__builtin_ = []byte("$\"__builtin_")
 	__qbe__    = []byte("__qbe__")
-	dlr        = []byte{'$'}
+	dlr        = []byte("$\"")
 )
 
 func (t *Task) asmFile(in string, c *ctx) (err error) {

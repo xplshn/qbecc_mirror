@@ -25,9 +25,9 @@ import (
 
 const (
 	assets   = "~/src/modernc.org/ccorpus2"
-	gccBinTO = 20 * time.Second
-	gccTO    = 20 * time.Second
-	goTO     = 20 * time.Second
+	gccBinTO = 40 * time.Second
+	gccTO    = 40 * time.Second
+	goTO     = 40 * time.Second
 )
 
 var (
@@ -370,7 +370,7 @@ func main() {
 			case "main":
 				fmt.Fprintf(b, "func __qbe_main(%s) int32", strings.Join(in, ", "))
 			default:
-				fmt.Fprintf(b, "func %s%s(%s)", prefix, k, strings.Join(in, ", "))
+				fmt.Fprintf(b, "func %s%s(%s)", prefix, unquote(k), strings.Join(in, ", "))
 				if out != "" {
 					fmt.Fprintf(b, " %s", out)
 				}

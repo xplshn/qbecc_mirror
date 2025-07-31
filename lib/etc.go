@@ -494,3 +494,7 @@ func pos(n cc.Node) string {
 	p.Filename = filepath.Base(p.Filename)
 	return p.String()
 }
+
+func unquote(s string) string {
+	return strings.Trim(s, `"`)
+}

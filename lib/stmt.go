@@ -6,6 +6,7 @@ package qbecc // import "modernc.org/qbecc/lib"
 
 import (
 	"fmt"
+	"math/big"
 
 	"modernc.org/cc/v4"
 )
@@ -234,14 +235,17 @@ func (c *ctx) selectionStatementSwitch(n *cc.SelectionStatement) {
 			case partL[0].isDefault && partR[0].isDefault:
 				// [default] [default]
 				c.w("\tjmp %s\n", ctx.defaultCase.label)
+				c.w("%s\n", c.label())
 			case partL[0].isDefault:
 				// [default] [case x]
 				t := c.temp("w ceq%s %s, %v\n", ctx.suff, ctx.expr, partR[0].val0)
 				c.w("\tjnz %s, %s, %s\n", t, partR[0].label, partL[0].label)
+				c.w("%s\n", c.label())
 			case partR[0].isDefault:
 				// [case x] [default]
 				t := c.temp("w ceq%s %s, %v\n", ctx.suff, ctx.expr, partL[0].val0)
 				c.w("\tjnz %s, %s, %s\n", t, partL[0].label, partR[0].label)
+				c.w("%s\n", c.label())
 			default:
 				//  [case x] [case y]
 				t := c.temp("w ceq%s %s, %v\n", ctx.suff, ctx.expr, partL[0].val0)
@@ -250,6 +254,7 @@ func (c *ctx) selectionStatementSwitch(n *cc.SelectionStatement) {
 				c.w("%s\n", labelR)
 				t = c.temp("w ceq%s %s, %v\n", ctx.suff, ctx.expr, partR[0].val0)
 				c.w("\tjnz %s, %s, %s\n", t, partR[0].label, ctx.defaultCase.label)
+				c.w("%s\n", c.label())
 			}
 		case n == 3:
 			switch {
@@ -258,18 +263,21 @@ func (c *ctx) selectionStatementSwitch(n *cc.SelectionStatement) {
 				t := c.temp("w c%slt%s %s, %v\n", ctx.sign, ctx.suff, ctx.expr, partR[0].val0)
 				labelR := c.label()
 				c.w("\tjnz %s, %s, %s\n", t, ctx.defaultCase.label, labelR)
+				c.w("%s\n", c.label())
 				f(partR, labelR, fmt.Sprintf(" # %s >= %v", ctx.expr, partR[0].val0))
 			case partR[1].isDefault:
 				// [case x] [case y, default]
 				t := c.temp("w ceq%s %s, %v\n", ctx.suff, ctx.expr, partL[0].val0)
 				labelR := c.label()
 				c.w("\tjnz %s, %s, %s\n", t, partL[0].label, labelR)
+				c.w("%s\n", c.label())
 				f(partR, labelR, fmt.Sprintf(" # %s > %v", ctx.expr, partL[0].val0))
 			default:
 				// [case x] [case y,  case z]
 				t := c.temp("w ceq%s %s, %v\n", ctx.suff, ctx.expr, partL[0].val0)
 				labelR := c.label()
 				c.w("\tjnz %s, %s, %s\n", t, partL[0].label, labelR)
+				c.w("%s\n", c.label())
 				f(partR, labelR, fmt.Sprintf(" # %s > %v", ctx.expr, partL[0].val0))
 			}
 		case n > 3:
@@ -284,6 +292,7 @@ func (c *ctx) selectionStatementSwitch(n *cc.SelectionStatement) {
 	c.statement(n.Statement)
 	if ctx.defaultCase.LabeledStatement == nil {
 		c.w("%s\n\tjmp %s\n", ctx.cases[0].label, c.fn.breakCtx.label)
+		c.w("%s\n", c.label())
 	}
 	c.w("%s\n", c.fn.breakCtx.label)
 }
@@ -293,7 +302,6 @@ func (c *ctx) labeledStatementSwitchLabel(n *cc.LabeledStatement) {
 	ctx := c.fn.switchCtx
 	cs := ctx.cases[ctx.case2index[n]]
 	c.w("%s\n\tjmp %s\n", c.label(), cs.label)
-	// c.w("%s # %v\n", cs.label, n.Position())
 	c.w("%s\n", cs.label)
 	c.statement(n.Statement)
 }
@@ -308,8 +316,54 @@ func (c *ctx) jumpStatementContinue(n *cc.JumpStatement) {
 	c.w("%s\n", c.label())
 }
 
+func (c *ctx) isZero(n cc.ExpressionNode) (r bool) {
+	switch x := n.Value().(type) {
+	case *cc.UnknownValue:
+		return false
+	case cc.Int64Value:
+		return x == 0
+	case cc.UInt64Value:
+		return x == 0
+	case cc.Float64Value:
+		return x == 0
+	case *cc.LongDoubleValue:
+		return (*big.Float)(x).Sign() == 0
+	default:
+		return false
+	}
+}
+
+func (c *ctx) isNonzero(n cc.ExpressionNode) (r bool) {
+	switch x := n.Value().(type) {
+	case *cc.UnknownValue:
+		return false
+	case cc.Int64Value:
+		return x != 0
+	case cc.UInt64Value:
+		return x != 0
+	case cc.Float64Value:
+		return x != 0
+	case *cc.LongDoubleValue:
+		return (*big.Float)(x).Sign() != 0
+	default:
+		return false
+	}
+}
+
 // "if" '(' ExpressionList ')' Statement
 func (c *ctx) selectionStatementIf(n *cc.SelectionStatement) {
+	if c.isZero(n.ExpressionList) {
+		c.expr(n.ExpressionList, rvalue, n.ExpressionList.Type())
+		z := c.label()
+		c.w("\tjmp %s\n", z)
+		c.w("%s\n", c.label())
+		c.statement(n.Statement)
+		c.w("%s\n", z)
+		return
+	}
+
+	//TODO isNonzero
+
 	//	jnz expr @a, @z
 	// @a
 	//	stmt
@@ -325,6 +379,9 @@ func (c *ctx) selectionStatementIf(n *cc.SelectionStatement) {
 
 // "if" '(' ExpressionList ')' Statement "else" Statement
 func (c *ctx) selectionStatementIfElse(n *cc.SelectionStatement) {
+	//TODO isZero
+	//TODO isNonzero
+
 	//	jnz expr @a, @b
 	// @a
 	//	stmt
@@ -365,6 +422,9 @@ func (c *ctx) iterationStatement(n *cc.IterationStatement) {
 
 // "do" Statement "while" '(' ExpressionList ')' ';'
 func (c *ctx) iterationStatementDo(n *cc.IterationStatement) {
+	//TODO isZero
+	//TODO isNonzero
+
 	// @a
 	//	stmt
 	// @cont
@@ -387,6 +447,9 @@ func (c *ctx) iterationStatementDo(n *cc.IterationStatement) {
 
 // "while" '(' ExpressionList ')' Statement
 func (c *ctx) iterationStatementWhile(n *cc.IterationStatement) {
+	//TODO isZero
+	//TODO isNonzero
+
 	// @a
 	//	jnz expr @b, @z
 	// @b
@@ -414,6 +477,9 @@ func (c *ctx) iterationStatementWhile(n *cc.IterationStatement) {
 
 // "for" '(' Declaration ExpressionList ';' ExpressionList ')' Statement
 func (c *ctx) iterationStatementForDecl(n *cc.IterationStatement) {
+	//TODO isZero
+	//TODO isNonzero
+
 	//	decl
 	// @a
 	//	jnz expr @b, @z
@@ -451,6 +517,9 @@ func (c *ctx) iterationStatementForDecl(n *cc.IterationStatement) {
 
 // "for" '(' ExpressionList ';' ExpressionList ';' ExpressionList ')' Statement
 func (c *ctx) iterationStatementFor(n *cc.IterationStatement) {
+	//TODO isZero
+	//TODO isNonzero
+
 	//	expr1
 	// @a
 	//	jnz expr2 @b, @z

@@ -164,6 +164,11 @@ package qbecc // import "modernc.org/qbecc/lib"
 //	all_test.go:200: gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute: files=1506 gcc fails=24 skipped=310 failed=0 passed=1172
 //	all_test.go:200: tcc-0.9.27/tests/tests2: files=88 gcc fails=8 skipped=12 failed=0 passed=68
 
+// 2025-07-31
+//	all_test.go:200: CompCert-3.6/test/c: files=24 gcc fails=1 skipped=1 failed=0 passed=22
+//	all_test.go:200: gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute: files=1506 gcc fails=24 skipped=308 failed=0 passed=1174
+//	all_test.go:200: tcc-0.9.27/tests/tests2: files=88 gcc fails=8 skipped=10 failed=0 passed=70
+
 var blacklist = map[string]struct{}{
 	// ---------------------------------------------- "CompCert-3.6/test/c"
 
@@ -404,9 +409,7 @@ var blacklist = map[string]struct{}{
 	// ====================================================================
 
 	// "tcc-0.9.27/tests/tests2",
-	"83_utf8_in_identifiers.c": {},
-	"87_dead_code.c":           {},
-	"93_integer_promotion.c":   {},
+	"93_integer_promotion.c": {},
 
 	// "gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute",
 	"20000113-1.c":         {},
@@ -421,7 +424,6 @@ var blacklist = map[string]struct{}{
 	"20020404-1.c":         {},
 	"20020411-1.c":         {},
 	"20020418-1.c":         {},
-	"20020611-1.c":         {},
 	"20021113-1.c":         {},
 	"20030109-1.c":         {},
 	"20031201-1.c":         {},
@@ -480,7 +482,6 @@ var blacklist = map[string]struct{}{
 	"complex-7.c":          {},
 	"compndlit-1.c":        {},
 	"const-addr-expr-1.c":  {},
-	"lto-tbaa-1.c":         {},
 	"pr22098-1.c":          {},
 	"pr22098-2.c":          {},
 	"pr22098-3.c":          {},

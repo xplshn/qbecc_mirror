@@ -90,7 +90,7 @@ func (l *linkerObject) ssaTyp(s string) string {
 }
 
 func isQBEExported(nm string) bool {
-	return strings.HasPrefix(nm, "$") && !strings.HasPrefix(nm, "$.")
+	return strings.HasPrefix(nm, "$") && !strings.HasPrefix(nm, "$\".")
 }
 
 func (l *linkerObject) inspectSSA(ssa []byte, nm string) (ok bool) {
@@ -111,7 +111,7 @@ func (l *linkerObject) inspectSSA(ssa []byte, nm string) (ok bool) {
 			}
 			fn := string(x.Global.Src())
 			if isQBEExported(fn) {
-				l.defines[fn[1:]] = st
+				l.defines[unquote(fn[1:])] = st
 			}
 			a := []string{"tls *libc.TLS"}
 			for _, v := range x.Params {
@@ -125,7 +125,7 @@ func (l *linkerObject) inspectSSA(ssa []byte, nm string) (ok bool) {
 				}
 			}
 			switch {
-			case fn == "$main":
+			case fn == "$\"main\"":
 				if len(a) < 2 {
 					a = append(a, "argc int32")
 				}
@@ -144,7 +144,7 @@ func (l *linkerObject) inspectSSA(ssa []byte, nm string) (ok bool) {
 					a = append(a, "")
 				}
 			}
-			l.signatures[fn[1:]] = a
+			l.signatures[unquote(fn[1:])] = a
 		case *parser.DataDefNode:
 			st := symbolData
 			if x.Linkage.IsValid() {
@@ -156,7 +156,7 @@ func (l *linkerObject) inspectSSA(ssa []byte, nm string) (ok bool) {
 				}
 			}
 			if nm := string(x.Global.Src()); isQBEExported(nm) {
-				l.defines[nm[1:]] = st
+				l.defines[unquote(nm[1:])] = st
 			}
 		case *parser.TypeDefNode:
 			// ok
@@ -175,12 +175,12 @@ func (l *linkerObject) goabi0(w io.Writer, ssa []byte, nm string, externs map[st
 	}
 
 	rewritten := parser.RewriteSource(func(nm string) (r string) {
-		cname := nm[1:]
-		// defer func() { trc("(nm=%s cname=%s)->%s", nm, cname, r) }()
+		cname := unquote(nm[1:])
 		if !isQBEExported(nm) {
 			return nm
 		}
 
+		// defer func() { trc("(nm=%s cname=%s)->%s", nm, cname, r) }()
 		if k, ok := l.defines[cname]; ok {
 			switch k {
 			case symbolExportedData, symbolExportedFunction:
@@ -188,7 +188,7 @@ func (l *linkerObject) goabi0(w io.Writer, ssa []byte, nm string, externs map[st
 					return nm
 				}
 
-				return "$Y" + cname
+				return fmt.Sprintf("$%q", "Y"+cname)
 			default:
 				return nm
 			}
@@ -204,9 +204,9 @@ func (l *linkerObject) goabi0(w io.Writer, ssa []byte, nm string, externs map[st
 			importPath := fmt.Sprintf("modernc.org/lib%s", resolvedIn.compilerFile.name)
 			switch resolvedIn.defines[cname] {
 			case symbolExportedFunction:
-				nm = fmt.Sprintf("$\"%s.Y%s\"", importPath, cname)
+				return fmt.Sprintf("$\"%s.Y%s\"", importPath, cname)
 			case symbolExportedData:
-				nm = fmt.Sprintf("$\"%s.X%s\"", importPath, cname)
+				return fmt.Sprintf("$\"%s.X%s\"", importPath, cname)
 			default:
 				panic(todo("230: %v %v", cname, resolvedIn.defines[cname]))
 			}
@@ -214,8 +214,6 @@ func (l *linkerObject) goabi0(w io.Writer, ssa []byte, nm string, externs map[st
 			panic(todo("228: %v %v %v", cname, resolvedIn.compilerFile.name, resolvedIn.compilerFile.outType))
 		}
 
-		nm = strings.ReplaceAll(nm, ".", "·")
-		return strings.ReplaceAll(nm, "/", "\u2215")
 	}, ast.Defs...)
 	var o libqbe.Options
 	if l.task.dumpSSA {

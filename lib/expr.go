@@ -16,7 +16,7 @@ import (
 type mode int
 
 const (
-	void mode = iota
+	void mode = iota //TODO remove void mode
 	lvalue
 	rvalue
 	aggRvalue
@@ -1892,6 +1892,8 @@ func (c *ctx) unaryExpressionCpl(n *cc.UnaryExpression, mode mode, t cc.Type) (r
 
 // '!' CastExpression
 func (c *ctx) unaryExpressionNot(n *cc.UnaryExpression, mode mode, t cc.Type) (r any) {
+	//TODO isZero
+	//TODO isNonzero
 	//	%r = 1
 	//	jnz @expr, @a, @b
 	// @a
@@ -2547,6 +2549,8 @@ func (c *ctx) additiveExpression(n *cc.AdditiveExpression, mode mode, t cc.Type)
 
 // LogicalOrExpression "||" LogicalAndExpression
 func (c *ctx) logicalOrExpressionLOr(n *cc.LogicalOrExpression, mode mode, t cc.Type) (r any) {
+	//TODO isZero
+	//TODO isNonzero
 	//	%e = orExpr
 	//	%r = 1
 	//	jnz %e, @z, @a
@@ -2590,6 +2594,8 @@ func (c *ctx) logicalOrExpressionLOr(n *cc.LogicalOrExpression, mode mode, t cc.
 
 // LogicalAndExpression "&&" InclusiveOrExpression
 func (c *ctx) logicalAndExpressionLAnd(n *cc.LogicalAndExpression, mode mode, t cc.Type) (r any) {
+	//TODO isZero
+	//TODO isNonzero
 	//	%e = andExpr
 	//	%r = 0
 	//	jnz %e, @a, @z
@@ -2807,6 +2813,8 @@ func (c *ctx) castExpression(n *cc.CastExpression, mode mode, t cc.Type) (r any)
 
 // LogicalOrExpression '?' ExpressionList ':' ConditionalExpression
 func (c *ctx) conditionalExpressionCond(n *cc.ConditionalExpression, mode mode, t cc.Type) (r any) {
+	//TODO isZero
+	//TODO isNonzero
 	//	jnz lorExpr, @a, @b
 	// @a
 	//	r = exprList

@@ -144,7 +144,15 @@ func (v *variables) register(n cc.Node, f *fnCtx, c *ctx, inlineLevel int) {
 				if strings.HasPrefix(x.Name(), "__builtin_") {
 					m[x] = &staticVar{
 						d:    x,
-						name: fmt.Sprintf("$%s", x.Name()[len("__builtin_"):]),
+						name: fmt.Sprintf("$%q", x.Name()[len("__builtin_"):]),
+					}
+					break
+				}
+
+				if k == cc.Function || x.IsExtern() {
+					m[x] = &staticVar{
+						d:    x,
+						name: fmt.Sprintf("$%q", c.rename(x.Name())),
 					}
 				}
 			default:
@@ -152,12 +160,12 @@ func (v *variables) register(n cc.Node, f *fnCtx, c *ctx, inlineLevel int) {
 				case sc.Parent == nil || x.Type().Kind() == cc.Function || x.IsExtern():
 					m[x] = &staticVar{
 						d:    x,
-						name: fmt.Sprintf("$%s", c.rename(x.Name())),
+						name: fmt.Sprintf("$%q", c.rename(x.Name())),
 					}
 				default:
 					m[x] = &staticVar{
 						d:    x,
-						name: shortName("$.", x.Name(), f.ctx.id()),
+						name: shortName("$\".", c.rename(x.Name()), f.ctx.id()) + `"`,
 					}
 				}
 			}
@@ -529,7 +537,9 @@ func (c *ctx) externalDeclarationFuncDef(n *cc.FunctionDefinition) {
 	if f.returns.Kind() != cc.Void {
 		c.w("%s ", c.abiType(d, f.returns))
 	}
-	c.w("$%s", c.rename(d.Name()))
+	_, info := c.variable(d)
+	nm := info.(*staticVar).name
+	c.w("%s", nm)
 	c.signature(ft.Parameters(), ft.IsVariadic())
 	c.w(" {\n")
 	c.w("@start.0\n")
@@ -597,13 +607,9 @@ func (c *ctx) externalDeclarationDeclFull(n *cc.Declaration) {
 			continue
 		}
 
-		c.pos(n)
-		if d.Linkage() == cc.External {
-			c.w("export ")
-		}
 		if l.InitDeclarator.Asm != nil {
 			c.err(n, "assembler not supported")
-			return
+			continue
 		}
 
 		var sel *cc.Declarator
@@ -633,18 +639,28 @@ func (c *ctx) externalDeclarationDeclFull(n *cc.Declaration) {
 			}
 		}
 		if sel != d {
-			return
+			continue
 		}
 
-		nm := c.rename(d.Name())
+		var nm string
+		switch _, info := c.variable(d); {
+		case info == nil:
+			nm = fmt.Sprintf("$%q", c.rename(d.Name()))
+		default:
+			nm = info.(*staticVar).name
+		}
+		c.pos(n)
+		if d.Linkage() == cc.External {
+			c.w("export ")
+		}
 		switch n := l.InitDeclarator; n.Case {
 		case cc.InitDeclaratorDecl: // Declarator Asm
-			c.w("data $%s = align %d { z %d }", nm, d.Type().Align(), max(c.sizeof(d, d.Type()), 1))
+			c.w("data %s = align %d { z %d }", nm, d.Type().Align(), max(c.sizeof(d, d.Type()), 1))
 		case cc.InitDeclaratorInit: // Declarator Asm '=' Initializer
-			c.w("data $%s = align %d {\n", nm, d.Type().Align())
+			c.w("data %s = align %d {\n", nm, d.Type().Align())
 			c.initializer(n.Initializer, &staticVar{
 				d:    d,
-				name: fmt.Sprintf("$%s", nm),
+				name: nm,
 			}, d.Type())
 			c.w("}\n")
 		default:
