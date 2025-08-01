@@ -169,6 +169,11 @@ package qbecc // import "modernc.org/qbecc/lib"
 //	all_test.go:200: gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute: files=1506 gcc fails=24 skipped=308 failed=0 passed=1174
 //	all_test.go:200: tcc-0.9.27/tests/tests2: files=88 gcc fails=8 skipped=10 failed=0 passed=70
 
+// 2025-08-01
+/	all_test.go:200: CompCert-3.6/test/c: files=24 gcc fails=1 skipped=1 failed=0 passed=22
+//	all_test.go:200: gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute: files=1506 gcc fails=24 skipped=301 failed=0 passed=1181
+//	all_test.go:200: tcc-0.9.27/tests/tests2: files=88 gcc fails=8 skipped=10 failed=0 passed=70
+
 var blacklist = map[string]struct{}{
 	// ---------------------------------------------- "CompCert-3.6/test/c"
 
@@ -383,7 +388,23 @@ var blacklist = map[string]struct{}{
 	"nestfunc-6.c":  {},
 	"pr24135.c":     {},
 
-	"73_arm64.c":                  {}, // Won't fix: struct va_arg
+	// Won't fix: unsupported type for va_arg
+	"73_arm64.c":       {},
+	"920625-1.c":       {},
+	"920908-1.c":       {},
+	"931004-12.c":      {},
+	"931004-14.c":      {},
+	"931004-2.c":       {},
+	"931004-4.c":       {},
+	"931004-6.c":       {},
+	"931004-8.c":       {},
+	"pr44575.c":        {},
+	"stdarg-3.c":       {},
+	"strct-stdarg-1.c": {},
+	"strct-varg-1.c":   {},
+	"va-arg-22.c":      {},
+	"va-arg-pack-1.c":  {},
+
 	"76_dollars_in_identifiers.c": {}, // Won't fix: '$' in identifiers
 	"931004-10.c":                 {}, // Won't fix: struct va_arg
 	"pr34154.c":                   {}, // Won't fix: case ranges not supported
@@ -440,19 +461,9 @@ var blacklist = map[string]struct{}{
 	"20050929-1.c":         {},
 	"20060929-1.c":         {},
 	"20070614-1.c":         {},
-	"20080529-1.c":         {},
 	"20081117-1.c":         {},
 	"20180921-1.c":         {},
-	"920501-2.c":           {},
-	"920625-1.c":           {},
-	"920908-1.c":           {},
 	"930513-1.c":           {},
-	"931004-12.c":          {},
-	"931004-14.c":          {},
-	"931004-2.c":           {},
-	"931004-4.c":           {},
-	"931004-6.c":           {},
-	"931004-8.c":           {},
 	"941202-1.c":           {},
 	"960416-1.c":           {},
 	"960512-1.c":           {},
@@ -466,8 +477,6 @@ var blacklist = map[string]struct{}{
 	"bf64-1.c":             {},
 	"bitfld-3.c":           {},
 	"bitfld-4.c":           {},
-	"bitfld-6.c":           {},
-	"bitfld-7.c":           {},
 	"bswap-1.c":            {},
 	"builtin-prefetch-1.c": {},
 	"builtin-prefetch-2.c": {},
@@ -481,7 +490,6 @@ var blacklist = map[string]struct{}{
 	"complex-6.c":          {},
 	"complex-7.c":          {},
 	"compndlit-1.c":        {},
-	"const-addr-expr-1.c":  {},
 	"pr22098-1.c":          {},
 	"pr22098-2.c":          {},
 	"pr22098-3.c":          {},
@@ -493,10 +501,7 @@ var blacklist = map[string]struct{}{
 	"pr38969.c":            {},
 	"pr39339.c":            {},
 	"pr42248.c":            {},
-	"pr42691.c":            {},
-	"pr43784.c":            {},
 	"pr43987.c":            {},
-	"pr44575.c":            {},
 	"pr49390.c":            {},
 	"pr49768.c":            {},
 	"pr52979-1.c":          {},
@@ -523,13 +528,8 @@ var blacklist = map[string]struct{}{
 	"pr89195.c":            {},
 	"pr89826.c":            {},
 	"pr90025.c":            {},
-	"stdarg-3.c":           {},
-	"strct-stdarg-1.c":     {},
-	"strct-varg-1.c":       {},
 	"struct-ini-2.c":       {},
 	"struct-ini-3.c":       {},
-	"va-arg-22.c":          {},
-	"va-arg-pack-1.c":      {},
 	"widechar-3.c":         {},
 	"zero-struct-2.c":      {},
 }

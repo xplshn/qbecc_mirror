@@ -77,7 +77,7 @@ func (t *Task) newCtx(ast *cc.AST, file *compilerFile) (r *ctx) {
 				}
 
 				if r.isUnsupportedType(x.Type()) && !x.IsExtern() {
-					r.err(x, "unsupported type")
+					r.err(x, "unsupported type: %s", x.Type())
 				}
 				r.variables.register(x, nil, r, 0)
 			case *cc.FunctionDefinition:
@@ -225,7 +225,7 @@ func (c *ctx) isUnsupportedType(t cc.Type) (r bool) {
 func (c *ctx) sizeof(n cc.Node, t cc.Type) int64 {
 	if c.isUnsupportedType(t) {
 		if n != nil {
-			c.err(n, "unsupported type")
+			c.err(n, "unsupported type: %s", t)
 			return 1
 		}
 	}

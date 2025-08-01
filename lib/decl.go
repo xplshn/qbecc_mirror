@@ -548,7 +548,7 @@ func (c *ctx) externalDeclarationFuncDef(n *cc.FunctionDefinition) {
 	}
 	for _, v := range ft.Parameters() {
 		if d := v.Declarator; d != nil && c.isVLA(d.Type()) {
-			f.ctx.err(v.Declarator, "unsupported type")
+			f.ctx.err(v.Declarator, "unsupported type: %s", d.Type())
 			return
 		}
 

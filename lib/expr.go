@@ -65,7 +65,7 @@ type symbolValue struct {
 func (v *symbolValue) String() string {
 	switch {
 	case v.off != 0:
-		return fmt.Sprintf("%s%+v", v.sym, v.off)
+		return fmt.Sprintf("%s+%v", v.sym, uint64(v.off))
 	default:
 		return v.sym
 	}
@@ -978,6 +978,11 @@ func (c *ctx) vaStart(n *cc.PostfixExpression, mode mode, t cc.Type) (r any) {
 
 // PostfixExpression '(' ArgumentExpressionList ')'
 func (c *ctx) vaArg(n *cc.PostfixExpression, mode mode, t cc.Type) (r any) {
+	if !c.isBaseType(n, t) {
+		c.err(n, "unsupported type for va_arg: %s", t)
+		return nothing
+	}
+
 	if n.ArgumentExpressionList == nil {
 		c.err(n, "missing argument")
 		return nothing
@@ -996,24 +1001,8 @@ func (c *ctx) vaArg(n *cc.PostfixExpression, mode mode, t cc.Type) (r any) {
 			return c.temp("%s vaarg %s\n", c.baseType(n, t), vaList)
 		}
 	default:
-		// "920625-1.c": {},
-		// "920908-1.c": {},
-		// "931004-10.c": {},
-		// "931004-12.c": {},
-		// "931004-2.c": {},
-		// "931004-14.c": {},
-		// "931004-4.c": {},
-		// "931004-8.c": {},
-		// "931004-6.c": {},
-		// "pr44575.c": {},
-		// "stdarg-3.c": {},
-		// "strct-varg-1.c": {},
-		// "strct-stdarg-1.c": {},
-		// "va-arg-22.c": {},
-		// "va-arg-pack-1.c": {},
 		panic(todo("%v: %s %s %s", n.Position(), mode, cc.NodeSource(n), t))
 	}
-	return r
 }
 
 func (c *ctx) isVaList(d *cc.Declarator) (r bool) {
@@ -1489,8 +1478,19 @@ func (c *ctx) postfixExpressionPSelect(n *cc.PostfixExpression, mode mode, t cc.
 		p := c.expr(n.PostfixExpression, rvalue, c.ast.PVoid)
 		p = c.temp("%s add %s, %v\n", c.wordTag, p, f.Offset())
 		return p
+	case constLvalue:
+		if f.IsBitfield() {
+			panic(todo("%v: %s %s", n.Position(), mode, cc.NodeSource(n)))
+		}
+
+		switch p := c.expr(n.PostfixExpression, constLvalue, c.ast.PVoid); x := p.(type) {
+		case *symbolValue:
+			x.off += f.Offset()
+			return x
+		default:
+			panic(todo("%v: %T(%v) %s", n.Position(), p, p, cc.NodeSource(n)))
+		}
 	default:
-		// all_test.go:356: C COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/const-addr-expr-1.c
 		panic(todo("%v: %s %s", n.Position(), mode, cc.NodeSource(n)))
 	}
 }
@@ -1892,29 +1892,24 @@ func (c *ctx) unaryExpressionCpl(n *cc.UnaryExpression, mode mode, t cc.Type) (r
 
 // '!' CastExpression
 func (c *ctx) unaryExpressionNot(n *cc.UnaryExpression, mode mode, t cc.Type) (r any) {
-	//TODO isZero
-	//TODO isNonzero
-	//	%r = 1
-	//	jnz @expr, @a, @b
-	// @a
-	//	%r = 0
-	// @b
-	a := c.label()
-	b := c.label()
 	switch mode {
 	case rvalue:
 		defer func() { r = c.convert(n, t, c.ast.Int, r) }()
 
-		r = c.temp("w copy 1\n")
-		v := c.expr(n.CastExpression, rvalue, n.CastExpression.Type())
-		c.w("\tjnz %s, %s, %s\n", v, a, b)
-		c.w("%s\n", a)
-		c.w("\t%s =w copy 0\n", r)
-		c.w("%s\n", b)
+		fallthrough
+	case void:
+		e := c.expr(n.CastExpression, rvalue, n.CastExpression.Type())
+		switch {
+		case c.isZero(n.CastExpression):
+			return c.temp("w copy 1\n")
+		case c.isNonzero(n.CastExpression):
+			return c.temp("w copy 0\n")
+		default:
+			return c.temp("w ceq%s %s, 0\n", c.baseType(n.CastExpression, n.CastExpression.Type()), e)
+		}
 	default:
 		panic(todo("%v: %v %s", n.Position(), mode, cc.NodeSource(n)))
 	}
-	return r
 }
 
 // "__real__" UnaryExpression
@@ -2527,6 +2522,29 @@ func (c *ctx) arithmeticOp(n, lhs, rhs cc.ExpressionNode, mode mode, t cc.Type, 
 		}
 	case constRvalue:
 		return c.arithmeticOpConstRvalue(n, lhs, rhs, mode, t, op, ct, lmul, rmul, div)
+	case constLvalue:
+		_, info := c.variable(lhs)
+		switch x := info.(type) {
+		case *staticVar:
+			var off int64
+			switch y := rhs.Value().(type) {
+			case cc.Int64Value:
+				off = int64(y)
+			default:
+				panic(todo("%v: %T %s %s %s", lhs.Position(), y, cc.NodeSource(lhs), op, cc.NodeSource(rhs)))
+			}
+			off *= rmul
+			switch op {
+			case "add":
+				return &symbolValue{x.name, off}
+			case "sub":
+				return &symbolValue{x.name, -off}
+			default:
+				panic(todo("%v: %v %s %s %s", lhs.Position(), mode, cc.NodeSource(lhs), op, cc.NodeSource(rhs)))
+			}
+		default:
+			panic(todo("%v: %T %s %s %s", lhs.Position(), x, cc.NodeSource(lhs), op, cc.NodeSource(rhs)))
+		}
 	default:
 		panic(todo("%v: %v %s %s %s", lhs.Position(), mode, cc.NodeSource(lhs), op, cc.NodeSource(rhs)))
 	}
@@ -2549,92 +2567,106 @@ func (c *ctx) additiveExpression(n *cc.AdditiveExpression, mode mode, t cc.Type)
 
 // LogicalOrExpression "||" LogicalAndExpression
 func (c *ctx) logicalOrExpressionLOr(n *cc.LogicalOrExpression, mode mode, t cc.Type) (r any) {
-	//TODO isZero
-	//TODO isNonzero
-	//	%e = orExpr
-	//	%r = 1
-	//	jnz %e, @z, @a
-	// @a
-	//	%e2 = andExpr
-	//	jnz %e2, @z, @b
-	// @b
-	//	%r = 0
-	// @z
-	a := c.label()
-	b := c.label()
-	z := c.label()
 	switch mode {
 	case rvalue:
 		defer func() { r = c.convert(n, t, n.Type(), r) }()
 
-		e := c.expr(n.LogicalOrExpression, mode, n.LogicalOrExpression.Type())
-		r = c.temp("w copy 1\n")
-		c.w("\tjnz %s, %s, %s\n", e, z, a)
-		c.w("%s\n", a)
-		e2 := c.expr(n.LogicalAndExpression, mode, n.LogicalAndExpression.Type())
-		c.w("\tjnz %s, %s, %s\n", e2, z, b)
-		c.w("%s\n", b)
-		c.w("\t%s =w copy 0\n", r)
-		c.w("%s\n", z)
+		fallthrough
 	case void:
-		e := c.expr(n.LogicalOrExpression, rvalue, n.LogicalOrExpression.Type())
-		r = c.temp("w copy 1\n")
-		c.w("\tjnz %s, %s, %s\n", e, z, a)
-		c.w("%s\n", a)
-		e2 := c.expr(n.LogicalAndExpression, rvalue, n.LogicalAndExpression.Type())
-		c.w("\tjnz %s, %s, %s\n", e2, z, b)
-		c.w("%s\n", b)
-		c.w("\t%s =w copy 0\n", r)
-		c.w("%s\n", z)
+		switch {
+		case c.isZero(n.LogicalOrExpression):
+			c.expr(n.LogicalOrExpression, rvalue, n.LogicalOrExpression.Type())
+			e2 := c.expr(n.LogicalAndExpression, rvalue, n.LogicalAndExpression.Type())
+			switch {
+			case c.isZero(n.LogicalAndExpression):
+				return c.temp("w copy 0\n")
+			case c.isNonzero(n.LogicalAndExpression):
+				return c.temp("w copy 1\n")
+			default:
+				return c.temp("w cne%s %s, 0\n", c.baseType(n.LogicalAndExpression, n.LogicalAndExpression.Type()), e2)
+			}
+		case c.isNonzero(n.LogicalOrExpression):
+			c.expr(n.LogicalOrExpression, rvalue, n.LogicalOrExpression.Type())
+			return c.temp("w copy 1\n")
+		default:
+			a := c.label()
+			z := c.label()
+			//	%r = cneX orExpr, 0
+			//	jnz %r, @z, @a
+			// @a
+			//	%r = cneX andExpr, 0
+			// @z
+			e := c.expr(n.LogicalOrExpression, rvalue, n.LogicalOrExpression.Type())
+			r = c.temp("w cne%s %s, 0\n", c.baseType(n.LogicalOrExpression, n.LogicalOrExpression.Type()), e)
+			c.w("\tjnz %s, %s, %s\n", r, z, a)
+			c.w("%s\n", a)
+			e2 := c.expr(n.LogicalAndExpression, rvalue, n.LogicalAndExpression.Type())
+			switch {
+			case c.isZero(n.LogicalAndExpression):
+				// nop
+			case c.isNonzero(n.LogicalAndExpression):
+				c.w("\t%s =w copy 1\n", r)
+			default:
+				c.w("\t%s =w cne%s %s, 0\n", r, c.baseType(n.LogicalAndExpression, n.LogicalAndExpression.Type()), e2)
+			}
+			c.w("%s\n", z)
+			return r
+		}
 	default:
 		panic(todo("%v: %v %s", n.Position(), mode, cc.NodeSource(n)))
 	}
-	return r
 }
 
 // LogicalAndExpression "&&" InclusiveOrExpression
 func (c *ctx) logicalAndExpressionLAnd(n *cc.LogicalAndExpression, mode mode, t cc.Type) (r any) {
-	//TODO isZero
-	//TODO isNonzero
-	//	%e = andExpr
-	//	%r = 0
-	//	jnz %e, @a, @z
-	// @a
-	//	%e2 = inExpr
-	//	jnz %e2, @b, @z
-	// @b
-	//	%r = 1
-	// @z
-	a := c.label()
-	b := c.label()
-	z := c.label()
 	switch mode {
 	case rvalue:
 		defer func() { r = c.convert(n, t, n.Type(), r) }()
 
-		e := c.expr(n.LogicalAndExpression, mode, n.LogicalAndExpression.Type())
-		r = c.temp("w copy 0\n")
-		c.w("\tjnz %s, %s, %s\n", e, a, z)
-		c.w("%s\n", a)
-		e2 := c.expr(n.InclusiveOrExpression, mode, n.InclusiveOrExpression.Type())
-		c.w("\tjnz %s, %s, %s\n", e2, b, z)
-		c.w("%s\n", b)
-		c.w("\t%s =w copy 1\n", r)
-		c.w("%s\n", z)
+		fallthrough
 	case void:
-		e := c.expr(n.LogicalAndExpression, rvalue, n.LogicalAndExpression.Type())
-		r = c.temp("w copy 0\n")
-		c.w("\tjnz %s, %s, %s\n", e, a, z)
-		c.w("%s\n", a)
-		e2 := c.expr(n.InclusiveOrExpression, rvalue, n.InclusiveOrExpression.Type())
-		c.w("\tjnz %s, %s, %s\n", e2, b, z)
-		c.w("%s\n", b)
-		c.w("\t%s =w copy 1\n", r)
-		c.w("%s\n", z)
+		switch {
+		case c.isZero(n.LogicalAndExpression):
+			c.expr(n.LogicalAndExpression, rvalue, n.LogicalAndExpression.Type())
+			return c.temp("w copy 0\n")
+		case c.isNonzero(n.LogicalAndExpression):
+			c.expr(n.LogicalAndExpression, rvalue, n.LogicalAndExpression.Type())
+			e2 := c.expr(n.InclusiveOrExpression, rvalue, n.InclusiveOrExpression.Type())
+			switch {
+			case c.isZero(n.InclusiveOrExpression):
+				return c.temp("w copy 0\n")
+			case c.isNonzero(n.InclusiveOrExpression):
+				return c.temp("w copy 1\n")
+			default:
+				return c.temp("w cne%s %s, 0\n", c.baseType(n.InclusiveOrExpression, n.InclusiveOrExpression.Type()), e2)
+			}
+		default:
+			a := c.label()
+			z := c.label()
+			//	%r = cneX orExpr, 0
+			//	jnz %r, @a, @z
+			// @a
+			//	%r = cneX andExpr, 0
+			// @z
+			e := c.expr(n.LogicalAndExpression, rvalue, n.LogicalAndExpression.Type())
+			r = c.temp("w cne%s %s, 0\n", c.baseType(n.LogicalAndExpression, n.LogicalAndExpression.Type()), e)
+			c.w("\tjnz %s, %s, %s\n", r, a, z)
+			c.w("%s\n", a)
+			e2 := c.expr(n.InclusiveOrExpression, rvalue, n.InclusiveOrExpression.Type())
+			switch {
+			case c.isZero(n.InclusiveOrExpression):
+				c.w("\t%s =w copy 0\n", r)
+			case c.isNonzero(n.InclusiveOrExpression):
+				c.w("\t%s =w copy 1\n", r)
+			default:
+				c.w("\t%s =w cne%s %s, 0\n", r, c.baseType(n.InclusiveOrExpression, n.InclusiveOrExpression.Type()), e2)
+			}
+			c.w("%s\n", z)
+			return r
+		}
 	default:
 		panic(todo("%v: %v %s", n.Position(), mode, cc.NodeSource(n)))
 	}
-	return r
 }
 
 func (c *ctx) logicalOrExpression(n *cc.LogicalOrExpression, mode mode, t cc.Type) (r any) {
@@ -2764,6 +2796,13 @@ func (c *ctx) shiftExpression(n *cc.ShiftExpression, mode mode, t cc.Type) (r an
 
 // '(' TypeName ')' CastExpression
 func (c *ctx) castExpressionCast(n *cc.CastExpression, mode mode, t cc.Type) (r any) {
+	if s := strings.TrimSpace(cc.NodeSource(n.CastExpression)); strings.HasPrefix(s, "__builtin_va_arg(") {
+		if !c.isBaseType(n.CastExpression, n.TypeName.Type()) {
+			c.err(n, "unsupported type for va_arg: %s", n.TypeName.Type())
+			return nothing
+		}
+	}
+
 	switch mode {
 	case rvalue:
 		defer func() { r = c.convert(n, t, n.Type(), r) }()
@@ -2813,8 +2852,6 @@ func (c *ctx) castExpression(n *cc.CastExpression, mode mode, t cc.Type) (r any)
 
 // LogicalOrExpression '?' ExpressionList ':' ConditionalExpression
 func (c *ctx) conditionalExpressionCond(n *cc.ConditionalExpression, mode mode, t cc.Type) (r any) {
-	//TODO isZero
-	//TODO isNonzero
 	//	jnz lorExpr, @a, @b
 	// @a
 	//	r = exprList
@@ -2827,57 +2864,85 @@ func (c *ctx) conditionalExpressionCond(n *cc.ConditionalExpression, mode mode, 
 	b := c.label()
 	x := c.label()
 	z := c.label()
+	e := c.expr(n.LogicalOrExpression, rvalue, n.LogicalOrExpression.Type())
 	switch mode {
 	case lvalue:
 		defer func() { r = c.convert(n, t, n.Type(), r) }()
 
-		e := c.expr(n.LogicalOrExpression, rvalue, n.LogicalOrExpression.Type())
-		c.w("\tjnz %s, %s, %s\n", e, a, b)
-		c.w("%s\n", a)
-		r = c.expr(n.ExpressionList, mode, n.ExpressionList.Type())
-		c.w("%s\n", x)
-		c.w("\tjmp %s\n", z)
-		c.w("%s\n", b)
-		r = c.expr(n.ConditionalExpression, mode, n.ExpressionList.Type())
-		c.w("%s\n", z)
+		switch {
+		case c.isZero(n.LogicalOrExpression):
+			return c.expr(n.ConditionalExpression, mode, n.ExpressionList.Type())
+		case c.isNonzero(n.LogicalOrExpression):
+			return c.expr(n.ExpressionList, mode, n.ExpressionList.Type())
+		default:
+			c.w("\tjnz %s, %s, %s\n", e, a, b)
+			c.w("%s\n", a)
+			r = c.expr(n.ExpressionList, mode, n.ExpressionList.Type())
+			c.w("%s\n", x)
+			c.w("\tjmp %s\n", z)
+			c.w("%s\n", b)
+			r = c.expr(n.ConditionalExpression, mode, n.ExpressionList.Type())
+			c.w("%s\n", z)
+			return r
+		}
 	case rvalue:
 		defer func() { r = c.convert(n, t, n.Type(), r) }()
 
-		e := c.expr(n.LogicalOrExpression, rvalue, n.LogicalOrExpression.Type())
-		c.w("\tjnz %s, %s, %s\n", e, a, b)
-		c.w("%s\n", a)
-		el := c.expr(n.ExpressionList, mode, n.ExpressionList.Type())
-		r = c.temp("%s copy %s\n", c.baseType(n, n.ExpressionList.Type()), el)
-		c.w("%s\n", x)
-		c.w("\tjmp %s\n", z)
-		c.w("%s\n", b)
-		ce := c.expr(n.ConditionalExpression, mode, n.ExpressionList.Type())
-		c.w("\t%s =%s copy %s\n", r, c.baseType(n, n.ExpressionList.Type()), ce)
-		c.w("%s\n", z)
+		switch {
+		case c.isZero(n.LogicalOrExpression):
+			return c.expr(n.ConditionalExpression, mode, n.ExpressionList.Type())
+		case c.isNonzero(n.LogicalOrExpression):
+			return c.expr(n.ExpressionList, mode, n.ExpressionList.Type())
+		default:
+			c.w("\tjnz %s, %s, %s\n", e, a, b)
+			c.w("%s\n", a)
+			el := c.expr(n.ExpressionList, mode, n.ExpressionList.Type())
+			r = c.temp("%s copy %s\n", c.baseType(n, n.ExpressionList.Type()), el)
+			c.w("%s\n", x)
+			c.w("\tjmp %s\n", z)
+			c.w("%s\n", b)
+			ce := c.expr(n.ConditionalExpression, mode, n.ExpressionList.Type())
+			c.w("\t%s =%s copy %s\n", r, c.baseType(n, n.ExpressionList.Type()), ce)
+			c.w("%s\n", z)
+			return r
+		}
 	case void:
-		e := c.expr(n.LogicalOrExpression, rvalue, n.LogicalOrExpression.Type())
-		c.w("\tjnz %s, %s, %s\n", e, a, b)
-		c.w("%s\n", a)
-		c.expr(n.ExpressionList, mode, n.ExpressionList.Type())
-		c.w("%s\n", x)
-		c.w("\tjmp %s\n", z)
-		c.w("%s\n", b)
-		c.expr(n.ConditionalExpression, mode, n.ExpressionList.Type())
-		c.w("%s\n", z)
+		switch {
+		case c.isZero(n.LogicalOrExpression):
+			return c.expr(n.ConditionalExpression, mode, n.ExpressionList.Type())
+		case c.isNonzero(n.LogicalOrExpression):
+			return c.expr(n.ExpressionList, mode, n.ExpressionList.Type())
+		default:
+			c.w("\tjnz %s, %s, %s\n", e, a, b)
+			c.w("%s\n", a)
+			c.expr(n.ExpressionList, mode, n.ExpressionList.Type())
+			c.w("%s\n", x)
+			c.w("\tjmp %s\n", z)
+			c.w("%s\n", b)
+			c.expr(n.ConditionalExpression, mode, n.ExpressionList.Type())
+			c.w("%s\n", z)
+			return r
+		}
 	case aggRvalue:
-		e := c.expr(n.LogicalOrExpression, rvalue, n.LogicalOrExpression.Type())
-		c.w("\tjnz %s, %s, %s\n", e, a, b)
-		c.w("%s\n", a)
-		r = c.expr(n.ExpressionList, mode, n.ExpressionList.Type())
-		c.w("%s\n", x)
-		c.w("\tjmp %s\n", z)
-		c.w("%s\n", b)
-		r = c.expr(n.ConditionalExpression, mode, n.ExpressionList.Type())
-		c.w("%s\n", z)
+		switch {
+		case c.isZero(n.LogicalOrExpression):
+			return c.expr(n.ConditionalExpression, mode, n.ExpressionList.Type())
+		case c.isNonzero(n.LogicalOrExpression):
+			return c.expr(n.ExpressionList, mode, n.ExpressionList.Type())
+		default:
+			c.w("\tjnz %s, %s, %s\n", e, a, b)
+			c.w("%s\n", a)
+			r = c.expr(n.ExpressionList, mode, n.ExpressionList.Type())
+			c.w("%s\n", x)
+			c.w("\tjmp %s\n", z)
+			c.w("%s\n", b)
+			r = c.expr(n.ConditionalExpression, mode, n.ExpressionList.Type())
+			c.w("%s\n", z)
+			return r
+		}
 	default:
 		panic(todo("%v: %s %s", n.Position(), mode, cc.NodeSource(n)))
 	}
-	return r
 }
 
 func (c *ctx) conditionalExpression(n *cc.ConditionalExpression, mode mode, t cc.Type) (r any) {

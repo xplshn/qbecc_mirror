@@ -64,6 +64,7 @@ func (c *ctx) jumpStatementReturn(n *cc.JumpStatement) {
 		}
 	default:
 		c.w("\tret %s\n", s)
+		c.w("%s\n", c.label())
 	}
 }
 
@@ -352,57 +353,70 @@ func (c *ctx) isNonzero(n cc.ExpressionNode) (r bool) {
 
 // "if" '(' ExpressionList ')' Statement
 func (c *ctx) selectionStatementIf(n *cc.SelectionStatement) {
-	if c.isZero(n.ExpressionList) {
-		c.expr(n.ExpressionList, rvalue, n.ExpressionList.Type())
-		z := c.label()
-		c.w("\tjmp %s\n", z)
-		c.w("%s\n", c.label())
-		c.statement(n.Statement)
-		c.w("%s\n", z)
-		return
-	}
-
-	//TODO isNonzero
-
+	a := c.label()
+	z := c.label()
 	//	jnz expr @a, @z
 	// @a
 	//	stmt
 	// @z
-	a := c.label()
-	z := c.label()
 	e := c.expr(n.ExpressionList, rvalue, n.ExpressionList.Type())
-	c.w("\tjnz %v, %s, %s\n", e, a, z)
-	c.w("%s\n", a)
-	c.statement(n.Statement)
-	c.w("%s\n", z)
+	switch {
+	case c.isZero(n.ExpressionList):
+		c.expr(n.ExpressionList, rvalue, n.ExpressionList.Type())
+		c.w("\tjmp %s\n", z)
+		c.w("%s\n", c.label())
+		c.statement(n.Statement)
+		c.w("%s\n", z)
+	case c.isNonzero(n.ExpressionList):
+		c.statement(n.Statement)
+	default:
+		c.w("\tjnz %v, %s, %s\n", e, a, z)
+		c.w("%s\n", a)
+		c.statement(n.Statement)
+		c.w("%s\n", z)
+	}
 }
 
 // "if" '(' ExpressionList ')' Statement "else" Statement
 func (c *ctx) selectionStatementIfElse(n *cc.SelectionStatement) {
-	//TODO isZero
-	//TODO isNonzero
-
+	a := c.label()
+	b := c.label()
+	z := c.label()
 	//	jnz expr @a, @b
 	// @a
 	//	stmt
-	// @x
 	//	jmp @z
 	// @b
 	//	stmt2
 	// @z
-	a := c.label()
-	x := c.label()
-	b := c.label()
-	z := c.label()
 	e := c.expr(n.ExpressionList, rvalue, n.ExpressionList.Type())
-	c.w("\tjnz %v, %s, %s\n", e, a, b)
-	c.w("%s\n", a)
-	c.statement(n.Statement)
-	c.w("%s\n", x)
-	c.w("\tjmp %s\n", z)
-	c.w("%s\n", b)
-	c.statement(n.Statement2)
-	c.w("%s\n", z)
+	switch {
+	case c.isZero(n.ExpressionList):
+		c.w("\tjmp %s\n", b)
+		c.w("%s\n", a)
+		c.statement(n.Statement)
+		c.w("%s\n", c.label())
+		c.w("\tjmp %s\n", z)
+		c.w("%s\n", b)
+		c.statement(n.Statement2)
+		c.w("%s\n", z)
+	case c.isNonzero(n.ExpressionList):
+		c.statement(n.Statement)
+		c.w("%s\n", c.label())
+		c.w("\tjmp %s\n", z)
+		c.w("%s\n", b)
+		c.statement(n.Statement2)
+		c.w("%s\n", z)
+	default:
+		c.w("\tjnz %v, %s, %s\n", e, a, b)
+		c.w("%s\n", a)
+		c.statement(n.Statement)
+		c.w("%s\n", c.label())
+		c.w("\tjmp %s\n", z)
+		c.w("%s\n", b)
+		c.statement(n.Statement2)
+		c.w("%s\n", z)
+	}
 }
 
 func (c *ctx) iterationStatement(n *cc.IterationStatement) {
@@ -422,17 +436,14 @@ func (c *ctx) iterationStatement(n *cc.IterationStatement) {
 
 // "do" Statement "while" '(' ExpressionList ')' ';'
 func (c *ctx) iterationStatementDo(n *cc.IterationStatement) {
-	//TODO isZero
-	//TODO isNonzero
-
+	a := c.label()
+	cont := c.label()
+	z := c.label()
 	// @a
 	//	stmt
 	// @cont
 	//	jnz expr @a, @z
 	// @z
-	a := c.label()
-	cont := c.label()
-	z := c.label()
 
 	defer c.fn.newBreakCtx(z)()
 	defer c.fn.newContinueCtx(cont)()
@@ -441,45 +452,55 @@ func (c *ctx) iterationStatementDo(n *cc.IterationStatement) {
 	c.statement(n.Statement)
 	c.w("%s\n", cont)
 	e := c.expr(n.ExpressionList, rvalue, n.ExpressionList.Type())
-	c.w("\tjnz %v, %s, %s\n", e, a, z)
+	switch {
+	case c.isZero(n.ExpressionList):
+		c.w("\tjmp %s\n", z)
+	case c.isNonzero(n.ExpressionList):
+		c.w("\tjmp %s\n", a)
+	default:
+		c.w("\tjnz %v, %s, %s\n", e, a, z)
+	}
 	c.w("%s\n", z)
 }
 
 // "while" '(' ExpressionList ')' Statement
 func (c *ctx) iterationStatementWhile(n *cc.IterationStatement) {
-	//TODO isZero
-	//TODO isNonzero
-
+	a := c.label()
+	b := c.label()
+	z := c.label()
 	// @a
 	//	jnz expr @b, @z
 	// @b
 	//	stmt
-	// @x
 	//	jmp @a
 	// @z
-	a := c.label()
-	b := c.label()
-	x := c.label()
-	z := c.label()
 
 	defer c.fn.newBreakCtx(z)()
 	defer c.fn.newContinueCtx(a)()
 
 	c.w("%s\n", a)
 	e := c.expr(n.ExpressionList, rvalue, n.ExpressionList.Type())
-	c.w("\tjnz %v, %s, %s\n", e, b, z)
+	switch {
+	case c.isZero(n.ExpressionList):
+		c.w("\tjmp %s\n", z)
+	case c.isNonzero(n.ExpressionList):
+		// nop
+	default:
+		c.w("\tjnz %v, %s, %s\n", e, b, z)
+	}
 	c.w("%s\n", b)
 	c.statement(n.Statement)
-	c.w("%s\n", x)
+	c.w("%s\n", c.label())
 	c.w("\tjmp %s\n", a)
 	c.w("%s\n", z)
 }
 
 // "for" '(' Declaration ExpressionList ';' ExpressionList ')' Statement
 func (c *ctx) iterationStatementForDecl(n *cc.IterationStatement) {
-	//TODO isZero
-	//TODO isNonzero
-
+	a := c.label()
+	b := c.label()
+	cont := c.label()
+	z := c.label()
 	//	decl
 	// @a
 	//	jnz expr @b, @z
@@ -487,15 +508,8 @@ func (c *ctx) iterationStatementForDecl(n *cc.IterationStatement) {
 	//	stmt
 	// @cont
 	//	expr2
-	// @x
 	//	jmp @a
 	// @z
-
-	a := c.label()
-	b := c.label()
-	cont := c.label()
-	x := c.label()
-	z := c.label()
 
 	defer c.fn.newBreakCtx(z)()
 	defer c.fn.newContinueCtx(cont)()
@@ -504,22 +518,30 @@ func (c *ctx) iterationStatementForDecl(n *cc.IterationStatement) {
 	c.w("%s\n", a)
 	if n.ExpressionList != nil {
 		e2 := c.expr(n.ExpressionList, rvalue, n.ExpressionList.Type())
-		c.w("\tjnz %v, %s, %s\n", e2, b, z)
+		switch {
+		case c.isZero(n.ExpressionList):
+			c.w("\tjmp %s\n", z)
+		case c.isNonzero(n.ExpressionList):
+			// nop
+		default:
+			c.w("\tjnz %v, %s, %s\n", e2, b, z)
+		}
 	}
 	c.w("%s\n", b)
 	c.statement(n.Statement)
 	c.w("%s\n", cont)
 	c.expr(n.ExpressionList2, void, nil)
-	c.w("%s\n", x)
+	c.w("%s\n", c.label())
 	c.w("\tjmp %s\n", a)
 	c.w("%s\n", z)
 }
 
 // "for" '(' ExpressionList ';' ExpressionList ';' ExpressionList ')' Statement
 func (c *ctx) iterationStatementFor(n *cc.IterationStatement) {
-	//TODO isZero
-	//TODO isNonzero
-
+	a := c.label()
+	b := c.label()
+	cont := c.label()
+	z := c.label()
 	//	expr1
 	// @a
 	//	jnz expr2 @b, @z
@@ -527,15 +549,8 @@ func (c *ctx) iterationStatementFor(n *cc.IterationStatement) {
 	//	stmt
 	// @cont
 	//	expr3
-	// @x
 	//	jmp @a
 	// @z
-
-	a := c.label()
-	b := c.label()
-	cont := c.label()
-	x := c.label()
-	z := c.label()
 
 	defer c.fn.newBreakCtx(z)()
 	defer c.fn.newContinueCtx(cont)()
@@ -544,13 +559,20 @@ func (c *ctx) iterationStatementFor(n *cc.IterationStatement) {
 	c.w("%s\n", a)
 	if n.ExpressionList2 != nil {
 		e2 := c.expr(n.ExpressionList2, rvalue, n.ExpressionList2.Type())
-		c.w("\tjnz %v, %s, %s\n", e2, b, z)
+		switch {
+		case c.isZero(n.ExpressionList2):
+			c.w("\tjmp %s\n", z)
+		case c.isNonzero(n.ExpressionList2):
+			// nop
+		default:
+			c.w("\tjnz %v, %s, %s\n", e2, b, z)
+		}
 	}
 	c.w("%s\n", b)
 	c.statement(n.Statement)
 	c.w("%s\n", cont)
 	c.expr(n.ExpressionList3, void, nil)
-	c.w("%s\n", x)
+	c.w("%s\n", c.label())
 	c.w("\tjmp %s\n", a)
 	c.w("%s\n", z)
 }

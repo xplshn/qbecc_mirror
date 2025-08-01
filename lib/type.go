@@ -64,6 +64,25 @@ func (c *ctx) baseType(n cc.Node, t cc.Type) string {
 	}
 }
 
+// BASETY := 'w' | 'l' | 's' | 'd' # Base types
+func (c *ctx) isBaseType(n cc.Node, t cc.Type) bool {
+	sz := c.sizeof(n, t)
+	switch t.Kind() {
+	case cc.Ptr, cc.Function:
+		return true
+	case cc.Enum:
+		return c.isBaseType(n, t.(*cc.EnumType).UnderlyingType())
+	default:
+		switch {
+		case c.isIntegerType(t):
+			return sz == 4 || sz == 8
+		case c.isFloatingPointType(t):
+			return sz == 4 || sz == 8
+		}
+	}
+	return false
+}
+
 // EXTTY  := BASETY | 'b' | 'h'    # Extended types
 func (c *ctx) extType(n cc.Node, t cc.Type) string {
 	sz := c.sizeof(n, t)
@@ -229,6 +248,7 @@ func (c *ctx) newQtype(n cc.Node, t cc.Type) (r qtype) {
 			// "20020227-1.c": {},
 			panic(todo(""))
 		case cc.ComplexDouble:
+			// "pr42248.c": {},
 			panic(todo(""))
 		case cc.ComplexLongDouble:
 			panic(todo(""))

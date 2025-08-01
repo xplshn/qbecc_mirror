@@ -433,7 +433,7 @@ func (c *ctx) initArray(n cc.Node, r *initListReader, off int64, t *cc.ArrayType
 	}
 	limit := t.Len()
 	if limit < 0 {
-		c.err(n, "unsupported type")
+		c.err(n, "unsupported type: %s", t)
 		return
 	}
 
