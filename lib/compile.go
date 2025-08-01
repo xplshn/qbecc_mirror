@@ -30,6 +30,11 @@ type compilerFile struct {
 	outType fileType
 }
 
+type complit struct {
+	n        *cc.PostfixExpression // case cc.PostfixExpressionComplit: // '(' TypeName ')' '{' InitializerList ',' '}'
+	variable *staticVar
+}
+
 // Translation unit compile context
 type ctx struct {
 	ast              *cc.AST
@@ -41,6 +46,7 @@ type ctx struct {
 	fn               *fnCtx
 	inlineFns        map[*cc.Declarator]*cc.FunctionDefinition
 	nextID           int
+	complits         []*complit
 	strings          map[string]string // value: name
 	t                *Task
 	typeID2Name      map[string]string // id: name
@@ -208,6 +214,20 @@ func (c *ctx) isUnsupportedType(t cc.Type) (r bool) {
 			}
 		}
 	default:
+		switch t.Kind() {
+		case
+			cc.ComplexChar,
+			cc.ComplexFloat16,
+			cc.ComplexInt,
+			cc.ComplexLong,
+			cc.ComplexLongLong,
+			cc.ComplexShort,
+			cc.ComplexUInt,
+			cc.ComplexUShort:
+
+			return true
+		}
+
 		if t.VectorSize() > 0 {
 			r = true
 		}
@@ -445,6 +465,7 @@ func (t *Task) compileOne(in *compilerFile) bool {
 		return false
 	}
 
+	r.emitComplits()
 	if t.dumpSSA {
 		fmt.Fprintf(os.Stderr, "==== SSA\n%s", r.buf.b.Bytes())
 	}
@@ -454,6 +475,16 @@ func (t *Task) compileOne(in *compilerFile) bool {
 	}
 
 	return !r.failed
+}
+
+func (c *ctx) emitComplits() {
+	for len(c.complits) != 0 {
+		l := c.complits[0]
+		c.complits = c.complits[1:]
+		c.w("\ndata %s = align %d {\n", l.variable.name, l.n.Type().Align())
+		c.initializerList(l.n.InitializerList, l.variable, l.n.TypeName.Type())
+		c.w("}\n")
+	}
 }
 
 func (c *ctx) emitTypes() {

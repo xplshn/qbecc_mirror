@@ -171,7 +171,7 @@ package qbecc // import "modernc.org/qbecc/lib"
 
 // 2025-08-01
 //	all_test.go:200: CompCert-3.6/test/c: files=24 gcc fails=1 skipped=1 failed=0 passed=22
-//	all_test.go:200: gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute: files=1506 gcc fails=24 skipped=301 failed=0 passed=1181
+//	all_test.go:200: gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute: files=1506 gcc fails=24 skipped=296 failed=0 passed=1186
 //	all_test.go:200: tcc-0.9.27/tests/tests2: files=88 gcc fails=8 skipped=10 failed=0 passed=70
 
 var blacklist = map[string]struct{}{
@@ -392,6 +392,7 @@ var blacklist = map[string]struct{}{
 	"73_arm64.c":       {},
 	"920625-1.c":       {},
 	"920908-1.c":       {},
+	"931004-10.c":      {},
 	"931004-12.c":      {},
 	"931004-14.c":      {},
 	"931004-2.c":       {},
@@ -405,9 +406,10 @@ var blacklist = map[string]struct{}{
 	"va-arg-22.c":      {},
 	"va-arg-pack-1.c":  {},
 
-	"76_dollars_in_identifiers.c": {}, // Won't fix: '$' in identifiers
-	"931004-10.c":                 {}, // Won't fix: struct va_arg
-	"pr34154.c":                   {}, // Won't fix: case ranges not supported
+	// Won't fix: other
+	"76_dollars_in_identifiers.c": {}, // '$' in identifiers
+	"complex-6.c":                 {}, // gcc-specific ~ComplexOperand
+	"pr34154.c":                   {}, // case ranges not supported
 
 	// C EXEC FAIL
 
@@ -458,8 +460,6 @@ var blacklist = map[string]struct{}{
 	"20041124-1.c":         {},
 	"20041201-1.c":         {},
 	"20050121-1.c":         {},
-	"20050929-1.c":         {},
-	"20060929-1.c":         {},
 	"20070614-1.c":         {},
 	"20081117-1.c":         {},
 	"20180921-1.c":         {},
@@ -487,12 +487,8 @@ var blacklist = map[string]struct{}{
 	"complex-2.c":          {},
 	"complex-4.c":          {},
 	"complex-5.c":          {},
-	"complex-6.c":          {},
 	"complex-7.c":          {},
 	"compndlit-1.c":        {},
-	"pr22098-1.c":          {},
-	"pr22098-2.c":          {},
-	"pr22098-3.c":          {},
 	"pr23324.c":            {},
 	"pr28865.c":            {},
 	"pr31448-2.c":          {},
