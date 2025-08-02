@@ -106,7 +106,8 @@ func (e *posErr) Error() string {
 
 type errList struct {
 	sync.Mutex
-	errs []*posErr
+	errs  []*posErr
+	nodes map[cc.Node]struct{}
 
 	extendedErrors bool
 	panic          bool
@@ -152,6 +153,16 @@ func (e *errList) err(n cc.Node, s string, args ...any) {
 
 	defer e.Unlock()
 
+	if n != nil {
+		if _, ok := e.nodes[n]; ok {
+			return
+		}
+
+		if e.nodes == nil {
+			e.nodes = map[cc.Node]struct{}{}
+		}
+		e.nodes[n] = struct{}{}
+	}
 	if len(e.errs) > errLimit {
 		return
 	}

@@ -19,8 +19,14 @@ func (c *ctx) expressionStatement(n *cc.ExpressionStatement) {
 
 	switch esCtx, t := c.fn.exprStatementCtx, n.ExpressionList.Type(); {
 	case esCtx != nil && t.Kind() != cc.Void:
-		esCtx.expr = c.expr(n.ExpressionList, rvalue, t)
-		esCtx.typ = t
+		switch {
+		case c.isAggType(t):
+			esCtx.expr = c.expr(n.ExpressionList, aggRvalue, t)
+			esCtx.typ = t
+		default:
+			esCtx.expr = c.expr(n.ExpressionList, rvalue, t)
+			esCtx.typ = t
+		}
 	default:
 		c.expr(n.ExpressionList, void, nil)
 	}

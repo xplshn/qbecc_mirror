@@ -136,6 +136,11 @@ func (v *variables) register(n cc.Node, f *fnCtx, c *ctx, inlineLevel int) {
 		// 	defer func() { trc("%v: %s %v %v", n.Position(), x.Type(), cc.NodeSource(n), m[x]) }()
 		// }
 		dt := x.Type()
+		if c.isUnsupportedType(dt) && !x.IsExtern() {
+			c.err(x, "unsupported type: %s", dt)
+			return
+		}
+
 		k := dt.Kind()
 		switch x.StorageDuration() {
 		case cc.Static:
@@ -501,6 +506,10 @@ func (c *ctx) signature(l []*cc.Parameter, isVariadic bool) {
 
 func (c *ctx) externalDeclarationFuncDef(n *cc.FunctionDefinition) {
 	f := c.newFnCtx(n)
+	if c.failed {
+		return
+	}
+
 	c.fn = f
 
 	defer func() {

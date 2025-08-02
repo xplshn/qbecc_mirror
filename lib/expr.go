@@ -5,6 +5,8 @@
 package qbecc // import "modernc.org/qbecc/lib"
 
 import (
+	"bytes"
+	"encoding/binary"
 	"fmt"
 	"math"
 	"math/big"
@@ -299,9 +301,6 @@ func (c *ctx) convert(n cc.Node, dstType, srcType cc.Type, v any) (r any) {
 			return v
 		}
 	}
-	// all_test.go:261: C COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/pr49644.c
-	// all_test.go:261: C COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/pr56837.c
-	// all_test.go:261: C COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/pr80692.c
 	panic(todo("%v: %s(%v, %v) <- %s(%v, %v) %v", n.Position(), dstType, dstType.Kind(), dstSize, srcType, srcType.Kind(), srcSize, cc.NodeSource(n)))
 }
 
@@ -470,19 +469,67 @@ func (c *ctx) primaryExpressionString(n *cc.PrimaryExpression, mode mode, t cc.T
 	}
 }
 
+func (c *ctx) utf16(n cc.Node, s cc.UTF16StringValue) string {
+	b := bytes.NewBuffer(make([]byte, 0, 2*len(s)))
+	bo := c.ast.ABI.ByteOrder
+	for _, v := range s {
+		if err := binary.Write(b, bo, v); err != nil {
+			c.err(n, "%s", err)
+			return ""
+		}
+	}
+	return b.String()
+}
+
+func (c *ctx) utf32(n cc.Node, s cc.UTF32StringValue) string {
+	b := bytes.NewBuffer(make([]byte, 0, 4*len(s)))
+	bo := c.ast.ABI.ByteOrder
+	for _, v := range s {
+		if err := binary.Write(b, bo, v); err != nil {
+			c.err(n, "%s", err)
+			return ""
+		}
+	}
+	return b.String()
+}
+
+func (c *ctx) primaryExpressionLString(n *cc.PrimaryExpression, mode mode, t cc.Type) (r any) {
+	switch mode {
+	case rvalue:
+		defer func() { r = c.convert(n, t, n.Type(), r) }()
+
+		switch x := n.Value().(type) {
+		case cc.UTF32StringValue:
+			return c.addString(c.utf32(n, x))
+		case cc.UTF16StringValue:
+			return c.addString(c.utf16(n, x))
+		default:
+			panic(todo("%v: %T %v", n.Position(), x, cc.NodeSource(n)))
+		}
+	default:
+		panic(todo("%v: mode=%v %v", n.Position(), mode, cc.NodeSource(n)))
+	}
+}
+
 func (c *ctx) primaryExpressionStmt(n *cc.CompoundStatement, mode mode, t cc.Type) (r any) {
 	switch mode {
 	case void:
 		c.compoundStatement(n)
 		return nothing
+	case lvalue:
+		c.compoundStatement(n)
+		return c.fn.exprStatementCtx.expr
 	case rvalue:
-		defer func() { r = c.convert(n, t, c.fn.exprStatementCtx.typ, r) }()
+		defer func() {
+			r = c.convert(n, t, c.fn.exprStatementCtx.typ, r)
+		}()
 
 		c.compoundStatement(n)
 		return c.fn.exprStatementCtx.expr
+	case aggRvalue:
+		c.compoundStatement(n)
+		return c.fn.exprStatementCtx.expr
 	default:
-		// all_test.go:261: C COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/20020206-1.c
-		// all_test.go:261: C COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/20020320-1.c
 		panic(todo("%v: mode=%v %v", n.Position(), mode, cc.NodeSource(n)))
 	}
 }
@@ -513,9 +560,7 @@ func (c *ctx) primaryExpression(n *cc.PrimaryExpression, mode mode, t cc.Type) (
 	case cc.PrimaryExpressionString: // STRINGLITERAL
 		return c.primaryExpressionString(n, mode, t)
 	case cc.PrimaryExpressionLString: // LONGSTRINGLITERAL
-		// all_test.go:261: C COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/20010325-1.c
-		// all_test.go:261: C COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/widechar-3.c
-		panic(todo("%v: %v %v", n.Position(), n.Case, cc.NodeSource(n)))
+		return c.primaryExpressionLString(n, mode, t)
 	case cc.PrimaryExpressionExpr: // '(' ExpressionList ')'
 		return c.expr(n.ExpressionList, mode, t)
 	case cc.PrimaryExpressionStmt: // '(' CompoundStatement ')'
@@ -650,7 +695,7 @@ func (c *ctx) isAggType(t cc.Type) (r bool) {
 	return c.isComplexType(t)
 }
 
-func (c *ctx) assignmentExpressionAssignAggType(n *cc.AssignmentExpression, mode mode, t cc.Type) (r any) {
+func (c *ctx) assignmentExpressionAssignAggTypeRhs(n *cc.AssignmentExpression, mode mode, t cc.Type) (r any) {
 	lhs := c.expr(n.UnaryExpression, lvalue, n.Type())
 	switch mode {
 	case void:
@@ -662,10 +707,24 @@ func (c *ctx) assignmentExpressionAssignAggType(n *cc.AssignmentExpression, mode
 	return r
 }
 
+func (c *ctx) assignmentExpressionAssignAggTypeLhs(n *cc.AssignmentExpression, mode mode, t cc.Type) (r any) {
+	switch mode {
+	default:
+		panic(todo("%v: %v %v", n.Position(), mode, cc.NodeSource(n)))
+	}
+	return r
+}
+
 // UnaryExpression '=' AssignmentExpression
 func (c *ctx) assignmentExpressionAssign(n *cc.AssignmentExpression, mode mode, t cc.Type) (r any) {
-	if c.isAggType(n.AssignmentExpression.Type()) {
-		return c.assignmentExpressionAssignAggType(n, mode, t)
+	lt := n.UnaryExpression.Type()
+	rt := n.AssignmentExpression.Type()
+	if c.isAggType(rt) {
+		return c.assignmentExpressionAssignAggTypeRhs(n, mode, t)
+	}
+
+	if c.isAggType(lt) {
+		return c.assignmentExpressionAssignAggTypeLhs(n, mode, t)
 	}
 
 	lhs := c.expr(n.UnaryExpression, lvalue, n.Type())
@@ -689,7 +748,7 @@ func (c *ctx) assignmentExpressionAssign(n *cc.AssignmentExpression, mode mode, 
 		case *localVar:
 			return x.name
 		case *staticVar, nil, *escapedVar:
-			return c.load(n, lhs, n.UnaryExpression.Type())
+			return c.load(n, lhs, lt)
 		default:
 			panic(todo("%v: %T %v", n.Position(), x, cc.NodeSource(n)))
 		}
@@ -1958,58 +2017,6 @@ func (c *ctx) unaryExpressionNot(n *cc.UnaryExpression, mode mode, t cc.Type) (r
 	}
 }
 
-// "__real__" UnaryExpression
-// "__imag__" UnaryExpression
-func (c *ctx) unaryExpressionRealImag(n *cc.UnaryExpression, mode mode, t cc.Type, imag bool) (r any) {
-	_, info := c.variable(n.UnaryExpression)
-	var et cc.Type
-	switch n.UnaryExpression.Type().Kind() {
-	case cc.ComplexDouble, cc.ComplexLongDouble:
-		et = c.ast.Double
-	case cc.ComplexFloat:
-		et = c.ast.Float
-	default:
-		// "20050121-1.c": {},
-		panic(todo("%v: %v %s", n.Position(), n.UnaryExpression.Type(), cc.NodeSource(n)))
-	}
-	var off int64
-	if imag {
-		off = c.sizeof(n.UnaryExpression, et)
-	}
-	switch mode {
-	case lvalue:
-		switch x := info.(type) {
-		case *escapedVar:
-			p := c.expr(n.UnaryExpression, lvalue, c.ast.PVoid)
-			return c.temp("%s add %s, %v\n", c.wordTag, p, off)
-		default:
-			// "20020411-1.c": {},
-			panic(todo("%v: %T", n.Position(), x))
-		}
-	case rvalue:
-		defer func() { r = c.convert(n, t, n.Type(), r) }()
-
-		switch x := info.(type) {
-		case *escapedVar:
-			p := c.expr(n.UnaryExpression, lvalue, c.ast.PVoid)
-			p = c.temp("%s add %s, %v\n", c.wordTag, p, off)
-			switch n.UnaryExpression.Type().Kind() {
-			case cc.ComplexDouble, cc.ComplexLongDouble:
-				return c.load(n, p, c.ast.Double)
-			case cc.ComplexFloat:
-				return c.load(n, p, c.ast.Float)
-			default:
-				panic(todo("%v: %v %s", n.Position(), n.UnaryExpression.Type(), cc.NodeSource(n)))
-			}
-		default:
-			panic(todo("%v: %T", n.Position(), x))
-		}
-	default:
-		panic(todo("%v: %v %s", n.Position(), mode, cc.NodeSource(n)))
-	}
-	return r
-}
-
 func (c *ctx) unaryExpression(n *cc.UnaryExpression, mode mode, t cc.Type) (r any) {
 	switch n.Case {
 	case cc.UnaryExpressionPostfix: //  PostfixExpression
@@ -2041,9 +2048,9 @@ func (c *ctx) unaryExpression(n *cc.UnaryExpression, mode mode, t cc.Type) (r an
 	case cc.UnaryExpressionAlignofType: // "_Alignof" '(' TypeName ')'
 		return c.unaryExpressionAlignofType(n, mode, t)
 	case cc.UnaryExpressionImag: // "__imag__" UnaryExpression
-		return c.unaryExpressionRealImag(n, mode, t, true)
+		c.err(n, "unsupported gcc extension")
 	case cc.UnaryExpressionReal: // "__real__" UnaryExpression
-		return c.unaryExpressionRealImag(n, mode, t, false)
+		c.err(n, "unsupported gcc extension")
 	default:
 		c.err(n, "internal error %T.%s", n, n.Case)
 	}
@@ -2255,8 +2262,22 @@ func (c *ctx) arithmeticOpConstRvalue(n, lhs, rhs cc.ExpressionNode, mode mode, 
 			default:
 				panic(todo("%v: %v %s op=%s %s %T %T", lhs.Position(), mode, cc.NodeSource(lhs), op, cc.NodeSource(rhs), lv, rv))
 			}
+		case cc.StringValue:
+			rv := c.expr(rhs, constRvalue, c.ast.LongLong)
+			var off int64
+			switch x := rv.(type) {
+			case int64Value:
+				off = int64(x)
+			default:
+				panic(todo("%v: %v %s %s %s %q %T", lhs.Position(), mode, cc.NodeSource(lhs), op, cc.NodeSource(rhs), op, rv))
+			}
+			switch op {
+			case "add":
+				return c.addString(string(lv)[off:])
+			default:
+				panic(todo("%v: %v %s %s %s %q", lhs.Position(), mode, cc.NodeSource(lhs), op, cc.NodeSource(rhs), op))
+			}
 		default:
-			// all_test.go:261: C COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/pr53084.c
 			panic(todo("%v: %v %s %s %s %T", lhs.Position(), mode, cc.NodeSource(lhs), op, cc.NodeSource(rhs), lv))
 		}
 	case cc.Int64Value:

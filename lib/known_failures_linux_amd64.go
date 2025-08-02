@@ -174,6 +174,11 @@ package qbecc // import "modernc.org/qbecc/lib"
 //	all_test.go:200: gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute: files=1506 gcc fails=24 skipped=296 failed=0 passed=1186
 //	all_test.go:200: tcc-0.9.27/tests/tests2: files=88 gcc fails=8 skipped=10 failed=0 passed=70
 
+// 2025-08-02
+//	all_test.go:200: CompCert-3.6/test/c: files=24 gcc fails=1 skipped=1 failed=0 passed=22
+//	all_test.go:200: gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute: files=1506 gcc fails=24 skipped=294 failed=0 passed=1188
+//	all_test.go:200: tcc-0.9.27/tests/tests2: files=88 gcc fails=8 skipped=10 failed=0 passed=70
+
 var blacklist = map[string]struct{}{
 	// ---------------------------------------------- "CompCert-3.6/test/c"
 
@@ -292,12 +297,14 @@ var blacklist = map[string]struct{}{
 	"pr43220.c":                    {},
 	"pr53645-2.c":                  {},
 	"pr53645.c":                    {},
+	"pr56837.c":                    {},
 	"pr60960.c":                    {},
 	"pr65369.c":                    {},
 	"pr65427.c":                    {},
 	"pr70903.c":                    {},
 	"pr71626-1.c":                  {},
 	"pr79286.c":                    {},
+	"pr80692.c":                    {},
 	"pr82210.c":                    {},
 	"pr85169.c":                    {},
 	"scal-to-vec1.c":               {},
@@ -406,9 +413,18 @@ var blacklist = map[string]struct{}{
 	"va-arg-22.c":      {},
 	"va-arg-pack-1.c":  {},
 
+	// Won't fix: gcc-specific extension
+	"20010605-2.c": {},
+	"20020411-1.c": {},
+	"20030910-1.c": {},
+	"20050121-1.c": {},
+	"complex-1.c":  {},
+	"complex-6.c":  {},
+	"pr38969.c":    {},
+
 	// Won't fix: other
 	"76_dollars_in_identifiers.c": {}, // '$' in identifiers
-	"complex-6.c":                 {}, // gcc-specific ~ComplexOperand
+	"960416-1.c":                  {}, // cast integer to union
 	"pr34154.c":                   {}, // case ranges not supported
 
 	// C EXEC FAIL
@@ -436,16 +452,11 @@ var blacklist = map[string]struct{}{
 
 	// "gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute",
 	"20000113-1.c":         {},
-	"20000917-1.c":         {},
-	"20010325-1.c":         {},
 	"20010924-1.c":         {},
 	"20011113-1.c":         {},
-	"20020206-1.c":         {},
 	"20020227-1.c":         {},
 	"20020314-1.c":         {},
-	"20020320-1.c":         {},
 	"20020404-1.c":         {},
-	"20020411-1.c":         {},
 	"20020418-1.c":         {},
 	"20021113-1.c":         {},
 	"20030109-1.c":         {},
@@ -459,13 +470,11 @@ var blacklist = map[string]struct{}{
 	"20040709-2.c":         {},
 	"20041124-1.c":         {},
 	"20041201-1.c":         {},
-	"20050121-1.c":         {},
 	"20070614-1.c":         {},
 	"20081117-1.c":         {},
 	"20180921-1.c":         {},
 	"930513-1.c":           {},
 	"941202-1.c":           {},
-	"960416-1.c":           {},
 	"960512-1.c":           {},
 	"980604-1.c":           {},
 	"990326-1.c":           {},
@@ -494,17 +503,15 @@ var blacklist = map[string]struct{}{
 	"pr31448-2.c":          {},
 	"pr33382.c":            {},
 	"pr38151.c":            {},
-	"pr38969.c":            {},
 	"pr39339.c":            {},
 	"pr42248.c":            {},
 	"pr43987.c":            {},
 	"pr49390.c":            {},
+	"pr49644.c":            {},
 	"pr49768.c":            {},
 	"pr52979-1.c":          {},
 	"pr52979-2.c":          {},
-	"pr53084.c":            {},
 	"pr54937.c":            {},
-	"pr56837.c":            {},
 	"pr57568.c":            {},
 	"pr58984.c":            {},
 	"pr60017.c":            {},
@@ -516,7 +523,6 @@ var blacklist = map[string]struct{}{
 	"pr71700.c":            {},
 	"pr78170.c":            {},
 	"pr79737-1.c":          {},
-	"pr80692.c":            {},
 	"pr81281.c":            {},
 	"pr83383.c":            {},
 	"pr85331.c":            {},
@@ -526,6 +532,5 @@ var blacklist = map[string]struct{}{
 	"pr90025.c":            {},
 	"struct-ini-2.c":       {},
 	"struct-ini-3.c":       {},
-	"widechar-3.c":         {},
 	"zero-struct-2.c":      {},
 }

@@ -217,13 +217,27 @@ func (c *ctx) isUnsupportedType(t cc.Type) (r bool) {
 		switch t.Kind() {
 		case
 			cc.ComplexChar,
+			cc.ComplexDouble,
+			cc.ComplexFloat,
 			cc.ComplexFloat16,
 			cc.ComplexInt,
 			cc.ComplexLong,
+			cc.ComplexLongDouble,
 			cc.ComplexLongLong,
 			cc.ComplexShort,
 			cc.ComplexUInt,
-			cc.ComplexUShort:
+			cc.ComplexUShort,
+			cc.Decimal128,
+			cc.Decimal32,
+			cc.Decimal64,
+			cc.Float128,
+			cc.Float128x,
+			cc.Float16,
+			cc.Float32,
+			cc.Float32x,
+			cc.Float64,
+			cc.Float64x,
+			cc.Int128:
 
 			return true
 		}
@@ -459,6 +473,10 @@ func (t *Task) compileOne(in *compilerFile) bool {
 	}
 
 	r := t.newCtx(ast, in)
+	if r.failed {
+		return false
+	}
+
 	r.w(t.ssaHeader)
 	r.emitTypes()
 	if !r.translationUnit(ast.TranslationUnit) {
