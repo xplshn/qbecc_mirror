@@ -357,6 +357,16 @@ func (c *ctx) isNonzero(n cc.ExpressionNode) (r bool) {
 	}
 }
 
+func (c *ctx) bool(n cc.ExpressionNode) (r any) {
+	switch r = c.expr(n, rvalue, n.Type()); n.Type().Kind() {
+	case cc.Float:
+		r = c.temp("w cnes %s, s_0\n", r)
+	case cc.Double:
+		r = c.temp("w cned %s, d_0\n", r)
+	}
+	return r
+}
+
 // "if" '(' ExpressionList ')' Statement
 func (c *ctx) selectionStatementIf(n *cc.SelectionStatement) {
 	a := c.label()
@@ -365,7 +375,7 @@ func (c *ctx) selectionStatementIf(n *cc.SelectionStatement) {
 	// @a
 	//	stmt
 	// @z
-	e := c.expr(n.ExpressionList, rvalue, n.ExpressionList.Type())
+	e := c.bool(n.ExpressionList)
 	switch {
 	case c.isZero(n.ExpressionList):
 		c.expr(n.ExpressionList, rvalue, n.ExpressionList.Type())
@@ -395,7 +405,7 @@ func (c *ctx) selectionStatementIfElse(n *cc.SelectionStatement) {
 	// @b
 	//	stmt2
 	// @z
-	e := c.expr(n.ExpressionList, rvalue, n.ExpressionList.Type())
+	e := c.bool(n.ExpressionList)
 	switch {
 	case c.isZero(n.ExpressionList):
 		c.w("\tjmp %s\n", b)
@@ -457,7 +467,7 @@ func (c *ctx) iterationStatementDo(n *cc.IterationStatement) {
 	c.w("%s\n", a)
 	c.statement(n.Statement)
 	c.w("%s\n", cont)
-	e := c.expr(n.ExpressionList, rvalue, n.ExpressionList.Type())
+	e := c.bool(n.ExpressionList)
 	switch {
 	case c.isZero(n.ExpressionList):
 		c.w("\tjmp %s\n", z)
@@ -485,7 +495,7 @@ func (c *ctx) iterationStatementWhile(n *cc.IterationStatement) {
 	defer c.fn.newContinueCtx(a)()
 
 	c.w("%s\n", a)
-	e := c.expr(n.ExpressionList, rvalue, n.ExpressionList.Type())
+	e := c.bool(n.ExpressionList)
 	switch {
 	case c.isZero(n.ExpressionList):
 		c.w("\tjmp %s\n", z)
@@ -523,7 +533,7 @@ func (c *ctx) iterationStatementForDecl(n *cc.IterationStatement) {
 	c.blockItemDecl(n.Declaration)
 	c.w("%s\n", a)
 	if n.ExpressionList != nil {
-		e2 := c.expr(n.ExpressionList, rvalue, n.ExpressionList.Type())
+		e2 := c.bool(n.ExpressionList)
 		switch {
 		case c.isZero(n.ExpressionList):
 			c.w("\tjmp %s\n", z)
@@ -564,7 +574,7 @@ func (c *ctx) iterationStatementFor(n *cc.IterationStatement) {
 	c.expr(n.ExpressionList, void, nil)
 	c.w("%s\n", a)
 	if n.ExpressionList2 != nil {
-		e2 := c.expr(n.ExpressionList2, rvalue, n.ExpressionList2.Type())
+		e2 := c.bool(n.ExpressionList2)
 		switch {
 		case c.isZero(n.ExpressionList2):
 			c.w("\tjmp %s\n", z)

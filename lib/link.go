@@ -290,7 +290,6 @@ func (t *Task) link() {
 			case fileLib:
 				args = append(args, "-l", cf.name)
 			default:
-				// COMPILE FAIL: ~/src/modernc.org/ccorpus2/assets/gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute/20000519-1.c
 				panic(todo("", cf.outType, cf.name))
 			}
 		}

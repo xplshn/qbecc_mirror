@@ -134,6 +134,11 @@ func (t *Task) newCtx(ast *cc.AST, file *compilerFile) (r *ctx) {
 
 func (c *ctx) registerQType(n cc.Node, nm string, t cc.Type) {
 	for {
+		if t.Size() == 0 {
+			c.err(n, "unsupported type: %s", t)
+			return
+		}
+
 		switch x := t.Undecay().(type) {
 		case *cc.ArrayType:
 			t = x.Elem()

@@ -52,9 +52,6 @@ __SIZE_TYPE__ __builtin_object_size(void *p, int i);
 __SIZE_TYPE__ __builtin_strcspn(const char *s, const char *reject);
 __SIZE_TYPE__ __builtin_strlen(const char *s);
 __SIZE_TYPE__ __builtin_strspn(const char *s, const char *accept);
-__UINT16_TYPE__ __builtin_bswap16 (__UINT16_TYPE__ x);
-__UINT32_TYPE__ __builtin_bswap32 (__UINT32_TYPE__ x);
-__UINT64_TYPE__ __builtin_bswap64 (__UINT64_TYPE__ x);
 char *__builtin___strcpy_chk(char *dest, const char *src, __SIZE_TYPE__ n);
 char *__builtin_strcasestr(const char *haystack, const char *needle);
 char *__builtin_strcat(char *dest, const char *src);
@@ -80,8 +77,8 @@ double __builtin_fabs(double x);
 double __builtin_floor(double x);
 double __builtin_fmod(double x, double y);
 double __builtin_frexp(double x, int *exp);
-double __builtin_huge_val();
-double __builtin_inf();
+double __builtin_huge_val(void);
+double __builtin_inf(void);
 double __builtin_ldexp(double x, int exp);
 double __builtin_log(double x);
 double __builtin_log10(double x);
@@ -106,8 +103,8 @@ float __builtin_fabsf(float x);
 float __builtin_floorf(float x);
 float __builtin_fmodf(float x, float y);
 float __builtin_frexpf(float x, int *exp);
-float __builtin_huge_valf();
-float __builtin_inff();
+float __builtin_huge_valf(void);
+float __builtin_inff(void);
 float __builtin_ldexpf(float x, int exp);
 float __builtin_log10f(float x);
 float __builtin_logf(float x);
@@ -184,7 +181,7 @@ long double __builtin_fabsl(long double x);
 long double __builtin_floorl(long double x);
 long double __builtin_fmodl(long double x, long double y);
 long double __builtin_frexpl(long double x, int *exp);
-long double __builtin_infl();
+long double __builtin_infl(void);
 long double __builtin_ldexpl(long double x, int exp);
 long double __builtin_log10l(long double x);
 long double __builtin_logl(long double x);
@@ -215,9 +212,19 @@ void *__builtin_reallocarray(void *ptr, __SIZE_TYPE__ nmemb, __SIZE_TYPE__ size)
 void __builtin_abort(void);
 void __builtin_exit(int status);
 void __builtin_free(void *ptr);
-void __builtin_prefetch (void*, ...);
-void __builtin_trap (void);
-void __builtin_unreachable(void);
+void __buitin_abort(void);
+
+#ifndef __builtin_prefetch
+#define __builtin_prefetch(e, ...) ({ __auto_type _e = (e); })
+#endif
+
+#ifndef void __builtin_trap
+#define __builtin_trap() abort()
+#endif
+
+#ifndef void __builtin_unreachable
+#define __builtin_unreachable() abort()
+#endif
 
 #ifndef __builtin_expect
 #define __builtin_expect(x, y) ((long)(x))
@@ -373,3 +380,26 @@ void __atomic_compare_exchangeUint64(unsigned long*, unsigned long*, unsigned lo
     unsigned long*:  __atomic_compare_exchangeUint64 \
 )(p, v, d, x, y, z)
 #endif
+
+static inline __UINT16_TYPE__ __builtin_bswap16 (__UINT16_TYPE__ x) {
+	return x<<8 |
+		x>>8;
+}
+
+static inline __UINT32_TYPE__ __builtin_bswap32 (__UINT32_TYPE__ x) {
+	return x<<24 |
+		(x&0xff00)<<8 |
+		(x&0xff0000)>>8 |
+		x>>24;
+}
+
+static inline __UINT64_TYPE__ __builtin_bswap64 (__UINT64_TYPE__ x) {
+	return x<<56 |
+		(x&0xff00)<<40 |
+		(x&0xff0000)<<24 |
+		(x&0xff000000)<<8 |
+		(x&0xff00000000)>>8 |
+		(x&0xff0000000000)>>24 |
+		(x&0xff000000000000)>>40 |
+		x>>56;
+}

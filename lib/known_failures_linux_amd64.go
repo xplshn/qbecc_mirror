@@ -176,8 +176,13 @@ package qbecc // import "modernc.org/qbecc/lib"
 
 // 2025-08-02
 //	all_test.go:200: CompCert-3.6/test/c: files=24 gcc fails=1 skipped=1 failed=0 passed=22
-//	all_test.go:200: gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute: files=1506 gcc fails=24 skipped=294 failed=0 passed=1188
-//	all_test.go:200: tcc-0.9.27/tests/tests2: files=88 gcc fails=8 skipped=10 failed=0 passed=70
+//	all_test.go:200: gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute: files=1506 gcc fails=24 skipped=281 failed=0 passed=1201
+//	all_test.go:200: tcc-0.9.27/tests/tests2: files=88 gcc fails=8 skipped=9 failed=0 passed=71
+
+// 2025-08-03
+//	all_test.go:200: CompCert-3.6/test/c: files=24 gcc fails=1 skipped=1 failed=0 passed=22
+//	all_test.go:200: gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute: files=1506 gcc fails=24 skipped=257 failed=0 passed=1237
+//	all_test.go:200: tcc-0.9.27/tests/tests2: files=88 gcc fails=8 skipped=9 failed=0 passed=71
 
 var blacklist = map[string]struct{}{
 	// ---------------------------------------------- "CompCert-3.6/test/c"
@@ -227,6 +232,7 @@ var blacklist = map[string]struct{}{
 	"pr47925.c":                 {},
 	"pr49218.c":                 {},
 	"pr49279.c":                 {},
+	"pr49390.c":                 {},
 	"pr51581-1.c":               {},
 	"pr51581-2.c":               {},
 	"pr51877.c":                 {},
@@ -267,14 +273,18 @@ var blacklist = map[string]struct{}{
 	"pr51447.c": {},
 
 	// Won't fix: unsupported type
+	"20000801-3.c":                 {},
 	"20010209-1.c":                 {},
 	"20010904-1.c":                 {},
 	"20010904-2.c":                 {},
+	"20020227-1.c":                 {},
 	"20020412-1.c":                 {},
 	"20040308-1.c":                 {},
 	"20040411-1.c":                 {},
 	"20040423-1.c":                 {},
 	"20040811-1.c":                 {},
+	"20041124-1.c":                 {},
+	"20041201-1.c":                 {},
 	"20041218-2.c":                 {},
 	"20050316-1.c":                 {},
 	"20050316-2.c":                 {},
@@ -282,19 +292,33 @@ var blacklist = map[string]struct{}{
 	"20050604-1.c":                 {},
 	"20050607-1.c":                 {},
 	"20060420-1.c":                 {},
+	"20070614-1.c":                 {},
 	"20070919-1.c":                 {},
+	"20071120-1.c":                 {},
+	"20090113-3.c":                 {},
 	"920721-2.c":                   {},
+	"920728-1.c":                   {},
 	"920929-1.c":                   {},
 	"921017-1.c":                   {},
+	"960512-1.c":                   {},
+	"970217-1.c":                   {},
 	"align-3.c":                    {},
 	"align-nest.c":                 {},
 	"builtin-types-compatible-p.c": {},
+	"complex-2.c":                  {},
+	"complex-4.c":                  {},
+	"complex-5.c":                  {},
+	"complex-7.c":                  {},
 	"pr22061-1.c":                  {},
 	"pr22061-4.c":                  {},
 	"pr23135.c":                    {},
+	"pr23324.c":                    {},
+	"pr38151.c":                    {},
 	"pr41935.c":                    {},
+	"pr42248.c":                    {},
 	"pr42570.c":                    {},
 	"pr43220.c":                    {},
+	"pr49644.c":                    {},
 	"pr53645-2.c":                  {},
 	"pr53645.c":                    {},
 	"pr56837.c":                    {},
@@ -303,10 +327,12 @@ var blacklist = map[string]struct{}{
 	"pr65427.c":                    {},
 	"pr70903.c":                    {},
 	"pr71626-1.c":                  {},
+	"pr77767.c":                    {},
 	"pr79286.c":                    {},
 	"pr80692.c":                    {},
 	"pr82210.c":                    {},
 	"pr85169.c":                    {},
+	"pr85331.c":                    {},
 	"scal-to-vec1.c":               {},
 	"scal-to-vec2.c":               {},
 	"scal-to-vec3.c":               {},
@@ -316,6 +342,14 @@ var blacklist = map[string]struct{}{
 	"simd-5.c":                     {},
 	"simd-6.c":                     {},
 	"vla-dealloc-1.c":              {},
+	"zero-struct-1.c":              {},
+	"zero-struct-2.c":              {},
+
+	// Won't fix: flexible array member
+	"20010924-1.c": {},
+	"20030109-1.c": {},
+	"pr28865.c":    {},
+	"pr33382.c":    {},
 
 	// Won't fix: nested functions not supported
 	"20000822-1.c":   {},
@@ -422,6 +456,19 @@ var blacklist = map[string]struct{}{
 	"complex-6.c":  {},
 	"pr38969.c":    {},
 
+	// Won't fix: __builtin_classify_type
+	"20040709-1.c": {},
+	"20040709-2.c": {},
+
+	// Won't fix: /usr/bin/ld fails
+	"930513-1.c": {},
+	"pr54937.c":  {},
+
+	// Won't fix: __attribute__ ((alias("...")))
+	"alias-2.c": {},
+	"alias-3.c": {},
+	"alias-4.c": {},
+
 	// Won't fix: other
 	"76_dollars_in_identifiers.c": {}, // '$' in identifiers
 	"960416-1.c":                  {}, // cast integer to union
@@ -429,13 +476,13 @@ var blacklist = map[string]struct{}{
 
 	// C EXEC FAIL
 
-	"20021127-1.c": {}, // Won't fix: linker specific resolution order
-	"20031003-1.c": {}, // Won't fix: platform specific floating point handling
-	"20090113-2.c": {}, // Won't fix: https://g.co/gemini/share/bcd5c858c626
-	"970217-1.c":   {}, // Won't fix: unsupported type
-	"pr32244-1.c":  {}, // Won't fix: https://g.co/gemini/share/46d2317fe36d
-	"pr34971.c":    {}, // Won't fix: https://g.co/gemini/share/46d2317fe36d
-	"pr77767.c":    {}, // Won't fix: unsupported type
+	// Won't fix: other
+	"20021127-1.c": {}, // linker specific resolution order
+	"20031003-1.c": {}, // platform specific floating point handling
+	"20090113-2.c": {}, // https://g.co/gemini/share/bcd5c858c626
+	"bitfld-3.c":   {}, // gcc-specific bit field arithmetic
+	"pr32244-1.c":  {}, // https://g.co/gemini/share/46d2317fe36d
+	"pr34971.c":    {}, // https://g.co/gemini/share/46d2317fe36d
 
 	// GO EXEC FAIL
 
@@ -444,93 +491,4 @@ var blacklist = map[string]struct{}{
 
 	"conversion.c": {}, //TODO dtoui fails
 	"pr34456.c":    {}, //TODO rework func ptrs
-
-	// ====================================================================
-
-	// "tcc-0.9.27/tests/tests2",
-	"93_integer_promotion.c": {},
-
-	// "gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute",
-	"20000113-1.c":         {},
-	"20010924-1.c":         {},
-	"20011113-1.c":         {},
-	"20020227-1.c":         {},
-	"20020314-1.c":         {},
-	"20020404-1.c":         {},
-	"20020418-1.c":         {},
-	"20021113-1.c":         {},
-	"20030109-1.c":         {},
-	"20031201-1.c":         {},
-	"20031211-1.c":         {},
-	"20040223-1.c":         {},
-	"20040307-1.c":         {},
-	"20040331-1.c":         {},
-	"20040707-1.c":         {},
-	"20040709-1.c":         {},
-	"20040709-2.c":         {},
-	"20041124-1.c":         {},
-	"20041201-1.c":         {},
-	"20070614-1.c":         {},
-	"20081117-1.c":         {},
-	"20180921-1.c":         {},
-	"930513-1.c":           {},
-	"941202-1.c":           {},
-	"960512-1.c":           {},
-	"980604-1.c":           {},
-	"990326-1.c":           {},
-	"991118-1.c":           {},
-	"alias-2.c":            {},
-	"alias-3.c":            {},
-	"alias-4.c":            {},
-	"bf-sign-1.c":          {},
-	"bf64-1.c":             {},
-	"bitfld-3.c":           {},
-	"bitfld-4.c":           {},
-	"bswap-1.c":            {},
-	"builtin-prefetch-1.c": {},
-	"builtin-prefetch-2.c": {},
-	"builtin-prefetch-3.c": {},
-	"builtin-prefetch-4.c": {},
-	"builtin-prefetch-5.c": {},
-	"builtin-prefetch-6.c": {},
-	"complex-2.c":          {},
-	"complex-4.c":          {},
-	"complex-5.c":          {},
-	"complex-7.c":          {},
-	"compndlit-1.c":        {},
-	"pr23324.c":            {},
-	"pr28865.c":            {},
-	"pr31448-2.c":          {},
-	"pr33382.c":            {},
-	"pr38151.c":            {},
-	"pr39339.c":            {},
-	"pr42248.c":            {},
-	"pr43987.c":            {},
-	"pr49390.c":            {},
-	"pr49644.c":            {},
-	"pr49768.c":            {},
-	"pr52979-1.c":          {},
-	"pr52979-2.c":          {},
-	"pr54937.c":            {},
-	"pr57568.c":            {},
-	"pr58984.c":            {},
-	"pr60017.c":            {},
-	"pr65215-3.c":          {},
-	"pr66556.c":            {},
-	"pr68249.c":            {},
-	"pr70127.c":            {},
-	"pr70602.c":            {},
-	"pr71700.c":            {},
-	"pr78170.c":            {},
-	"pr79737-1.c":          {},
-	"pr81281.c":            {},
-	"pr83383.c":            {},
-	"pr85331.c":            {},
-	"pr88739.c":            {},
-	"pr89195.c":            {},
-	"pr89826.c":            {},
-	"pr90025.c":            {},
-	"struct-ini-2.c":       {},
-	"struct-ini-3.c":       {},
-	"zero-struct-2.c":      {},
 }

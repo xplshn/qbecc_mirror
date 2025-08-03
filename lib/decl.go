@@ -124,6 +124,13 @@ func (v *variables) register(n cc.Node, f *fnCtx, c *ctx, inlineLevel int) {
 		m = variables{}
 		*v = m
 	}
+	if n == nil || m[n] != nil {
+		return
+	}
+
+	// if !strings.Contains(n.Position().String(), "<") {
+	// 	defer func() { trc("%v: %s n=%T@%p m=%v", n.Position(), cc.NodeSource(n), n, n, m[n]) }()
+	// }
 	switch x := n.(type) {
 	case nil:
 		return
@@ -132,9 +139,6 @@ func (v *variables) register(n cc.Node, f *fnCtx, c *ctx, inlineLevel int) {
 			return
 		}
 
-		// if !strings.Contains(n.Position().String(), "<") {
-		// 	defer func() { trc("%v: %s %v %v", n.Position(), x.Type(), cc.NodeSource(n), m[x]) }()
-		// }
 		dt := x.Type()
 		if c.isUnsupportedType(dt) && !x.IsExtern() {
 			c.err(x, "unsupported type: %s", dt)
@@ -539,6 +543,7 @@ func (c *ctx) externalDeclarationFuncDef(n *cc.FunctionDefinition) {
 	}
 
 	c.pos(n)
+	c.w("\n")
 	if d.Linkage() == cc.External {
 		c.w("export ")
 	}
@@ -583,11 +588,15 @@ func (c *ctx) externalDeclarationFuncDef(n *cc.FunctionDefinition) {
 	for _, v := range c.fn.static {
 		d := v.Declarator
 		// trc("%v: %p %s", d.Position(), d, d.Name())
-		if d.ReadCount() == 0 {
+		if d.ReadCount()+d.WriteCount() == 0 {
 			continue
 		}
 
 		_, info := c.variable(d)
+		if info == nil {
+			continue
+		}
+
 		c.w("data %s = align %d ", info.(*staticVar).name, d.Type().Align())
 		switch {
 		case v.Initializer != nil:
@@ -659,6 +668,7 @@ func (c *ctx) externalDeclarationDeclFull(n *cc.Declaration) {
 			nm = info.(*staticVar).name
 		}
 		c.pos(n)
+		c.w("\n")
 		if d.Linkage() == cc.External {
 			c.w("export ")
 		}
