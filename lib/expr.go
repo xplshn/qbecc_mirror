@@ -1740,6 +1740,9 @@ func (c *ctx) valueof(n cc.Node) (r cc.Value) {
 // '-' CastExpression
 func (c *ctx) unaryExpressionMinus(n *cc.UnaryExpression, mode mode, t cc.Type) (r any) {
 	switch mode {
+	case void:
+		c.expr(n.CastExpression, mode, n.Type())
+		return nothing
 	case rvalue:
 		defer func() { r = c.convert(n, t, n.Type(), r) }()
 

@@ -173,6 +173,10 @@ func (c *ctx) newQtype(n cc.Node, t cc.Type) (r qtype) {
 
 			switch {
 			case f.IsBitfield():
+				if f.ValueBits() == 0 {
+					continue
+				}
+
 				foff := f.Offset()
 				if foff != groupOff {
 					if foff > sz {

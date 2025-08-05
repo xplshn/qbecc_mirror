@@ -235,6 +235,10 @@
 //
 // Place the primary output in file <file>.
 //
+// # -rdynamic: linker flag
+//
+// Pass the flag -export-dynamic to the ELF linker, on targets that support it. Ignored.
+//
 // # -std=cxx: Select C standard
 //
 // Select the C standard to use, for example -std=c99.

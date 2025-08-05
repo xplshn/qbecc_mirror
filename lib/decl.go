@@ -245,6 +245,7 @@ func (n *staticVar) String() string {
 
 type breakContinueCtx struct {
 	label string
+	prev  *breakContinueCtx
 }
 
 type switchCase struct {
@@ -261,6 +262,7 @@ type switchCtx struct {
 	case2index  map[*cc.LabeledStatement]int // index into the sorted cases slice
 	cases       []*switchCase
 	expr        any
+	prev        *switchCtx
 	sign        string // "s" or "u"
 	suff        string // "w" or "l"
 	typ         cc.Type
@@ -383,23 +385,25 @@ func (f *fnCtx) id() (r int) {
 	return r
 }
 
-func (f *fnCtx) newBreakCtx(label string) func() {
-	old := f.breakCtx
-	f.breakCtx = &breakContinueCtx{label: label}
-	return func() {
-		f.breakCtx = old
-	}
+func (f *fnCtx) newBreakCtx(label string) string {
+	f.breakCtx = &breakContinueCtx{label: label, prev: f.breakCtx}
+	return label
 }
 
-func (f *fnCtx) newContinueCtx(label string) func() {
-	old := f.breakCtx
-	f.continueCtx = &breakContinueCtx{label: label}
-	return func() {
-		f.continueCtx = old
-	}
+func (f *fnCtx) restoreBreakCtx() {
+	f.breakCtx = f.breakCtx.prev
 }
 
-func (f *fnCtx) newSwitchCtx(expr any, typ cc.Type, cases0 []*cc.LabeledStatement) func() {
+func (f *fnCtx) newContinueCtx(label string) string {
+	f.continueCtx = &breakContinueCtx{label: label, prev: f.continueCtx}
+	return label
+}
+
+func (f *fnCtx) restoreContinueCtx() {
+	f.continueCtx = f.continueCtx.prev
+}
+
+func (f *fnCtx) newSwitchCtx(expr any, typ cc.Type, cases0 []*cc.LabeledStatement) *switchCtx {
 	isSigned := cc.IsSignedInteger(typ)
 	defaultCase := &switchCase{
 		isDefault: true,
@@ -445,7 +449,6 @@ func (f *fnCtx) newSwitchCtx(expr any, typ cc.Type, cases0 []*cc.LabeledStatemen
 		cases2index[v.LabeledStatement] = i
 	}
 	cases = append(cases, defaultCase)
-	old := f.switchCtx
 	sign := "u"
 	if isSigned {
 		sign = "s"
@@ -456,15 +459,12 @@ func (f *fnCtx) newSwitchCtx(expr any, typ cc.Type, cases0 []*cc.LabeledStatemen
 		cases:       cases,
 		expr:        expr,
 		isSigned:    isSigned,
+		prev:        f.switchCtx,
 		sign:        sign,
 		suff:        f.ctx.baseType(nil, typ),
 		typ:         typ,
 	}
-	g := f.newBreakCtx(f.ctx.label())
-	return func() {
-		f.switchCtx = old
-		g()
-	}
+	return f.switchCtx
 }
 
 func (f *fnCtx) alloc(n cc.Node, align, size int64) (r int64) {

@@ -222,6 +222,7 @@ func (t *Task) Main() (err error) {
 	set.Arg("W", true, func(arg, val string) error { return nil }) // all '-W' prefixed flags are ignored
 	set.Opt("MMD", func(arg string) error { return nil })
 	set.Opt("g", func(arg string) error { return nil })
+	set.Opt("rdynamic", func(arg string) error { return nil })
 
 	if err := set.Parse(t.args[1:], func(arg string) error {
 		switch {

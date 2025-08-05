@@ -525,7 +525,7 @@ func TestCSmith(t *testing.T) {
 	t0 := time.Now()
 	fixedBugs := csmithFixedBugs
 	var stop atomic.Bool
-	for id := 0; !stop.Load(); id++ {
+	for id := 0; !stop.Load() && id < 1000; id++ {
 		if time.Since(t0) > csmithLimit {
 			break
 		}
@@ -540,7 +540,7 @@ func TestCSmith(t *testing.T) {
 		}
 
 		if re != nil {
-			if re.MatchString(csmithArgs) {
+			if !re.MatchString(csmithArgs) {
 				continue
 			}
 
@@ -572,12 +572,6 @@ func TestCSmith(t *testing.T) {
 }
 
 func execCSmith(t *testing.T, p *parallelTest, dir, csmithBin, csmithArgs string) (err error) {
-	defer func() {
-		if err != nil {
-			err = fmt.Errorf("%s args=%s", strings.TrimSpace(fmt.Sprint(err)), csmithArgs)
-		}
-	}()
-
 	csOut, err := exec.Command(csmithBin, strings.Split(csmithArgs, " ")...).Output()
 	if err != nil {
 		p.gccFails.Add(1)
@@ -624,26 +618,26 @@ func execCSmith(t *testing.T, p *parallelTest, dir, csmithBin, csmithArgs string
 		GOMAXPROCS: 1, // Test is already parallel
 	}, args...)
 	if err != nil {
+		err = fmt.Errorf("C COMPILE FAIL: args=%s err=%v", csmithArgs, err)
 		p.failed.Add(1)
 		return err
 	}
 
 	if err = task.Main(); err != nil {
+		err = fmt.Errorf("C COMPILE FAIL: args=%s err=%v", csmithArgs, err)
 		p.failed.Add(1)
 		return err
 	}
 
 	qbeccBinOut, err := shell(gccBinTO, qbeccBin)
 	if err != nil {
-		err = fmt.Errorf("C EXEC FAIL: args=%s", csmithArgs)
-		t.Log(err)
+		err = fmt.Errorf("C EXEC FAIL: args=%s err=%v", csmithArgs, err)
 		p.failed.Add(1)
 		return err
 	}
 
 	if !bytes.Equal(gccBinOut, qbeccBinOut) {
 		err = fmt.Errorf("C EQUAL FAIL: args=%s", csmithArgs)
-		t.Log(err)
 		p.failed.Add(1)
 		return err
 	}
@@ -669,14 +663,12 @@ func execCSmith(t *testing.T, p *parallelTest, dir, csmithBin, csmithArgs string
 		GOMAXPROCS: 1, // Test is already parallel
 	}, args...); err != nil {
 		err = fmt.Errorf("GO COMPILE FAIL: args=%s", csmithArgs)
-		t.Log(err)
 		p.failed.Add(1)
 		return err
 	}
 
 	if err = task.Main(); err != nil {
 		err = fmt.Errorf("GO COMPILE FAIL: args=%s", csmithArgs)
-		t.Log(err)
 		p.failed.Add(1)
 		return err
 	}
@@ -725,7 +717,6 @@ func main() {
 	}
 	if err = os.WriteFile(mainGo, buf.Bytes(), 0660); err != nil {
 		err = fmt.Errorf("GO COMPILE FAIL: args=%s", csmithArgs)
-		t.Log(err)
 		p.failed.Add(1)
 		return err
 	}
@@ -733,14 +724,12 @@ func main() {
 	goOut, err := shell(goTO, "go", "run", "./"+dir)
 	if err != nil {
 		err = fmt.Errorf("GO EXEC FAIL: args=%s\ndir=%s err=%s", csmithArgs, dir, err)
-		t.Log(err)
 		p.failed.Add(1)
 		return err
 	}
 
 	if !bytes.Equal(gccBinOut, goOut) {
 		err = fmt.Errorf("GO EQUAL FAIL: args=%s", csmithArgs)
-		t.Log(err)
 		p.failed.Add(1)
 		return err
 	}
