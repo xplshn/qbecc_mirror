@@ -2,7 +2,7 @@
 # Use of this source code is governed by a BSD-style
 # license that can be found in the LICENSE file.
 
-.PHONY:	all asm clean edit editor work test todo review shorttest
+.PHONY:	all asm clean edit editor work test todo review shorttest csmith
 
 all: editor
 	golint
@@ -17,6 +17,9 @@ asm:
 clean:
 	rm -f log-* cpu.test mem.test *.out go.work*
 	go clean
+
+csmith:
+	go test -v -timeout 24h -run TestCSmith -trc
 
 edit:
 	@touch log

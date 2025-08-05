@@ -882,7 +882,7 @@ func (c *ctx) assignmentExpressionOp(n *cc.AssignmentExpression, mode mode, t cc
 			v = c.convert(n, lt, ct, v)
 			c.store(n, lt, v, x.name)
 			return c.load(n, x.name, lt)
-		case nil:
+		case nil, *escapedVar:
 			ct := c.usualArithmeticConversions(lt, rt)
 			var lv any
 			switch op {
@@ -1623,6 +1623,9 @@ func (c *ctx) postfixExpressionIndex(n *cc.PostfixExpression, mode mode, t cc.Ty
 				x = c.temp("%s mul %s, %v\n", c.wordTag, x, c.sizeof(n.PostfixExpression, elemType))
 			}
 			p = c.temp("%s add %s, %s\n", c.wordTag, p, x)
+			if c.isAggType(elemType) {
+				elemType = c.ast.Char
+			}
 			c.load(n, p, elemType)
 		}
 		return nothing
@@ -1755,6 +1758,8 @@ func (c *ctx) unaryExpressionPlus(n *cc.UnaryExpression, mode mode, t cc.Type) (
 	case rvalue:
 		defer func() { r = c.convert(n, t, n.Type(), r) }()
 
+		fallthrough
+	case void:
 		return c.expr(n.CastExpression, mode, t)
 	default:
 		panic(todo("%v: %s %s", n.Position(), mode, cc.NodeSource(n)))
@@ -1815,6 +1820,8 @@ func (c *ctx) unaryExpressionDeref(n *cc.UnaryExpression, mode mode, t cc.Type) 
 			c.expr(n.CastExpression, rvalue, n.CastExpression.Type())
 		case et.Kind() == cc.Function:
 			c.expr(n.CastExpression, rvalue, et)
+		case c.isAggType(et):
+			c.load(n, c.expr(n.CastExpression, rvalue, n.CastExpression.Type()), c.ast.Char)
 		default:
 			panic(todo("%v: %v %s", n.Position(), et, cc.NodeSource(n)))
 		}
@@ -1937,7 +1944,7 @@ func (c *ctx) unaryExpressionIncDec(n *cc.UnaryExpression, mode mode, t cc.Type,
 			v := c.load(n, x.name, x.d.Type())
 			v = c.temp("%s %s %s, %v\n", c.baseType(n, n.UnaryExpression.Type()), op, v, delta)
 			c.store(n, x.d.Type(), v, x.name)
-		case nil:
+		case nil, *escapedVar:
 			p := c.expr(n.UnaryExpression, lvalue, n.UnaryExpression.Type())
 			v := c.load(n, p, n.UnaryExpression.Type())
 			v = c.temp("%s %s %s, %v\n", c.baseType(n, n.UnaryExpression.Type()), op, v, delta)
@@ -1979,6 +1986,8 @@ func (c *ctx) unaryExpressionCpl(n *cc.UnaryExpression, mode mode, t cc.Type) (r
 	case rvalue:
 		defer func() { r = c.convert(n, t, n.Type(), r) }()
 
+		fallthrough
+	case void:
 		v := c.expr(n.CastExpression, rvalue, n.Type())
 		k := ^int64(0)
 		if c.sizeof(n, n.Type()) < 8 {
@@ -2599,6 +2608,8 @@ func (c *ctx) arithmeticOp(n, lhs, rhs cc.ExpressionNode, mode mode, t cc.Type, 
 		panic(todo("%v: %v %s %s %s", lhs.Position(), mode, cc.NodeSource(lhs), op, cc.NodeSource(rhs)))
 	}
 	switch mode {
+	case void:
+		c.arithmeticOpRvalue(n, lhs, rhs, mode, t, op, ct, lmul, rmul, div)
 	case rvalue:
 		return c.arithmeticOpRvalue(n, lhs, rhs, mode, t, op, ct, lmul, rmul, div)
 	case lvalue:

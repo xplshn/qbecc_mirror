@@ -539,6 +539,14 @@ func TestCSmith(t *testing.T) {
 			csmithArgs = csmithDefaultArgs
 		}
 
+		if re != nil {
+			if re.MatchString(csmithArgs) {
+				continue
+			}
+
+			stop.Store(true) // single shot, eg. -re 1110506964 to run the fixed bugs '... -s 1110506964'
+		}
+
 		func(id int) {
 			p.exec(func() (err error) {
 				dir := filepath.Join(destDir, fmt.Sprintf("csmith%v", id))
@@ -572,13 +580,15 @@ func execCSmith(t *testing.T, p *parallelTest, dir, csmithBin, csmithArgs string
 
 	csOut, err := exec.Command(csmithBin, strings.Split(csmithArgs, " ")...).Output()
 	if err != nil {
-		t.Fatal(err)
+		p.gccFails.Add(1)
+		return fmt.Errorf("csmith: %s", err)
 	}
 
 	cfile := filepath.Join(dir, "main.c")
 	b := []byte("//go:build ingore\n\n")
 	if err := os.WriteFile(cfile, append(b, csOut...), 0660); err != nil {
-		t.Fatal(err)
+		p.gccFails.Add(1)
+		return fmt.Errorf("os.WriteFile: %s", err)
 	}
 
 	gccBin := binPath(filepath.Join(dir, "gcc.out"))
@@ -722,7 +732,7 @@ func main() {
 
 	goOut, err := shell(goTO, "go", "run", "./"+dir)
 	if err != nil {
-		err = fmt.Errorf("GO EXEC FAIL: args=%s", csmithArgs)
+		err = fmt.Errorf("GO EXEC FAIL: args=%s\ndir=%s err=%s", csmithArgs, dir, err)
 		t.Log(err)
 		p.failed.Add(1)
 		return err
