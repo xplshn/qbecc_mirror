@@ -1,4 +1,4 @@
-name: Sync with git://git.etalabs.net/musl
+name: Sync with https://gitlab.com/cznic/qbecc
 
 on:
   #schedule:
@@ -17,15 +17,15 @@ jobs:
         ref: 'master'
 
     # Add source repo:
-    - name: Add git://git.etalabs.net/musl remote
+    - name: Add https://gitlab.com/cznic/qbecc remote
       run: |
-        git remote add source git://git.etalabs.net/musl
+        git remote add source https://gitlab.com/cznic/qbecc
 
-    - name: Fetch changes from git://git.etalabs.net/musl
+    - name: Fetch changes from https://gitlab.com/cznic/qbecc
       run: |
         git fetch source
 
-    - name: Merge changes from git://git.etalabs.net/musl
+    - name: Merge changes from https://gitlab.com/cznic/qbecc
       run: |
         git config user.name '󰬭 [CI] '
         git config user.email 'action@github.com'
