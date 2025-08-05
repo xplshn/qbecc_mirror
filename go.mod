@@ -7,7 +7,8 @@ require (
 	modernc.org/cc/v4 v4.26.3
 	modernc.org/ccorpus2 v1.5.2
 	modernc.org/gc/v3 v3.1.0
-	modernc.org/libqbe v0.3.17
+	modernc.org/libc v1.66.6
+	modernc.org/libqbe v0.3.18
 	modernc.org/opt v0.1.4
 	modernc.org/token v1.1.0
 )
@@ -22,7 +23,6 @@ require (
 	golang.org/x/exp v0.0.0-20250620022241-b7579e27df2b // indirect
 	golang.org/x/sys v0.33.0 // indirect
 	modernc.org/goabi0 v0.2.0 // indirect
-	modernc.org/libc v1.66.6 // indirect
 	modernc.org/mathutil v1.7.1 // indirect
 	modernc.org/memory v1.11.0 // indirect
 	modernc.org/sortutil v1.2.1 // indirect

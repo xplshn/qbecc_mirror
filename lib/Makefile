@@ -2,7 +2,7 @@
 # Use of this source code is governed by a BSD-style
 # license that can be found in the LICENSE file.
 
-.PHONY:	all asm clean edit editor work shorttest test todo review
+.PHONY:	all asm clean edit editor work test todo review shorttest
 
 all: editor
 	golint
@@ -29,9 +29,6 @@ editor: asm
 	go build -o /dev/null logextractor.go
 	go install -v  ..
 	staticcheck 2>&1
-
-shorttest:
-	go test -short -v -timeout 24h
 
 work:
 	rm -f go.work*
@@ -69,3 +66,5 @@ review:
 		done
 	ls -l log-review
 
+shorttest:
+	go test -v -timeout 24h -short
