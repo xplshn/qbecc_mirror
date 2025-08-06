@@ -271,7 +271,8 @@ outer:
 				}
 				nb := noff - off
 				size = off + nb
-				bits := uint64(0)
+				var bits, mask uint64
+				bitLen := 0
 				if dbgInit {
 					trc("off=%v noff=%v size=%v nb=%v", off, noff, size, nb)
 				}
@@ -282,7 +283,9 @@ outer:
 					}
 
 					bf := item.bf()
-					switch x := c.expr(item.n, constRvalue, item.t).(type) {
+					mask |= bf.Mask()
+					v := c.expr(item.n, constRvalue, item.t)
+					switch x := v.(type) {
 					case int64Value:
 						bits |= (uint64(x) << bo) & bf.Mask()
 					case uint64Value:
@@ -290,18 +293,27 @@ outer:
 					default:
 						panic(todo("%v: %s f=%s t=%s %T", item.n.Position(), cc.NodeSource(item.n), bf.Name(), item.t, x))
 					}
+					bitLen = max(bitLen, bf.OffsetBits()+int(bf.ValueBits()))
 				}
-				switch nb {
-				case 1:
+				var nbytes int64
+				switch {
+				case bitLen <= 8:
+					nbytes = 1
 					c.w("\tb %v,\n", bits)
-				case 2:
+				case bitLen <= 16:
+					nbytes = 2
 					c.w("\th %v,\n", bits)
-				case 4:
+				case bitLen <= 32:
+					nbytes = 4
 					c.w("\tw %v,\n", bits)
-				case 8:
+				case bitLen <= 64:
+					nbytes = 8
 					c.w("\tl %v,\n", bits)
 				default:
 					panic(todo("%v: %s f=%s t=%s nb=%v", item.n.Position(), cc.NodeSource(item.n), bf.Name(), item.t, nb))
+				}
+				if nn := nb - nbytes; nn > 0 {
+					c.w("\tz %v,\n", nn)
 				}
 				continue outer
 			}

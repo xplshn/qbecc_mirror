@@ -8,7 +8,7 @@ require (
 	modernc.org/ccorpus2 v1.5.2
 	modernc.org/gc/v3 v3.1.0
 	modernc.org/libc v1.66.6
-	modernc.org/libqbe v0.3.19
+	modernc.org/libqbe v0.3.20
 	modernc.org/opt v0.1.4
 	modernc.org/token v1.1.0
 )

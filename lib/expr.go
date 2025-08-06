@@ -704,6 +704,10 @@ func (c *ctx) assignmentExpressionAssignAggTypeRhs(n *cc.AssignmentExpression, m
 		s := c.expr(n.AssignmentExpression, aggRvalue, n.Type())
 		c.w("\tblit %s, %s, %v\n", s, lhs, n.UnaryExpression.Type().Size())
 		return s
+	case lvalue:
+		s := c.expr(n.AssignmentExpression, aggRvalue, n.Type())
+		c.w("\tblit %s, %s, %v\n", s, lhs, n.UnaryExpression.Type().Size())
+		return lhs
 	default:
 		panic(todo("%v: %v %v", n.Position(), mode, cc.NodeSource(n)))
 	}
@@ -1476,10 +1480,7 @@ func (c *ctx) postfixExpressionSelect(n *cc.PostfixExpression, mode mode, t cc.T
 
 		p := c.expr(n.PostfixExpression, lvalue, nil)
 		p = c.temp("%s add %s, %v\n", c.wordTag, p, f.Offset())
-		if f.IsBitfield() {
-			p = &bitfieldPtr{f: f, ptr: p}
-		}
-		c.load(n, p, f.Type())
+		c.load(n, p, c.ast.Char)
 		return nothing
 	case constLvalue:
 		switch x := c.expr(n.PostfixExpression, constLvalue, nil).(type) {
@@ -2920,7 +2921,23 @@ func (c *ctx) castExpressionCast(n *cc.CastExpression, mode mode, t cc.Type) (r 
 		r = nothing
 		c.expr(n.CastExpression, mode, n.Type())
 	case lvalue:
-		return c.expr(n.CastExpression, lvalue, c.ast.PVoid)
+		switch {
+		case c.isAggType(n.TypeName.Type()) && !c.isAggType(n.CastExpression.Type()):
+			switch _, info := c.variable(n); x := info.(type) {
+			case *escapedVar:
+				c.initializerList(&cc.InitializerList{
+					Initializer: &cc.Initializer{
+						Case:                 cc.InitializerExpr,
+						AssignmentExpression: n.CastExpression,
+					},
+				}, info, n.TypeName.Type())
+				return c.temp("%s add %%.bp., %v\n", c.wordTag, x.offset)
+			default:
+				panic(todo("%v: %T %s", n.Position(), x, cc.NodeSource(n)))
+			}
+		default:
+			return c.expr(n.CastExpression, lvalue, c.ast.PVoid)
+		}
 	case constRvalue:
 		defer func() { r = c.convertConst(n, t, n.Type(), r) }()
 
@@ -3095,11 +3112,13 @@ func (c *ctx) conditionalExpression(n *cc.ConditionalExpression, mode mode, t cc
 // ExpressionList ',' AssignmentExpression
 func (c *ctx) expressionList(n *cc.ExpressionList, mode mode, t cc.Type) (r any) {
 	for ; n != nil; n = n.ExpressionList {
-		m := mode
+		mode2 := mode
+		t2 := t
 		if n.ExpressionList != nil {
-			m = void
+			mode2 = void
+			t2 = n.AssignmentExpression.Type()
 		}
-		r = c.expr(n.AssignmentExpression, m, t)
+		r = c.expr(n.AssignmentExpression, mode2, t2)
 	}
 	return r
 }
@@ -3117,6 +3136,10 @@ func (c *ctx) expr(n cc.ExpressionNode, mode mode, t cc.Type) (r any) {
 	if n == nil && mode == void {
 		return nothing
 	}
+
+	// defer func() {
+	// 	trc("%v: %T %s mode=%v t=%v->%T(%v)", n.Position(), n, cc.NodeSource(n), mode, t, r, r)
+	// }()
 
 	switch x := n.(type) {
 	case *cc.AssignmentExpression:

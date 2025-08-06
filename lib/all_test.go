@@ -14,6 +14,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"runtime"
+	"runtime/debug"
 	"sort"
 	"strings"
 	"sync"
@@ -32,15 +33,16 @@ const (
 )
 
 var (
-	csmithLimit    time.Duration
-	disableVet     bool
-	dumpSSA        bool
-	extendedErrors bool
-	keep           bool
-	re             *regexp.Regexp
-	skipGoABI0     bool
-	trcOutput      bool
-	xtrc           bool
+	csmithTestLimit int
+	csmithTimeLimit time.Duration
+	disableVet      bool
+	dumpSSA         bool
+	extendedErrors  bool
+	keep            bool
+	re              *regexp.Regexp
+	skipGoABI0      bool
+	trcOutput       bool
+	xtrc            bool
 
 	enableGoABI0 = map[string]bool{
 		"linux/amd64": true,
@@ -61,7 +63,8 @@ func TestMain(m *testing.M) {
 	flag.BoolVar(&skipGoABI0, "skipgoabi0", !enableGoABI0[target], "")
 	flag.BoolVar(&trcOutput, "trco", false, "")
 	flag.BoolVar(&xtrc, "trc", false, "")
-	flag.DurationVar(&csmithLimit, "csmith", 1*time.Hour, "")
+	flag.IntVar(&csmithTestLimit, "csmithn", 1000, "")
+	flag.DurationVar(&csmithTimeLimit, "csmithz", 1*time.Hour, "")
 	flag.Parse()
 	if s := *oRE; s != "" {
 		re = regexp.MustCompile(s)
@@ -84,9 +87,12 @@ type parallelTest struct {
 	skipped  atomic.Int32
 }
 
-func newParalelTest() (r *parallelTest) {
+func newParalelTest(max int) (r *parallelTest) {
+	if max <= 0 {
+		max = runtime.GOMAXPROCS(0)
+	}
 	return &parallelTest{
-		limit: make(chan struct{}, runtime.GOMAXPROCS(0)),
+		limit: make(chan struct{}, max),
 	}
 }
 
@@ -155,7 +161,7 @@ func testExec(t *testing.T, id *int, destDir, suite string, re *regexp.Regexp) {
 		t.Fatal(err)
 	}
 
-	p := newParalelTest()
+	p := newParalelTest(-1)
 	for _, v := range files {
 		nm := v.Name()
 		if filepath.Ext(nm) != ".c" {
@@ -186,6 +192,9 @@ func testExec(t *testing.T, id *int, destDir, suite string, re *regexp.Regexp) {
 			continue
 		}
 
+		if *id%50 == 0 {
+			debug.FreeOSMemory()
+		}
 		sid := fmt.Sprintf("%04d", *id)
 		(*id)++
 		p.exec(func() error {
@@ -304,7 +313,7 @@ func testExec2(t *testing.T, p *parallelTest, suite, testNm, fn, sid, fsName str
 
 	if skipGoABI0 {
 		if xtrc {
-			trc("%s", fsName)
+			trc("%v: %s", sid, fsName)
 		}
 		p.passed.Add(1)
 		return
@@ -410,7 +419,7 @@ func main() {
 	}
 
 	if xtrc {
-		trc("%s", fsName)
+		trc("%v: %s", sid, fsName)
 	}
 	p.passed.Add(1)
 	return nil
@@ -436,6 +445,7 @@ func renameParam(s string) string {
 }
 
 var csmithFixedBugs = []string{
+	// ccgo/v4
 	"--bitfields --max-nested-struct-level 10 --no-const-pointers --no-consts --no-packed-struct --no-volatile-pointers --no-volatiles --paranoid -s 1110506964",
 	"--bitfields --max-nested-struct-level 10 --no-const-pointers --no-consts --no-packed-struct --no-volatile-pointers --no-volatiles --paranoid -s 1338573550",
 	"--bitfields --max-nested-struct-level 10 --no-const-pointers --no-consts --no-packed-struct --no-volatile-pointers --no-volatiles --paranoid -s 1416441494",
@@ -499,7 +509,7 @@ func TestCSmith(t *testing.T) {
 		t.Skip("csmith not found in $PATH")
 	}
 
-	p := newParalelTest()
+	p := newParalelTest(1)
 
 	t.Logf("using C compiler at %s", gcc)
 	const destDir = "tmp"
@@ -525,16 +535,18 @@ func TestCSmith(t *testing.T) {
 	t0 := time.Now()
 	fixedBugs := csmithFixedBugs
 	var stop atomic.Bool
-	for id := 0; !stop.Load() && id < 1000; id++ {
-		if time.Since(t0) > csmithLimit {
+	for id := 0; !stop.Load() && id < csmithTestLimit; id++ {
+		if time.Since(t0) > csmithTimeLimit {
 			break
 		}
 
+		hasSeed := false
 		var csmithArgs string
 		switch {
 		case len(fixedBugs) != 0:
 			csmithArgs = fixedBugs[0]
 			fixedBugs = fixedBugs[1:]
+			hasSeed = true
 		default:
 			csmithArgs = csmithDefaultArgs
 		}
@@ -547,6 +559,9 @@ func TestCSmith(t *testing.T) {
 			stop.Store(true) // single shot, eg. -re 1110506964 to run the fixed bugs '... -s 1110506964'
 		}
 
+		if id%10 == 0 {
+			debug.FreeOSMemory()
+		}
 		func(id int) {
 			p.exec(func() (err error) {
 				dir := filepath.Join(destDir, fmt.Sprintf("csmith%v", id))
@@ -557,7 +572,7 @@ func TestCSmith(t *testing.T) {
 				if !keep {
 					defer os.RemoveAll(dir)
 				}
-				if err = execCSmith(t, p, dir, csmithBin, csmithArgs); err != nil {
+				if err = execCSmith(t, p, dir, csmithBin, csmithArgs, hasSeed, fmt.Sprintf("%06d", id)); err != nil {
 					stop.Store(true)
 				}
 				return err
@@ -571,11 +586,22 @@ func TestCSmith(t *testing.T) {
 		p.files.Load(), p.gccFails.Load(), p.skipped.Load(), p.failed.Load(), p.passed.Load())
 }
 
-func execCSmith(t *testing.T, p *parallelTest, dir, csmithBin, csmithArgs string) (err error) {
+var (
+	seed = []byte("* Seed:")
+)
+
+func execCSmith(t *testing.T, p *parallelTest, dir, csmithBin, csmithArgs string, hasSeed bool, sid string) (err error) {
 	csOut, err := exec.Command(csmithBin, strings.Split(csmithArgs, " ")...).Output()
 	if err != nil {
 		p.gccFails.Add(1)
 		return fmt.Errorf("csmith: %s", err)
+	}
+
+	if !hasSeed {
+		x := bytes.Index(csOut, seed)
+		b := csOut[x+len(seed):]
+		x = bytes.IndexByte(b, '\n')
+		csmithArgs += " -s " + strings.TrimSpace(string(b[:x]))
 	}
 
 	cfile := filepath.Join(dir, "main.c")
@@ -644,7 +670,7 @@ func execCSmith(t *testing.T, p *parallelTest, dir, csmithBin, csmithArgs string
 
 	if skipGoABI0 {
 		if xtrc {
-			trc("", dir, csmithArgs)
+			trc("%s: %s %s", sid, dir, csmithArgs)
 		}
 		p.passed.Add(1)
 		return nil
@@ -721,6 +747,14 @@ func main() {
 		return err
 	}
 
+	if !disableVet {
+		if _, err := shell(goTO, "go", "vet", "./"+dir); err != nil {
+			err = fmt.Errorf("GO COMPILE VET: args=%s", csmithArgs)
+			p.failed.Add(1)
+			return err
+		}
+	}
+
 	goOut, err := shell(goTO, "go", "run", "./"+dir)
 	if err != nil {
 		err = fmt.Errorf("GO EXEC FAIL: args=%s\ndir=%s err=%s", csmithArgs, dir, err)
@@ -735,7 +769,7 @@ func main() {
 	}
 
 	if xtrc {
-		trc("", dir, csmithArgs)
+		trc("%s: %s %s", sid, dir, csmithArgs)
 	}
 	p.passed.Add(1)
 	return nil
