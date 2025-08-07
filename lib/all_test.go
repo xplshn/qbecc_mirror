@@ -749,7 +749,7 @@ func main() {
 
 	if !disableVet {
 		if _, err := shell(goTO, "go", "vet", "./"+dir); err != nil {
-			err = fmt.Errorf("GO COMPILE VET: args=%s", csmithArgs)
+			err = fmt.Errorf("GO VET FAIL: args=%s", csmithArgs)
 			p.failed.Add(1)
 			return err
 		}
