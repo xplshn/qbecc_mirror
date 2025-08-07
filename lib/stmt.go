@@ -99,6 +99,7 @@ func (c *ctx) statement(n *cc.Statement) {
 	case cc.StatementCompound: // CompoundStatement
 		c.compoundStatement(n.CompoundStatement)
 	case cc.StatementExpr: // ExpressionStatement
+		// c.w("\n# %v: %s\n", n.Position(), cc.NodeSource(n))
 		c.expressionStatement(n.ExpressionStatement)
 	case cc.StatementSelection: // SelectionStatement
 		c.selectionStatement(n.SelectionStatement)
@@ -621,6 +622,7 @@ func (c *ctx) blockItemDeclAutomatic(n *cc.InitDeclarator) {
 
 // Declaration
 func (c *ctx) blockItemDecl(n *cc.Declaration) {
+	// c.w("\n# %v: %s\n", n.Position(), cc.NodeSource(n))
 	switch n.Case {
 	case cc.DeclarationDecl: // DeclarationSpecifiers InitDeclaratorList AttributeSpecifierList ';'
 		for l := n.InitDeclaratorList; l != nil; l = l.InitDeclaratorList {

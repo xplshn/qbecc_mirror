@@ -649,6 +649,7 @@ func execCSmith(t *testing.T, p *parallelTest, dir, csmithBin, csmithArgs string
 		return err
 	}
 
+	trc("")
 	if err = task.Main(); err != nil {
 		err = fmt.Errorf("C COMPILE FAIL: args=%s err=%v", csmithArgs, err)
 		p.failed.Add(1)

@@ -94,6 +94,40 @@ func (n *initMapItem) String() string {
 // initializer renderer
 type initMap map[int64][]*initMapItem // offset: item
 
+func isConstExpr(n cc.ExpressionNode) bool {
+	switch x := n.Value().(type) {
+	case *cc.UnknownValue, cc.VoidValue:
+		return false
+	case
+		*cc.ComplexLongDoubleValue,
+		*cc.LongDoubleValue,
+		*cc.ZeroValue,
+		cc.Complex128Value,
+		cc.Complex64Value,
+		cc.Float64Value,
+		cc.Int64Value,
+		cc.StringValue,
+		cc.UInt64Value,
+		cc.UTF16StringValue,
+		cc.UTF32StringValue:
+
+		return true
+	default:
+		panic(todo("%v: %s %T", n.Position(), cc.NodeSource(n), x))
+	}
+}
+
+func (m initMap) isConst() bool {
+	for _, v := range m {
+		for _, w := range v {
+			if !isConstExpr(w.n) {
+				return false
+			}
+		}
+	}
+	return true
+}
+
 func (c *ctx) initLocalVar(n cc.Node, v *localVar, t cc.Type, m initMap, offs []int64) {
 	switch t.Kind() {
 	case cc.Struct, cc.Union, cc.Array:
@@ -124,7 +158,25 @@ func (c *ctx) littleEndianUTF32string(s cc.UTF32StringValue) (r string) {
 	return b.String()
 }
 
+func (c *ctx) initEscapedVarConst(n cc.Node, v *escapedVar, t cc.Type, m initMap, offs []int64) {
+	panic(todo("%v: %s", n.Position(), cc.NodeSource(n)))
+}
+
 func (c *ctx) initEscapedVar(n cc.Node, v *escapedVar, t cc.Type, m initMap, offs []int64) {
+	//TODO if len(offs) != 0 && m.isConst() {
+	//TODO 	switch item := m[offs[0]][0]; {
+	//TODO 	case c.sizeof(n, item.t) <= 8:
+	//TODO 		// ok
+	//TODO 	case len(m) == 1 && item.t.Kind() == cc.Array && isConstExpr(item.n):
+	//TODO 		// ok
+	//TODO 	case len(m) == 1 && (c.isIntegerType(item.t) || c.isFloatingPointType(item.t)):
+	//TODO 		// ok
+	//TODO 	default:
+	//TODO 		c.initEscapedVarConst(n, v, t, m, offs)
+	//TODO 		return
+	//TODO 	}
+	//TODO }
+
 	if dbgInit {
 		trc("==== t=%s(%v)", t, t.Size())
 		for _, off := range offs {
@@ -416,6 +468,10 @@ outer:
 }
 
 func (c *ctx) initComplit(n cc.Node, v *complitVar, t cc.Type, m initMap, offs []int64) {
+	if m.isConst() {
+		//TODO panic(todo("%v: %s", n.Position(), cc.NodeSource(n)))
+	}
+
 	zeroed := false
 	switch t.Kind() {
 	case cc.Struct, cc.Union, cc.Array:

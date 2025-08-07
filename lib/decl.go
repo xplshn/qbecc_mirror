@@ -695,6 +695,7 @@ func (c *ctx) externalDeclarationDeclFull(n *cc.Declaration) {
 
 // Declaration
 func (c *ctx) externalDeclarationDecl(n *cc.Declaration) {
+	// c.w("\n# %v: %s\n", n.Position(), cc.NodeSource(n))
 	switch n.Case {
 	case cc.DeclarationDecl: // DeclarationSpecifiers InitDeclaratorList AttributeSpecifierList ';'
 		c.externalDeclarationDeclFull(n)
