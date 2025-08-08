@@ -364,13 +364,22 @@ func (c *ctx) isNonzero(n cc.ExpressionNode) (r bool) {
 }
 
 func (c *ctx) bool(n cc.ExpressionNode) (r any) {
-	switch r = c.expr(n, rvalue, n.Type()); n.Type().Kind() {
-	case cc.Float:
-		r = c.temp("w cnes %s, s_0\n", r)
-	case cc.Double:
-		r = c.temp("w cned %s, d_0\n", r)
+	bt := n.Type()
+	switch n.Type().Kind() {
+	case
+		cc.Bool,
+		cc.Char,
+		cc.Enum,
+		cc.Int,
+		cc.SChar,
+		cc.Short,
+		cc.UChar,
+		cc.UShort:
+
+		bt = c.ast.Int
 	}
-	return r
+	r = c.expr(n, rvalue, bt)
+	return c.temp("w cne%s %s, 0\n", c.baseType(n, bt), r)
 }
 
 // "if" '(' ExpressionList ')' Statement

@@ -497,6 +497,9 @@ var csmithFixedBugs = []string{
 	"--no-bitfields --max-nested-struct-level 10 --no-const-pointers --no-consts --no-packed-struct --no-volatile-pointers --no-volatiles --paranoid -s 3720922579",
 	"--no-bitfields --max-nested-struct-level 10 --no-const-pointers --no-consts --no-packed-struct --no-volatile-pointers --no-volatiles --paranoid -s 4263172072",
 	"--no-bitfields --max-nested-struct-level 10 --no-const-pointers --no-consts --no-packed-struct --no-volatile-pointers --no-volatiles --paranoid -s 572192313",
+
+	// qbecc
+	"--max-nested-struct-level 10 --no-const-pointers --no-consts --no-packed-struct --no-volatile-pointers --no-volatiles --paranoid -s 16158483724416576105",
 }
 
 func TestCSmith(t *testing.T) {
@@ -509,7 +512,7 @@ func TestCSmith(t *testing.T) {
 		t.Skip("csmith not found in $PATH")
 	}
 
-	p := newParalelTest(1)
+	p := newParalelTest(-1)
 
 	t.Logf("using C compiler at %s", gcc)
 	const destDir = "tmp"
@@ -591,6 +594,7 @@ var (
 )
 
 func execCSmith(t *testing.T, p *parallelTest, dir, csmithBin, csmithArgs string, hasSeed bool, sid string) (err error) {
+	// trc("run csmith")
 	csOut, err := exec.Command(csmithBin, strings.Split(csmithArgs, " ")...).Output()
 	if err != nil {
 		p.gccFails.Add(1)
@@ -604,6 +608,7 @@ func execCSmith(t *testing.T, p *parallelTest, dir, csmithBin, csmithArgs string
 		csmithArgs += " -s " + strings.TrimSpace(string(b[:x]))
 	}
 
+	// trc("write main.c")
 	cfile := filepath.Join(dir, "main.c")
 	b := []byte("//go:build ingore\n\n")
 	if err := os.WriteFile(cfile, append(b, csOut...), 0660); err != nil {
@@ -611,6 +616,7 @@ func execCSmith(t *testing.T, p *parallelTest, dir, csmithBin, csmithArgs string
 		return fmt.Errorf("os.WriteFile: %s", err)
 	}
 
+	// trc("run gcc")
 	gccBin := binPath(filepath.Join(dir, "gcc.out"))
 	csp := fmt.Sprintf("-I%s", filepath.FromSlash("/usr/include/csmith"))
 	if s := os.Getenv("CSMITH_PATH"); s != "" {
@@ -622,6 +628,7 @@ func execCSmith(t *testing.T, p *parallelTest, dir, csmithBin, csmithArgs string
 		return nil
 	}
 
+	// trc("run gcc bin")
 	gccBinOut, err := shell(gccBinTO, gccBin)
 	if err != nil {
 		p.gccFails.Add(1)
@@ -649,13 +656,14 @@ func execCSmith(t *testing.T, p *parallelTest, dir, csmithBin, csmithArgs string
 		return err
 	}
 
-	trc("")
+	// trc("run qbecc")
 	if err = task.Main(); err != nil {
 		err = fmt.Errorf("C COMPILE FAIL: args=%s err=%v", csmithArgs, err)
 		p.failed.Add(1)
 		return err
 	}
 
+	// trc("run qbecc bin")
 	qbeccBinOut, err := shell(gccBinTO, qbeccBin)
 	if err != nil {
 		err = fmt.Errorf("C EXEC FAIL: args=%s err=%v", csmithArgs, err)

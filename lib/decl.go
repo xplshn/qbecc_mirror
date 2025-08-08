@@ -287,6 +287,7 @@ type inlineStackItem struct {
 type fnCtx struct {
 	allocs           int64
 	breakCtx         *breakContinueCtx
+	post             []func()
 	continueCtx      *breakContinueCtx
 	ctx              *ctx
 	exprStatementCtx *exprStatementCtx
@@ -521,6 +522,9 @@ func (c *ctx) externalDeclarationFuncDef(n *cc.FunctionDefinition) {
 	c.fn = f
 
 	defer func() {
+		for _, v := range f.post {
+			v()
+		}
 		c.fn = nil
 	}()
 

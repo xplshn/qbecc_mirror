@@ -764,6 +764,15 @@ func (c *ctx) assignmentExpressionAssign(n *cc.AssignmentExpression, mode mode, 
 	}
 }
 
+func (c *ctx) isScalarType(t cc.Type) bool {
+	switch t.Kind() {
+	case cc.Ptr:
+		return true
+	default:
+		return c.isIntegerType(t) || c.isFloatingPointType(t)
+	}
+}
+
 // Only the subset we support.
 func (c *ctx) isIntegerType(t cc.Type) bool {
 	switch t.Kind() {

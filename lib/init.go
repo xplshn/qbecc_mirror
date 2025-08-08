@@ -159,23 +159,32 @@ func (c *ctx) littleEndianUTF32string(s cc.UTF32StringValue) (r string) {
 }
 
 func (c *ctx) initEscapedVarConst(n cc.Node, v *escapedVar, t cc.Type, m initMap, offs []int64) {
-	panic(todo("%v: %s", n.Position(), cc.NodeSource(n)))
+	nm := fmt.Sprintf("$.ci%v", c.id())
+	p := c.temp("%s add %%.bp., %v\n", c.wordTag, v.offset)
+	c.w("\tcall $memcpy(%s %s, %[1]s %[3]s, %[1]s %[4]v)\n", c.wordTag, p, nm, c.sizeof(n, t))
+	c.fn.post = append(c.fn.post, func() {
+		c.w("data %s = align %d {\n", nm, t.Align())
+		c.initStaticVar(n, v, t, m, offs)
+		c.w("}\n")
+	})
 }
 
 func (c *ctx) initEscapedVar(n cc.Node, v *escapedVar, t cc.Type, m initMap, offs []int64) {
-	//TODO if len(offs) != 0 && m.isConst() {
-	//TODO 	switch item := m[offs[0]][0]; {
-	//TODO 	case c.sizeof(n, item.t) <= 8:
-	//TODO 		// ok
-	//TODO 	case len(m) == 1 && item.t.Kind() == cc.Array && isConstExpr(item.n):
-	//TODO 		// ok
-	//TODO 	case len(m) == 1 && (c.isIntegerType(item.t) || c.isFloatingPointType(item.t)):
-	//TODO 		// ok
-	//TODO 	default:
-	//TODO 		c.initEscapedVarConst(n, v, t, m, offs)
-	//TODO 		return
-	//TODO 	}
-	//TODO }
+	if len(offs) != 0 && m.isConst() {
+		switch item := m[offs[0]][0]; {
+		case len(m) == 1 && c.isScalarType(t):
+			// ok
+		case c.isAggType(t) && c.sizeof(n, t) <= 16:
+			//
+		case len(m) == 1 && item.t.Kind() == cc.Array && isConstExpr(item.n):
+			// ok
+		case len(m) == 1 && (c.isIntegerType(item.t) || c.isFloatingPointType(item.t)):
+			// ok
+		default:
+			c.initEscapedVarConst(n, v, t, m, offs)
+			return
+		}
+	}
 
 	if dbgInit {
 		trc("==== t=%s(%v)", t, t.Size())
@@ -467,9 +476,32 @@ outer:
 	}
 }
 
+func (c *ctx) initComplitConst(n cc.Node, v *complitVar, t cc.Type, m initMap, offs []int64) {
+	nm := fmt.Sprintf("$.ci%v", c.id())
+	p := c.temp("%s add %%.bp., %v\n", c.wordTag, v.offset)
+	c.w("\tcall $memcpy(%s %s, %[1]s %[3]s, %[1]s %[4]v)\n", c.wordTag, p, nm, c.sizeof(n, t))
+	c.fn.post = append(c.fn.post, func() {
+		c.w("data %s = align %d {\n", nm, t.Align())
+		c.initStaticVar(n, v, t, m, offs)
+		c.w("}\n")
+	})
+}
+
 func (c *ctx) initComplit(n cc.Node, v *complitVar, t cc.Type, m initMap, offs []int64) {
-	if m.isConst() {
-		//TODO panic(todo("%v: %s", n.Position(), cc.NodeSource(n)))
+	if len(offs) != 0 && m.isConst() {
+		switch item := m[offs[0]][0]; {
+		case len(m) == 1 && c.isScalarType(t):
+			// ok
+		case c.isAggType(t) && c.sizeof(n, t) <= 16:
+			//
+		case len(m) == 1 && item.t.Kind() == cc.Array && isConstExpr(item.n):
+			// ok
+		case len(m) == 1 && (c.isIntegerType(item.t) || c.isFloatingPointType(item.t)):
+			// ok
+		default:
+			c.initComplitConst(n, v, t, m, offs)
+			return
+		}
 	}
 
 	zeroed := false
