@@ -14,7 +14,6 @@ import (
 	"path/filepath"
 	"regexp"
 	"runtime"
-	"runtime/debug"
 	"sort"
 	"strings"
 	"sync"
@@ -63,8 +62,8 @@ func TestMain(m *testing.M) {
 	flag.BoolVar(&skipGoABI0, "skipgoabi0", !enableGoABI0[target], "")
 	flag.BoolVar(&trcOutput, "trco", false, "")
 	flag.BoolVar(&xtrc, "trc", false, "")
-	flag.IntVar(&csmithTestLimit, "csmithn", 1000, "")
-	flag.DurationVar(&csmithTimeLimit, "csmithz", 1*time.Hour, "")
+	flag.IntVar(&csmithTestLimit, "csmithn", 4000, "")
+	flag.DurationVar(&csmithTimeLimit, "csmithz", 4*time.Hour, "")
 	flag.Parse()
 	if s := *oRE; s != "" {
 		re = regexp.MustCompile(s)
@@ -192,9 +191,6 @@ func testExec(t *testing.T, id *int, destDir, suite string, re *regexp.Regexp) {
 			continue
 		}
 
-		if *id%50 == 0 {
-			debug.FreeOSMemory()
-		}
 		sid := fmt.Sprintf("%04d", *id)
 		(*id)++
 		p.exec(func() error {
@@ -562,9 +558,6 @@ func TestCSmith(t *testing.T) {
 			stop.Store(true) // single shot, eg. -re 1110506964 to run the fixed bugs '... -s 1110506964'
 		}
 
-		if id%10 == 0 {
-			debug.FreeOSMemory()
-		}
 		func(id int) {
 			p.exec(func() (err error) {
 				dir := filepath.Join(destDir, fmt.Sprintf("csmith%v", id))
