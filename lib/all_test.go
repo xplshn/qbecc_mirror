@@ -63,7 +63,7 @@ func TestMain(m *testing.M) {
 	flag.BoolVar(&trcOutput, "trco", false, "")
 	flag.BoolVar(&xtrc, "trc", false, "")
 	flag.IntVar(&csmithTestLimit, "csmithn", 4000, "")
-	flag.DurationVar(&csmithTimeLimit, "csmithz", 4*time.Hour, "")
+	flag.DurationVar(&csmithTimeLimit, "csmith", 4*time.Hour, "")
 	flag.Parse()
 	if s := *oRE; s != "" {
 		re = regexp.MustCompile(s)
