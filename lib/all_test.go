@@ -495,8 +495,11 @@ var csmithFixedBugs = []string{
 	"--no-bitfields --max-nested-struct-level 10 --no-const-pointers --no-consts --no-packed-struct --no-volatile-pointers --no-volatiles --paranoid -s 572192313",
 
 	// qbecc
-	"--max-nested-struct-level 10 --no-const-pointers --no-consts --no-packed-struct --no-volatile-pointers --no-volatiles --paranoid -s 15024275419590464623",
 	"--max-nested-struct-level 10 --no-const-pointers --no-consts --no-packed-struct --no-volatile-pointers --no-volatiles --paranoid -s 16158483724416576105",
+
+	"--max-nested-struct-level 10 --no-const-pointers --no-consts --no-packed-struct --no-volatile-pointers --no-volatiles --paranoid -s 15024275419590464623",
+	"--max-nested-struct-level 10 --no-const-pointers --no-consts --no-packed-struct --no-volatile-pointers --no-volatiles --paranoid -s 5230333844509866022",
+	"--max-nested-struct-level 10 --no-const-pointers --no-consts --no-packed-struct --no-volatile-pointers --no-volatiles --paranoid -s 92087308333874441", 
 }
 
 func TestCSmith(t *testing.T) {
@@ -599,7 +602,7 @@ func execCSmith(t *testing.T, p *parallelTest, dir, csmithBin, csmithArgs string
 		x := bytes.Index(csOut, seed)
 		b := csOut[x+len(seed):]
 		x = bytes.IndexByte(b, '\n')
-		csmithArgs += " -s " + strings.TrimSpace(string(b[:x]))
+		csmithArgs += " -s " + strings.TrimSpace(string(b[:x])) + " # new"
 	}
 
 	// trc("write main.c")

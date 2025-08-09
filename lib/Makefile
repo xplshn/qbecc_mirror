@@ -2,7 +2,7 @@
 # Use of this source code is governed by a BSD-style
 # license that can be found in the LICENSE file.
 
-.PHONY:	all asm clean edit editor work test todo review shorttest csmith
+.PHONY:	all asm clean edit editor work test todo review shorttest csmith bgsmith
 
 all: editor
 	golint
@@ -71,3 +71,6 @@ review:
 
 shorttest:
 	go test -v -timeout 24h -short
+
+bgsmith:
+	GOMAXPROCS=1 go test -v -timeout 2400h -run TestCSmith -trc -csmithn 1000000 -csmith 2399h

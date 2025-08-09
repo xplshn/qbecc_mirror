@@ -1966,7 +1966,8 @@ func (c *ctx) unaryExpressionIncDec(n *cc.UnaryExpression, mode mode, t cc.Type,
 			panic(todo("%v: %T", n.Position(), x))
 		}
 	case rvalue:
-		defer func() { r = c.convert(n, t, n.Type(), r) }()
+		//trc("%v: %s %s<-%s", n.Position(), cc.NodeSource(n), t, n.UnaryExpression.Type())
+		defer func() { r = c.convert(n, t, n.UnaryExpression.Type(), r) }()
 
 		switch x := info.(type) {
 		case *localVar:
@@ -2043,14 +2044,14 @@ func (c *ctx) unaryExpressionNot(n *cc.UnaryExpression, mode mode, t cc.Type) (r
 
 		fallthrough
 	case void:
-		e := c.expr(n.CastExpression, rvalue, n.CastExpression.Type())
+		e := c.bool(n.CastExpression)
 		switch {
 		case c.isZero(n.CastExpression):
 			return c.temp("w copy 1\n")
 		case c.isNonzero(n.CastExpression):
 			return c.temp("w copy 0\n")
 		default:
-			return c.temp("w ceq%s %s, 0\n", c.baseType(n.CastExpression, n.CastExpression.Type()), e)
+			return c.temp("w xor %s, 1\n", e)
 		}
 	default:
 		panic(todo("%v: %v %s", n.Position(), mode, cc.NodeSource(n)))
@@ -2185,6 +2186,7 @@ func (c *ctx) elemSize(t cc.Type) (r int64) {
 }
 
 func (c *ctx) arithmeticOpRvalue(n, lhs, rhs cc.ExpressionNode, mode mode, t cc.Type, op string, ct cc.Type, lmul, rmul, div int64) (r any) {
+	// trc("%s: lhs=%s rhs=%s mode=%v t=%v op=%s ct=%v", n.Position(), cc.NodeSource(lhs), cc.NodeSource(rhs), mode, t, op, ct)
 	defer func() { r = c.convert(lhs, t, ct, r) }()
 
 	lv := c.expr(lhs, rvalue, ct)
@@ -2622,7 +2624,7 @@ func (c *ctx) arithmeticOp(n, lhs, rhs cc.ExpressionNode, mode mode, t cc.Type, 
 	}
 	switch mode {
 	case void:
-		c.arithmeticOpRvalue(n, lhs, rhs, mode, t, op, ct, lmul, rmul, div)
+		c.arithmeticOpRvalue(n, lhs, rhs, rvalue, n.Type(), op, ct, lmul, rmul, div)
 	case rvalue:
 		return c.arithmeticOpRvalue(n, lhs, rhs, mode, t, op, ct, lmul, rmul, div)
 	case lvalue:
@@ -2683,50 +2685,58 @@ func (c *ctx) additiveExpression(n *cc.AdditiveExpression, mode mode, t cc.Type)
 	}
 }
 
+func (c *ctx) toBaseType(n cc.Node, v any, t cc.Type) (r any) {
+	if c.isIntegerType(t) && t.Size() < 4 {
+		return c.convert(n, c.ast.Int, t, v)
+	}
+
+	return v
+}
+
+// returns w 0 or w 1 only.
+func (c *ctx) bool(n cc.ExpressionNode) (r any) {
+	switch {
+	case c.isZero(n):
+		c.expr(n, rvalue, n.Type())
+		return c.temp("w copy 0\n")
+	case c.isNonzero(n):
+		c.expr(n, rvalue, n.Type())
+		return c.temp("w copy 1\n")
+	default:
+		r = c.expr(n, rvalue, n.Type())
+		r = c.toBaseType(n, r, n.Type())
+		//trc("%v: %s %s<-%s", n.Position(), cc.NodeSource(n), bt, n.Type())
+		return c.temp("w cne%s %s, 0\n", c.baseType(n, n.Type()), r)
+	}
+}
+
 // LogicalOrExpression "||" LogicalAndExpression
 func (c *ctx) logicalOrExpressionLOr(n *cc.LogicalOrExpression, mode mode, t cc.Type) (r any) {
 	switch mode {
 	case rvalue:
-		defer func() { r = c.convert(n, t, n.Type(), r) }()
+		defer func() { r = c.convert(n, t, c.ast.Int, r) }()
 
 		fallthrough
 	case void:
 		switch {
 		case c.isZero(n.LogicalOrExpression):
 			c.expr(n.LogicalOrExpression, rvalue, n.LogicalOrExpression.Type())
-			e2 := c.expr(n.LogicalAndExpression, rvalue, n.LogicalAndExpression.Type())
-			switch {
-			case c.isZero(n.LogicalAndExpression):
-				return c.temp("w copy 0\n")
-			case c.isNonzero(n.LogicalAndExpression):
-				return c.temp("w copy 1\n")
-			default:
-				return c.temp("w cne%s %s, 0\n", c.baseType(n.LogicalAndExpression, n.LogicalAndExpression.Type()), e2)
-			}
+			return c.bool(n.LogicalAndExpression)
 		case c.isNonzero(n.LogicalOrExpression):
-			c.expr(n.LogicalOrExpression, rvalue, n.LogicalOrExpression.Type())
-			return c.temp("w copy 1\n")
+			return c.bool(n.LogicalOrExpression)
 		default:
 			a := c.label()
 			z := c.label()
-			//	%r = cneX orExpr, 0
+			//	%r = bool(orExpr)
 			//	jnz %r, @z, @a
 			// @a
-			//	%r = cneX andExpr, 0
+			//	%r = bool(andExpr)
 			// @z
-			e := c.expr(n.LogicalOrExpression, rvalue, n.LogicalOrExpression.Type())
-			r = c.temp("w cne%s %s, 0\n", c.baseType(n.LogicalOrExpression, n.LogicalOrExpression.Type()), e)
+			r = c.bool(n.LogicalOrExpression)
 			c.w("\tjnz %s, %s, %s\n", r, z, a)
 			c.w("%s\n", a)
-			e2 := c.expr(n.LogicalAndExpression, rvalue, n.LogicalAndExpression.Type())
-			switch {
-			case c.isZero(n.LogicalAndExpression):
-				// nop
-			case c.isNonzero(n.LogicalAndExpression):
-				c.w("\t%s =w copy 1\n", r)
-			default:
-				c.w("\t%s =w cne%s %s, 0\n", r, c.baseType(n.LogicalAndExpression, n.LogicalAndExpression.Type()), e2)
-			}
+			e2 := c.bool(n.LogicalAndExpression)
+			c.w("\t%s =w copy %s\n", r, e2)
 			c.w("%s\n", z)
 			return r
 		}

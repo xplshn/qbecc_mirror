@@ -363,25 +363,6 @@ func (c *ctx) isNonzero(n cc.ExpressionNode) (r bool) {
 	}
 }
 
-func (c *ctx) bool(n cc.ExpressionNode) (r any) {
-	bt := n.Type()
-	switch n.Type().Kind() {
-	case
-		cc.Bool,
-		cc.Char,
-		cc.Enum,
-		cc.Int,
-		cc.SChar,
-		cc.Short,
-		cc.UChar,
-		cc.UShort:
-
-		bt = c.ast.Int
-	}
-	r = c.expr(n, rvalue, bt)
-	return c.temp("w cne%s %s, 0\n", c.baseType(n, bt), r)
-}
-
 // "if" '(' ExpressionList ')' Statement
 func (c *ctx) selectionStatementIf(n *cc.SelectionStatement) {
 	a := c.label()
