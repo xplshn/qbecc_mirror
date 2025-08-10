@@ -18,7 +18,7 @@
 //	linux/arm64
 //	linux/riscv64
 //
-// These targets passes some tests.
+// These targets pass some tests.
 //
 // # Go ABI0 targets (pre-alfa quality, undocumented)
 //
