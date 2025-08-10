@@ -1,28 +1,6 @@
 //go:build none
 
 #include <stdio.h>
-#include <stdlib.h>
-
-#define trc(fmt, ...) \
-    do { \
-        printf("[TRACE] %s:%d: " fmt "\n", __FILE__, __LINE__, ##__VA_ARGS__); \
-    } while (0)
-
-// void dump(void *p, int n) {
-// 	unsigned char *q = p;
-// 	int i = 0;
-// 	for (; n; n--, q++) {
-// 		fprintf(stderr, "%02x ", *q);
-// 		i++;
-// 		if (i%16 == 0) {
-// 			fprintf(stderr, "\n");
-// 		}
-// 	}
-// 	fprintf(stderr, "\n");
-// }
-
-// ============================================================================
-
 
 /*
  * This is a RANDOMLY GENERATED PROGRAM.
@@ -150,7 +128,6 @@ static uint32_t  func_72(union U0  p_73);
  */
 static union U0  func_1(void)
 { /* block id: 0 */
-    trc("g_124=%i", g_124);
     int32_t l_16 = 1L;
     uint64_t *l_25 = &g_26;
     union U0 l_1408[7][5] = {{{0L},{-1L},{0xC01E9A3AL},{0L},{0xC01E9A3AL}},{{0L},{0L},{1L},{0x770EE9AEL},{-2L}},{{0x50C1000CL},{-2L},{0xC01E9A3AL},{0xC01E9A3AL},{-2L}},{{-2L},{-1L},{0x50C1000CL},{-2L},{0xC01E9A3AL}},{{0x770EE9AEL},{-2L},{1L},{-2L},{0x770EE9AEL}},{{0x50C1000CL},{0L},{-1L},{0xC01E9A3AL},{0L}},{{0x770EE9AEL},{-1L},{-1L},{0x770EE9AEL},{0xC01E9A3AL}}};
@@ -196,7 +173,6 @@ static union U0  func_1(void)
                         }
                     }
                 }
-    trc("g_124=%i", g_124);
                 return l_2635;
                 /* statement id: 1117 */
                             }
@@ -207,10 +183,7 @@ static union U0  func_1(void)
                 int32_t *l_2653[2][9] = {{&g_317[6],&g_317[6],(void*)0,&g_317[6],&g_317[6],(void*)0,&g_317[6],&g_317[6],(void*)0},{&g_317[6],&g_317[6],(void*)0,&g_317[6],&g_317[6],(void*)0,&g_317[6],&g_317[6],(void*)0}};
                 int64_t l_2654 = 0x3C6F81391E3DE577LL;
                 int i, j;
-    trc("g_124=%i", g_124);
-    trc("call func_47");
                 (*g_120) = func_47(((safe_lshift_func_uint16_t_u_s((9L | ((((*l_2641) = l_2640) == &g_941) == 0xDE55648FL)), 6)) & l_2613[5][7][0]), (safe_rshift_func_uint8_t_u_u(l_2613[8][3][0], (((safe_div_func_uint16_t_u_u(((safe_div_func_int32_t_s_s(l_1408[1][2].f0, ((l_2635.f0 = ((-1L) == (safe_rshift_func_uint8_t_u_u((safe_div_func_int8_t_s_s(0xFCL, l_2652[0])), (**g_146))))) , 0x5126967BL))) | l_2613[0][4][1]), 65535UL)) & 0L) >= 0xA943A9FCF5BEF00DLL))), l_2653[0][3], (*g_121), l_2654);
-    trc("g_124=%i", g_124);
             }
         }
         else
@@ -224,7 +197,6 @@ static union U0  func_1(void)
         /* facts after branching */
         assert ((g_143 >= &g_1219[0] && g_143 <= &g_1219[8]) || g_143 == 0);
         (*l_2685) ^= (((**g_647) &= 0x7115AAF9614F80F2LL) < ((safe_div_func_int64_t_s_s((((safe_rshift_func_uint16_t_u_s((((safe_mod_func_int16_t_s_s(l_2635.f0, (-1L))) , (safe_rshift_func_int8_t_s_s((safe_sub_func_int16_t_s_s((((safe_add_func_uint16_t_u_u((safe_mod_func_int16_t_s_s(g_413[0][0], l_1416)), (((l_1408[1][2].f0 = ((*l_2632) = ((*g_147) = ((safe_mul_func_int16_t_s_s((&g_1222[2][1][0] != l_2683), ((*l_2610) ^= 65535UL))) || ((0x1FACA550A6CF8276LL && g_2684) && (*g_1760)))))) < 7UL) != 4294967288UL))) & 0x8E361481FD019FCFLL) <= g_35), 0x570DL)), 5))) != (*g_1760)), 10)) != 0x243BFB2AL) <= g_117[1]), (*l_2665))) , l_1408[1][2].f0));
-    trc("g_124=%i", g_124);
         return (*l_1417);
         /* statement id: 1136 */
             }
@@ -266,14 +238,10 @@ static union U0  func_1(void)
             int16_t *l_2737 = &l_1416;
             for (l_1416 = 4; (l_1416 >= 0); l_1416 -= 1)
             { /* block id: 1149 */
-    trc("g_124=%i", g_124);
                 return (*l_1417);
                 /* statement id: 1150 */
                             }
-    trc("g_124=%i", g_124);
-    trc("call func_47");
             (*g_120) = ((0xE3BA68891D96FA53LL > l_2704) , func_47(((*g_147) = (safe_sub_func_uint8_t_u_u(((((((safe_sub_func_uint32_t_u_u((**g_895), (~((((*l_2720) = g_2719) != &l_1408[1][2]) < (((**g_2497) = (void*)0) != l_2610))))) != l_2697) , ((((l_2721 || (***g_646)) < (**g_895)) < l_2704) <= (*g_648))) , l_2722[2][0]) != l_2723) & (*g_648)), (*g_1760)))), l_2705, &l_2705, l_2724[0][6], (***l_2723)));
-    trc("g_124=%i", g_124);
             (**g_120) = (((((****g_1911) = g_2725) < (l_2705 != (*g_648))) >= l_2704) >= (l_2704 , ((*l_2737) = (((++(*l_2610)) , (((+(safe_mod_func_uint8_t_u_u(l_2697, (((*g_1760) = ((*g_896) <= (l_2731 <= ((safe_rshift_func_uint8_t_u_u(((((safe_mod_func_int16_t_s_s(((*l_2736) = l_2705), 1UL)) >= (***l_2723)) == l_2705) > 1L), 0)) != 1UL)))) && (***l_2723))))) & (**g_120)) <= l_2697)) == 0x83L))));
         }
     }
@@ -282,7 +250,6 @@ static union U0  func_1(void)
     //assert (g_200 == dangling || g_200 == &g_59);
     assert (g_295 == 0 || g_295 == &g_1522);
     assert (g_1522 == 0 || g_1522 == &g_120);
-    trc("g_124=%i", g_124);
     return (*l_1417);
     /* statement id: 1164 */
     }
@@ -295,12 +262,10 @@ static union U0  func_1(void)
  */
 static int8_t  func_3(int64_t  p_4, int64_t  p_5)
 { /* block id: 1102 */
-    trc("g_124=%i", g_124);
     int32_t *l_2612 = &g_1219[6];
     (*g_120) = l_2612;
     /* statement id: 1103 */
     assert ((g_121 >= &g_1219[0] && g_121 <= &g_1219[8]));
-    trc("g_124=%i", g_124);
     return p_4;
 }
 
@@ -382,8 +347,6 @@ static uint16_t  func_8(int32_t  p_9, union U0  p_10, uint32_t  p_11, union U0  
         uint16_t *l_1434 = &g_313;
         int16_t l_1435 = 1L;
         int32_t l_1487 = 1L;
-    trc("g_124=%i", g_124);
-    trc("l_1487=%i", l_1487);
         union U0 **l_1563[8][8][3] = {{{(void*)0,&g_1223[0][6],&g_1223[0][6]},{&g_1223[0][6],&g_1223[1][3],&g_1223[3][3]},{&g_1223[1][2],(void*)0,(void*)0},{&g_1223[0][6],&g_1223[0][6],(void*)0},{(void*)0,&g_1223[1][2],&g_1223[3][8]},{&g_1223[1][7],&g_1223[0][6],&g_1223[1][7]},{&g_1223[0][6],(void*)0,&g_1223[1][8]},{(void*)0,&g_1223[1][3],&g_1223[1][7]}},{{&g_1223[1][8],&g_1223[0][6],&g_1223[3][8]},{&g_1223[0][6],&g_1223[0][6],(void*)0},{&g_1223[1][8],&g_1223[1][8],(void*)0},{(void*)0,&g_1223[0][6],&g_1223[3][3]},{&g_1223[0][6],&g_1223[1][8],&g_1223[0][6]},{&g_1223[1][7],&g_1223[0][6],&g_1223[0][6]},{(void*)0,&g_1223[0][6],&g_1223[0][6]},{&g_1223[0][6],&g_1223[1][3],&g_1223[3][3]}},{{&g_1223[1][2],(void*)0,(void*)0},{&g_1223[0][6],&g_1223[0][6],(void*)0},{(void*)0,&g_1223[1][2],&g_1223[3][8]},{&g_1223[1][7],&g_1223[0][6],&g_1223[1][7]},{&g_1223[0][6],(void*)0,&g_1223[1][8]},{(void*)0,&g_1223[1][3],&g_1223[1][7]},{&g_1223[1][8],&g_1223[0][6],&g_1223[3][8]},{&g_1223[0][6],&g_1223[0][6],(void*)0}},{{&g_1223[1][8],&g_1223[1][8],(void*)0},{(void*)0,&g_1223[0][6],&g_1223[3][3]},{&g_1223[0][6],&g_1223[1][8],&g_1223[0][6]},{&g_1223[1][7],&g_1223[0][6],&g_1223[0][6]},{(void*)0,&g_1223[0][6],&g_1223[0][6]},{&g_1223[0][6],&g_1223[1][3],&g_1223[3][3]},{&g_1223[1][2],(void*)0,(void*)0},{&g_1223[0][6],&g_1223[0][6],(void*)0}},{{(void*)0,&g_1223[1][2],&g_1223[3][8]},{&g_1223[1][7],&g_1223[0][6],&g_1223[1][7]},{&g_1223[0][6],(void*)0,&g_1223[1][8]},{(void*)0,&g_1223[1][3],&g_1223[1][7]},{&g_1223[1][8],&g_1223[0][6],&g_1223[3][8]},{&g_1223[0][6],&g_1223[0][6],(void*)0},{&g_1223[1][8],&g_1223[1][8],(void*)0},{(void*)0,&g_1223[0][6],&g_1223[3][3]}},{{&g_1223[0][6],&g_1223[1][8],&g_1223[0][6]},{&g_1223[1][7],&g_1223[0][6],&g_1223[0][6]},{(void*)0,&g_1223[0][6],&g_1223[0][6]},{&g_1223[0][6],&g_1223[1][3],&g_1223[3][3]},{&g_1223[1][2],(void*)0,(void*)0},{&g_1223[0][6],&g_1223[0][6],(void*)0},{(void*)0,&g_1223[1][2],&g_1223[3][8]},{&g_1223[1][7],&g_1223[0][6],&g_1223[1][7]}},{{&g_1223[0][6],(void*)0,&g_1223[1][8]},{(void*)0,&g_1223[1][3],&g_1223[1][7]},{&g_1223[1][8],&g_1223[0][6],&g_1223[3][8]},{&g_1223[0][6],&g_1223[0][6],(void*)0},{&g_1223[1][8],&g_1223[1][8],(void*)0},{(void*)0,&g_1223[0][6],&g_1223[3][3]},{&g_1223[0][6],&g_1223[1][8],&g_1223[0][6]},{&g_1223[1][7],&g_1223[1][3],(void*)0}},{{&g_1223[0][6],&g_1223[1][2],&g_1223[1][2]},{(void*)0,&g_1223[0][6],(void*)0},{&g_1223[3][8],&g_1223[0][6],&g_1223[1][8]},{(void*)0,&g_1223[2][0],&g_1223[0][6]},{&g_1223[0][6],&g_1223[3][8],(void*)0},{&g_1223[0][6],&g_1223[2][0],&g_1223[0][6]},{&g_1223[1][2],&g_1223[0][6],&g_1223[0][1]},{&g_1223[1][7],&g_1223[0][6],&g_1223[0][6]}}};
         int32_t *l_1589 = &l_1489[3][4][1];
         int32_t l_1611 = (-2L);
@@ -392,8 +355,6 @@ static uint16_t  func_8(int32_t  p_9, union U0  p_10, uint32_t  p_11, union U0  
         int32_t l_1618[7];
         int32_t ****l_1629 = (void*)0;
         int i, j, k;
-    int64_t xx = l_1487;
-    trc("xx=%lli", xx);
         for (i = 0; i < 7; i++)
             l_1618[i] = 0xC75185FEL;
         l_1436 ^= (~((safe_lshift_func_int16_t_s_u((g_117[0] = p_10.f0), ((*l_1434) &= ((((p_11 | ((safe_sub_func_int16_t_s_s(((l_1418 >= l_1425) < (safe_div_func_uint8_t_u_u((p_10.f0 >= p_10.f0), (((((*l_1431) = l_1428[5][4][1]) == l_1432[3][5][3]) & (~g_92[1])) & 0xB7L)))), p_13)) | 0xD90F5AEEE627E850LL)) < l_1425) , 4294967295UL) < 1UL)))) , l_1435));
@@ -413,7 +374,6 @@ static uint16_t  func_8(int32_t  p_9, union U0  p_10, uint32_t  p_11, union U0  
             for (g_887 = 0; (g_887 > 3); g_887 = safe_add_func_int32_t_s_s(g_887, 3))
             { /* block id: 582 */
                 (*g_120) = (*g_120);
-    trc("g_124=%i", g_124);
                 return p_13;
             }
             for (g_127 = (-3); (g_127 > 17); g_127 = safe_add_func_uint32_t_u_u(g_127, 7))
@@ -421,6 +381,7 @@ static uint16_t  func_8(int32_t  p_9, union U0  p_10, uint32_t  p_11, union U0  
                 int64_t l_1445 = 0x6E380154D2EE6A64LL;
                 int32_t l_1446 = (-1L);
                 int32_t l_1490 = 0xAB9DC537L;
+		printf("%i\n", l_2009);
                 if ((safe_lshift_func_uint8_t_u_u((((safe_rshift_func_uint16_t_u_u((l_1445 |= ((*l_1434) = p_11)), 1)) ^ (l_1446 | ((safe_add_func_uint8_t_u_u((4294967290UL && 1UL), ((safe_mul_func_int16_t_s_s((l_1435 & ((*g_147) , ((safe_mul_func_uint8_t_u_u((safe_add_func_uint8_t_u_u((safe_lshift_func_uint16_t_u_u((safe_div_func_uint32_t_u_u((*g_896), (func_19(p_10.f0, func_19(p_11, p_12, l_1459), l_1459) , 0xAA96EC6FL))), l_1446)), p_13)), 0x1FL)) , l_1418))), p_12.f0)) & p_9))) == p_11))) > p_9), l_1435)))
                 { /* block id: 591 */
                     for (g_1304 = 0; (g_1304 == 12); g_1304 = safe_add_func_uint32_t_u_u(g_1304, 4))
@@ -433,6 +394,7 @@ static uint16_t  func_8(int32_t  p_9, union U0  p_10, uint32_t  p_11, union U0  
                 }
                 else
                 { /* block id: 598 */
+		    printf("%i\n", l_1487);
                     int32_t *l_1468 = (void*)0;
                     int32_t *l_1469 = &l_1425;
                     int32_t l_1488[2][8] = {{0x325ABB80L,0x325ABB80L,0x325ABB80L,0x325ABB80L,0x325ABB80L,0x325ABB80L,0x325ABB80L,0x325ABB80L},{0x325ABB80L,0x325ABB80L,0x325ABB80L,0x325ABB80L,0x325ABB80L,0x325ABB80L,0x325ABB80L,0x325ABB80L}};
@@ -448,9 +410,7 @@ static uint16_t  func_8(int32_t  p_9, union U0  p_10, uint32_t  p_11, union U0  
                         if (p_10.f0)
                             break;
                         l_1477[2][3][6] = ((p_10 = (p_12 = func_19(((*g_147) != (p_9 & (!1UL))), p_10, (*g_648)))) , (((((((0x0F7EA79B5A9C9984LL | (l_1476 != (void*)0)) , l_1446) < 0x34EFL) < l_1465) == 0xE994L) || 0x5C9C0081L) , &p_9));
-    trc("l_1487=%i", l_1487);
                         l_1487 |= ((safe_mod_func_uint32_t_u_u((((l_1480[4][0] == (*g_146)) & ((safe_rshift_func_int16_t_s_u((safe_lshift_func_uint8_t_u_u((l_1485 == (void*)0), p_10.f0)), 11)) | 0x11FD86DDL)) & ((*l_1469) = l_1435)), l_1435)) || (l_1486 = ((*g_648) == (-1L))));
-    trc("l_1487=%i", l_1487);
                         l_1491--;
                     }
                 }
@@ -460,8 +420,6 @@ static uint16_t  func_8(int32_t  p_9, union U0  p_10, uint32_t  p_11, union U0  
             (*g_120) = ((l_1489[5][4][0] = (p_9 | (l_1435 == ((safe_mul_func_int16_t_s_s((safe_add_func_int16_t_s_s((l_1510 = ((((((*l_1499) = l_1489[2][3][0]) , g_187) , (~(func_19(((*l_1434) ^= ((((*g_147) ^ ((p_12.f0 , (*g_200)) , 1L)) < (safe_mul_func_int16_t_s_s((safe_mul_func_uint16_t_u_u((safe_mod_func_uint8_t_u_u((((((safe_div_func_uint32_t_u_u(p_11, p_12.f0)) | p_10.f0) & p_12.f0) > p_9) != (**g_895)), l_1509[0])), g_1219[3])), p_11))) || p_13)), p_10, p_12.f0) , p_10.f0))) || p_13) >= 0L)), p_13)), 0x5EF7L)) == p_13)))) , &p_9);
             /* statement id: 620 */
             assert (g_121 == &p_9);
-    int64_t xx = l_1487;
-    trc("xx=%lli", xx);
             for (l_1436 = 4; (l_1436 >= 1); l_1436 -= 1)
             { /* block id: 623 */
                 int32_t ***l_1520[4][10][6] = {{{&g_120,&g_120,&g_120,&g_120,&g_120,&g_120},{&g_120,&g_120,&g_120,&g_120,&g_120,(void*)0},{&g_120,&g_120,&g_120,&g_120,&g_120,&g_120},{&g_120,&g_120,&g_120,&g_120,&g_120,(void*)0},{&g_120,&g_120,&g_120,&g_120,&g_120,&g_120},{&g_120,(void*)0,(void*)0,&g_120,&g_120,(void*)0},{&g_120,&g_120,&g_120,&g_120,&g_120,&g_120},{(void*)0,(void*)0,&g_120,&g_120,(void*)0,(void*)0},{&g_120,&g_120,&g_120,&g_120,&g_120,&g_120},{&g_120,&g_120,&g_120,&g_120,&g_120,&g_120}},{{&g_120,&g_120,&g_120,&g_120,&g_120,(void*)0},{&g_120,&g_120,&g_120,&g_120,&g_120,&g_120},{&g_120,&g_120,&g_120,&g_120,&g_120,(void*)0},{&g_120,&g_120,(void*)0,(void*)0,&g_120,&g_120},{&g_120,(void*)0,&g_120,&g_120,&g_120,&g_120},{&g_120,&g_120,&g_120,&g_120,(void*)0,&g_120},{&g_120,(void*)0,&g_120,&g_120,&g_120,&g_120},{&g_120,&g_120,&g_120,(void*)0,&g_120,&g_120},{&g_120,&g_120,(void*)0,&g_120,&g_120,&g_120},{&g_120,&g_120,&g_120,&g_120,&g_120,&g_120}},{{&g_120,&g_120,&g_120,&g_120,&g_120,&g_120},{&g_120,&g_120,(void*)0,&g_120,&g_120,&g_120},{&g_120,&g_120,&g_120,&g_120,&g_120,&g_120},{&g_120,&g_120,&g_120,&g_120,&g_120,&g_120},{(void*)0,&g_120,&g_120,&g_120,&g_120,&g_120},{&g_120,&g_120,&g_120,&g_120,&g_120,&g_120},{&g_120,&g_120,(void*)0,&g_120,&g_120,&g_120},{&g_120,(void*)0,&g_120,&g_120,(void*)0,(void*)0},{&g_120,&g_120,&g_120,(void*)0,&g_120,&g_120},{&g_120,(void*)0,(void*)0,(void*)0,&g_120,&g_120}},{{(void*)0,&g_120,&g_120,&g_120,&g_120,&g_120},{(void*)0,&g_120,&g_120,&g_120,&g_120,&g_120},{&g_120,&g_120,&g_120,&g_120,&g_120,&g_120},{&g_120,&g_120,&g_120,&g_120,&g_120,&g_120},{(void*)0,&g_120,(void*)0,&g_120,&g_120,&g_120},{&g_120,&g_120,&g_120,&g_120,(void*)0,&g_120},{&g_120,(void*)0,&g_120,&g_120,&g_120,(void*)0},{&g_120,&g_120,&g_120,&g_120,&g_120,&g_120},{&g_120,&g_120,&g_120,&g_120,&g_120,&g_120},{&g_120,&g_120,&g_120,&g_120,&g_120,&g_120}}};
@@ -472,8 +430,6 @@ static uint16_t  func_8(int32_t  p_9, union U0  p_10, uint32_t  p_11, union U0  
                 p_10.f0 ^= g_1326[(l_1436 + 1)];
                 (**g_120) &= ((safe_rshift_func_int16_t_s_s((g_317[6] != p_12.f0), (safe_mul_func_int8_t_s_s((safe_mod_func_uint8_t_u_u((safe_mul_func_uint8_t_u_u((&g_647 != l_1519), ((((-7L) < ((((g_1522 = l_1520[1][9][0]) == (void*)0) && (((((*g_120) == (void*)0) >= p_13) == 0UL) != p_10.f0)) | p_11)) >= p_13) == g_1523[2][2][0]))), l_1418)), (-7L))))) == (-1L));
                 l_1526[0] = g_1524;
-    int64_t xx = l_1487;
-    trc("xx=%lli", xx);
                 for (g_35 = 0; (g_35 <= 4); g_35 += 1)
                 { /* block id: 630 */
                     uint8_t l_1527 = 0xC3L;
@@ -481,12 +437,7 @@ static uint16_t  func_8(int32_t  p_9, union U0  p_10, uint32_t  p_11, union U0  
                     {
                         g_1326[g_119] = 0x8B49226AL;
                     }
-    trc("g_124=%i", g_124);
-    trc("call func_47 PRE FAIL");
-    int64_t xx = l_1487;
-    trc("xx=%lli", xx);
-                    l_1477[2][3][6] = func_47(((*g_147) = (*g_147)), l_1527, (((((((p_10.f0 & (((l_1425 = ((p_12.f0 != l_1425) ^ ((l_1510, l_1527)))), 0x5D78451B53174ACCLL))) | ((*l_1499) &= (safe_sub_func_int64_t_s_s(l_1487, 0x7C2247B2BF6EF915LL)))), l_1527)), (-5L))) , &p_9), p_12.f0, (*g_896));
-    trc("g_124=%i", g_124);
+                    l_1477[2][3][6] = func_47(((*g_147) = (*g_147)), l_1527, ((safe_sub_func_uint32_t_u_u((safe_div_func_int64_t_s_s(((p_10.f0 & (safe_sub_func_uint64_t_u_u((l_1425 = ((p_12.f0 != l_1425) ^ (safe_mul_func_int16_t_s_s(l_1510, l_1527)))), 0x5D78451B53174ACCLL))) | ((*l_1499) &= (safe_sub_func_int64_t_s_s(l_1487, 0x7C2247B2BF6EF915LL)))), l_1527)), (-5L))) , &p_9), p_12.f0, (*g_896));
                     if (l_1489[2][3][0])
                         break;
                     for (g_157 = 1; (g_157 <= 4); g_157 += 1)
@@ -574,10 +525,7 @@ static uint16_t  func_8(int32_t  p_9, union U0  p_10, uint32_t  p_11, union U0  
                 else
                 { /* block id: 684 */
                     int32_t *****l_1585 = &l_1584[4][6][2];
-    trc("g_124=%i", g_124);
-    trc("call func_47");
                     l_1589 = func_47(((251UL | (l_1588 &= ((0UL != g_1326[7]) != ((p_9 != (p_11 = (l_1510 && 0x34L))) > ((&g_1522 == ((*l_1585) = l_1584[4][6][2])) != (safe_rshift_func_uint16_t_u_u(((*l_1434) &= ((0x6EC2L <= p_9) >= 0x40E0A5D7897DB9E5LL)), 11))))))) || 18446744073709551615UL), p_9, (*g_120), p_10.f0, (**g_895));
-    trc("g_124=%i", g_124);
                     /* statement id: 689 */
                     assert (l_1589 == 0);
                 }
@@ -590,10 +538,7 @@ static uint16_t  func_8(int32_t  p_9, union U0  p_10, uint32_t  p_11, union U0  
                     union U0 l_1602[7] = {{0xBFA12502L},{3L},{0xBFA12502L},{0xBFA12502L},{3L},{0xBFA12502L},{0xBFA12502L}};
                     int8_t l_1608 = 0x1DL;
                     int i;
-    trc("g_124=%i", g_124);
-    trc("call func_47");
                     (*g_120) = func_47(((safe_add_func_int16_t_s_s((g_117[1] = 0x981EL), (safe_add_func_int16_t_s_s(p_13, (func_19((l_1601[0] = ((p_13 | (safe_rshift_func_uint16_t_u_u(((safe_sub_func_uint16_t_u_u(65532UL, 1L)) == 0xD7AAE819L), (l_1436 = (+l_1601[0]))))) >= ((*l_1579) = 0xA9A8687F3171164ALL))), (p_12 = func_19((0xDAC732B30081E95CLL != (***g_646)), l_1602[3], p_10.f0)), l_1588) , (-1L)))))) >= p_11), p_13, (*g_120), l_1602[3].f0, l_1603);
-    trc("g_124=%i", g_124);
                     for (g_124 = (-30); (g_124 == 11); g_124++)
                     { /* block id: 702 */
                         int64_t l_1606 = 0x1BD2C2747BDDFB59LL;
@@ -618,7 +563,6 @@ static uint16_t  func_8(int32_t  p_9, union U0  p_10, uint32_t  p_11, union U0  
                     for (g_124 = 0; (g_124 <= 1); g_124 += 1)
                     { /* block id: 708 */
                         int8_t l_1631 = 5L;
-    trc("g_124=%i", g_124);
                         return l_1631;
                     }
                 }
@@ -651,7 +595,6 @@ static uint16_t  func_8(int32_t  p_9, union U0  p_10, uint32_t  p_11, union U0  
         int i, j, k;
         for (l_1510 = 0; (l_1510 <= 1); l_1510 += 1)
         { /* block id: 720 */
-    trc("g_124=%i", g_124);
             return p_13;
         }
         for (g_127 = 0; (g_127 <= 8); g_127 += 1)
@@ -667,7 +610,6 @@ static uint16_t  func_8(int32_t  p_9, union U0  p_10, uint32_t  p_11, union U0  
     //assert ((l_1583[0][0] >= &g_894[0] && l_1583[0][0] <= &g_894[8]) || l_1583[0][0] == 0);
     if ((safe_lshift_func_int8_t_s_s(l_1652, (safe_unary_minus_func_uint16_t_u((safe_sub_func_int16_t_s_s(((safe_div_func_int64_t_s_s(((l_1625 = ((((safe_sub_func_int16_t_s_s(l_1652, ((safe_mod_func_uint32_t_u_u((safe_mul_func_uint16_t_u_u((p_12.f0 , (0L > l_1578)), ((safe_sub_func_uint64_t_u_u(l_1436, (((((safe_add_func_int64_t_s_s(((**g_647) ^= (((((*g_896) = 4294967295UL) , (((safe_lshift_func_uint16_t_u_s((l_1489[0][1][0] = (safe_mul_func_uint8_t_u_u((0x3EE5L > (safe_mul_func_int8_t_s_s((safe_add_func_int8_t_s_s(((((safe_mul_func_uint16_t_u_u((l_1489[2][3][0] >= p_11), g_1081)) , (*g_146)) == &l_1652) ^ 0xE11067A2B8C730F9LL), p_9)), l_1578))), p_9))), 12)) & 18446744073709551615UL) & 0x39295CC0L)) & l_1418) > 0xA7L)), l_1510)) , (void*)0) == l_1687) , g_17) || 0x8397L))) < p_9))), p_10.f0)) || 18446744073709551614UL))) & l_1418) == 0x7C071215L) < 2UL)) >= 0x793CFE1B9563DD3ELL), p_11)) != l_1418), 0L)))))))
     { /* block id: 739 */
-    trc("g_124=%i", g_124);
         return p_12.f0;
         /* statement id: 740 */
         //assert (g_121 == 0 || g_121 == dangling);
@@ -747,7 +689,6 @@ static uint16_t  func_8(int32_t  p_9, union U0  p_10, uint32_t  p_11, union U0  
                     if (p_9)
                         break;
                     l_1744 &= ((0xFE6FE18A77CF2B28LL & ((safe_lshift_func_int16_t_s_s(0x1512L, 10)) | (safe_rshift_func_uint16_t_u_s((safe_mod_func_uint32_t_u_u((((safe_lshift_func_int8_t_s_s(((safe_lshift_func_uint8_t_u_u(248UL, 6)) || (safe_unary_minus_func_uint8_t_u(255UL))), 6)) >= l_1732) != (safe_unary_minus_func_uint64_t_u(((p_12.f0 == (((safe_lshift_func_int8_t_s_s((safe_add_func_int8_t_s_s(((*l_1742) = ((l_1738 != (void*)0) , (((((safe_add_func_uint32_t_u_u(4294967295UL, l_1741)) & p_10.f0) && p_12.f0) >= 0x5C6B3FA3L) >= (**g_647)))), l_1741)), p_12.f0)) ^ 0xDACCA9ADL) && 0x557E661C52DDFF15LL)) == 0UL)))), l_1743)), 2)))) , 8L);
-    trc("g_124=%i", g_124);
                     return p_9;
                     /* statement id: 768 */
                     //assert (g_121 == 0 || g_121 == dangling);
@@ -799,7 +740,6 @@ static uint16_t  func_8(int32_t  p_9, union U0  p_10, uint32_t  p_11, union U0  
                     (*l_1787) |= ((safe_div_func_uint8_t_u_u((l_1807 &= p_10.f0), ((p_12.f0 || (((safe_sub_func_uint16_t_u_u(((void*)0 == &p_12), (((l_1812 = l_1812) == (l_1816 = l_1815)) || ((safe_mul_func_uint16_t_u_u(((((safe_div_func_int16_t_s_s((safe_mul_func_int16_t_s_s(((*l_1835) = ((safe_mod_func_int8_t_s_s(l_1825, (safe_mul_func_int16_t_s_s((safe_sub_func_uint32_t_u_u(((safe_div_func_int16_t_s_s((((**l_1761) = 4294967289UL) && ((l_1833 = g_1832) == l_1834[5])), l_1749)) == 0UL), 0x428A558CL)), p_11)))) >= p_11)), g_35)), g_1219[6])) , p_12.f0) , l_1836) == l_1837), p_13)) < l_1436)))) , (-3L)) && p_13)) && p_10.f0))) != p_11);
                     for (l_1798 = (-5); (l_1798 > 12); l_1798 = safe_add_func_int32_t_s_s(l_1798, 4))
                     { /* block id: 797 */
-    trc("g_124=%i", g_124);
                         return p_9;
                         /* statement id: 798 */
                         //assert (g_121 == 0 || g_121 == dangling);
@@ -827,10 +767,7 @@ static uint16_t  func_8(int32_t  p_9, union U0  p_10, uint32_t  p_11, union U0  
                     if (p_9)
                         break;
                 }
-    trc("g_124=%i", g_124);
-    trc("call func_47");
                 (*g_121) = (safe_rshift_func_int8_t_s_u(((((safe_mul_func_uint8_t_u_u((safe_mod_func_int64_t_s_s((((***g_1524) = func_47((safe_lshift_func_int16_t_s_u((safe_div_func_int8_t_s_s(((*g_1760) ^= ((safe_div_func_uint8_t_u_u((safe_add_func_uint8_t_u_u(((18446744073709551612UL && (((g_130--) & (((safe_mod_func_uint64_t_u_u(((((safe_div_func_uint16_t_u_u(p_13, g_1877)) , p_12.f0) > (4294967286UL >= l_1854)) <= ((l_1706[0] = (*l_1833)) == (void*)0)), (safe_lshift_func_int8_t_s_u(l_1578, 5)))) || l_1854) <= g_157)) == 65532UL)) , p_13), 251UL)), p_11)) & (**g_647))), 0xE4L)), (*l_1784))), p_12.f0, (*g_120), l_1741, p_10.f0)) != (void*)0), 18446744073709551614UL)), (*l_1785))) <= p_11) && 6UL) , l_1757[1][4]), l_1792));
-    trc("g_124=%i", g_124);
                 /* statement id: 819 */
                 assert (g_200 == &p_9);
                 //assert ((l_1706[0] >= &g_894[0] && l_1706[0] <= &g_894[8]) || l_1706[0] == 0);
@@ -865,7 +802,6 @@ static uint16_t  func_8(int32_t  p_9, union U0  p_10, uint32_t  p_11, union U0  
                         int32_t *l_1915 = &l_1791[1];
                         (*l_1915) = (((*l_1913) = g_1911) != l_1914);
                     }
-    trc("g_124=%i", g_124);
                     return p_10.f0;
                     /* statement id: 839 */
                     //assert (g_121 == 0 || g_121 == dangling);
@@ -905,7 +841,6 @@ static uint16_t  func_8(int32_t  p_9, union U0  p_10, uint32_t  p_11, union U0  
                             break;
                         if ((*g_121))
                             break;
-    trc("g_124=%i", g_124);
                         return l_1998;
                         /* statement id: 874 */
                         //assert (g_121 == dangling);
@@ -943,7 +878,6 @@ static uint16_t  func_8(int32_t  p_9, union U0  p_10, uint32_t  p_11, union U0  
                     { /* block id: 889 */
                         l_2022++;
                         l_1436 &= (safe_lshift_func_int8_t_s_s((safe_lshift_func_uint16_t_u_s(((((***l_1914) = (***g_1911)) == (void*)0) || 2UL), (safe_sub_func_int32_t_s_s(((safe_div_func_uint32_t_u_u(((safe_mul_func_int8_t_s_s(0xF3L, (~2L))) > (safe_mod_func_int64_t_s_s(((+(safe_add_func_uint64_t_u_u((((safe_div_func_uint64_t_u_u(l_2043, (safe_mul_func_int16_t_s_s((safe_div_func_int64_t_s_s((((safe_add_func_int64_t_s_s((safe_div_func_int32_t_s_s(((void*)0 != l_2052), ((l_2022 ^ p_10.f0) , l_1935))), (**g_647))) < l_1998) , 0xD33246A9A834ECDBLL), p_12.f0)), p_10.f0)))) && 1UL) & p_13), (**g_647)))) , (**g_647)), p_9))), p_13)) == p_13), 0xFF317BD7L)))), 5));
-    trc("g_124=%i", g_124);
                         return p_12.f0;
                         /* statement id: 893 */
                         //assert (g_121 == 0 || g_121 == dangling);
@@ -1022,10 +956,7 @@ static uint16_t  func_8(int32_t  p_9, union U0  p_10, uint32_t  p_11, union U0  
             break;
         if (l_2058)
             break;
-    trc("g_124=%i", g_124);
-    trc("call func_47");
         l_2072 = func_47(p_12.f0, l_2059, ((*g_120) = (l_2054[1][3] = (((safe_sub_func_uint32_t_u_u(((**g_895)--), 0x2BB31E76L)) , (safe_mod_func_uint64_t_u_u((safe_lshift_func_uint16_t_u_s(l_2058, l_2068)), ((safe_rshift_func_uint16_t_u_s((l_2071 == l_2071), (p_13 != p_9))) , p_13)))) , &l_1489[2][3][0]))), p_12.f0, l_2068);
-    trc("g_124=%i", g_124);
         /* statement id: 909 */
         assert ((g_121 >= &l_1489[0][0][0] && g_121 <= &l_1489[6][5][1]));
         assert ((l_2072 >= &l_1489[0][0][0] && l_2072 <= &l_1489[6][5][1]));
@@ -1076,7 +1007,6 @@ static uint16_t  func_8(int32_t  p_9, union U0  p_10, uint32_t  p_11, union U0  
     }
     /* facts after for loop */
     //assert ((g_121 >= &l_1489[0][0][0] && g_121 <= &l_1489[6][5][1]) || g_121 == 0 || g_121 == &p_9 || g_121 == dangling);
-    trc("g_124=%i", g_124);
     return l_2609;
     /* statement id: 1100 */
     //assert (g_121 == 0 || g_121 == dangling);
@@ -1091,7 +1021,6 @@ static uint16_t  func_8(int32_t  p_9, union U0  p_10, uint32_t  p_11, union U0  
  */
 static union U0  func_19(uint16_t  p_20, union U0  p_21, int64_t  p_22)
 { /* block id: 570 */
-    trc("g_124=%i", g_124);
     return p_21;
     /* statement id: 571 */
     }
@@ -1104,7 +1033,6 @@ static union U0  func_19(uint16_t  p_20, union U0  p_21, int64_t  p_22)
  */
 static uint32_t  func_23(uint64_t  p_24)
 { /* block id: 2 */
-    trc("g_124=%i", g_124);
     int32_t *l_66 = (void*)0;
     int32_t l_714 = (-7L);
     int32_t l_715[7] = {(-1L),(-1L),(-1L),(-1L),(-1L),(-1L),(-1L)};
@@ -1196,14 +1124,10 @@ static uint32_t  func_23(uint64_t  p_24)
         int i;
         for (i = 0; i < 1; i++)
             l_1400[i] = (void*)0;
-    trc("g_124=%i", g_124);
-    trc("call func_47");
         (*g_120) = func_47(((*g_147) = ((safe_add_func_uint32_t_u_u(0xA59C8D7BL, (0x0FBC0908D9126981LL && (&g_199 != (p_24 , l_1393))))) < ((~((p_24 > ((safe_lshift_func_uint16_t_u_u((safe_rshift_func_int16_t_s_s(p_24, ((((*l_976) |= (l_1399 == ((l_1401 , (-1L)) , &l_1400[0]))) >= 0x8CA8L) && (*g_648)))), l_1401)) | p_24)) , 0x6DA677CBL)) , (-1L)))), l_1401, &l_1401, p_24, p_24);
-    trc("g_124=%i", g_124);
     }
     l_1402++;
     (*l_1406) = p_24;
-    trc("g_124=%i", g_124);
     return l_1407;
 }
 
@@ -1215,7 +1139,6 @@ static uint32_t  func_23(uint64_t  p_24)
  */
 static int32_t  func_37(int16_t  p_38, int16_t  p_39, uint64_t * p_40, uint32_t  p_41)
 { /* block id: 189 */
-    trc("g_124=%i", g_124);
     int64_t l_425 = 0x2B8D876790BB88B1LL;
     int32_t l_434[7];
     int32_t l_435 = 0x9606F892L;
@@ -1236,7 +1159,6 @@ static int32_t  func_37(int16_t  p_38, int16_t  p_39, uint64_t * p_40, uint32_t 
         l_434[i] = 0L;
     for (g_157 = 24; (g_157 != 14); g_157 = safe_sub_func_int32_t_s_s(g_157, 1))
     { /* block id: 192 */
-    trc("g_124=%i", g_124);
         return l_425;
     }
     if (l_425)
@@ -1426,7 +1348,6 @@ static int32_t  func_37(int16_t  p_38, int16_t  p_39, uint64_t * p_40, uint32_t 
     assert (l_512 == 0 || l_512 == &g_476);
     assert ((l_643 >= &g_92[0] && l_643 <= &g_92[4]) || l_643 == 0);
     assert (l_670 == &l_671 || l_670 == 0);
-    trc("g_124=%i", g_124);
     return l_703;
 }
 
@@ -1438,7 +1359,6 @@ static int32_t  func_37(int16_t  p_38, int16_t  p_39, uint64_t * p_40, uint32_t 
  */
 static int16_t  func_42(int32_t * p_43, int16_t  p_44, uint8_t  p_45, int8_t  p_46)
 { /* block id: 53 */
-    trc("g_124=%i", g_124);
     int32_t *l_160 = &g_33;
     int32_t ***l_163 = &g_120;
     int32_t l_186[2][1][1];
@@ -1533,15 +1453,10 @@ static int16_t  func_42(int32_t * p_43, int16_t  p_44, uint8_t  p_45, int8_t  p_
                         g_317[6] = ((safe_div_func_int16_t_s_s((((*l_160) = (l_186[l_294][g_187][l_294] , (((((g_92[(l_294 + 4)] , (g_117[g_187] , l_267)) == ((*l_323) = (g_117[(g_187 + 1)] , &p_46))) <= (safe_rshift_func_int8_t_s_u(0L, ((safe_sub_func_int8_t_s_s(g_117[(l_294 + 1)], (l_329 != l_329))) , (**g_146))))) , 1L) || g_33))) > g_127), p_45)) <= l_318);
                         /* statement id: 149 */
                         assert (l_324 == &p_46);
-    trc("g_124=%i", g_124);
                         return l_300;
                     }
-    trc("g_124=%i", g_124);
-    trc("call func_47");
                     (*g_120) = func_47(p_46, (*l_160), (*g_120), g_59, ((safe_mul_func_uint8_t_u_u((~(safe_unary_minus_func_int64_t_s(p_44))), (safe_mod_func_int64_t_s_s(((*l_297) = (safe_div_func_uint16_t_u_u((!(((safe_mod_func_int16_t_s_s((g_343 = ((*l_342) = (~(g_117[(l_294 + 1)] |= g_33)))), (safe_lshift_func_int16_t_s_s(p_44, (0xE807L != ((safe_lshift_func_uint16_t_u_u((g_130 ^ 0x7034L), 8)) == l_316[0])))))) ^ 1UL) & 1UL)), 0x4741L))), (-8L))))) <= p_46));
-    trc("g_124=%i", g_124);
                 }
-    trc("g_124=%i", g_124);
                 return p_46;
             }
             /* facts after branching */
@@ -1586,7 +1501,6 @@ static int16_t  func_42(int32_t * p_43, int16_t  p_44, uint8_t  p_45, int8_t  p_
                     }
                     else
                     { /* block id: 175 */
-    trc("g_124=%i", g_124);
                         return g_92[1];
                         /* statement id: 176 */
                         //assert (g_121 == dangling);
@@ -1608,17 +1522,13 @@ static int16_t  func_42(int32_t * p_43, int16_t  p_44, uint8_t  p_45, int8_t  p_
         else
         { /* block id: 184 */
             int32_t l_421 = (-1L);
-    trc("g_124=%i", g_124);
-    trc("call func_47");
             (*g_120) = func_47((**g_146), p_45, func_47((safe_rshift_func_int8_t_s_u(p_46, 4)), (((*l_160) <= (g_413[1][1] | (safe_div_func_int16_t_s_s((((~((safe_sub_func_int8_t_s_s(g_188, (g_132 , p_45))) != ((!(((void*)0 == l_420[4][4][0]) , p_44)) | p_46))) && g_127) & (-10L)), 1UL)))) , 253UL), p_43, (*l_160), p_44), l_421, g_125);
-    trc("g_124=%i", g_124);
         }
         /* facts after branching */
         assert (g_121 == 0 || g_121 == &l_294);
     }
     /* facts after for loop */
     assert (g_121 == &l_294 || g_121 == 0);
-    trc("g_124=%i", g_124);
     return g_17;
     /* statement id: 188 */
     //assert (g_121 == dangling || g_121 == 0);
@@ -1632,13 +1542,11 @@ static int16_t  func_42(int32_t * p_43, int16_t  p_44, uint8_t  p_45, int8_t  p_
  */
 static int32_t * func_47(uint8_t  p_48, uint8_t  p_49, int32_t * p_50, int32_t  p_51, uint32_t  p_52)
 { /* block id: 49 */
-    trc("g_124=%i FAIL", g_124);
     uint64_t l_150 = 18446744073709551611UL;
     int32_t l_151 = 0x38E84D41L;
     union U0 l_156 = {8L};
     int32_t l_158 = 0xD8DAA76CL;
     l_158 ^= (((safe_add_func_int8_t_s_s(((g_146 != (void*)0) <= (p_51 && (((l_151 = l_150) , ((safe_rshift_func_uint16_t_u_u(p_49, 6)) >= ((safe_mul_func_uint8_t_u_u(p_48, ((p_49 < ((((l_156 , (-1L)) , l_150) , l_151) , 0x3353L)) | p_52))) != g_157))) != 9L))), 0x79L)) >= p_51) && l_151);
-    trc("g_124=%i", g_124);
     return (*g_120);
     /* statement id: 52 */
     //assert (func_47_rv == 0 || (func_47_rv >= &g_317[0] && func_47_rv <= &g_317[9]) || func_47_rv == &g_187 || func_47_rv == &g_33 || func_47_rv == &p_9 || (func_47_rv >= &l_1489[0][0][0] && func_47_rv <= &l_1489[6][5][1]) || func_47_rv == &l_2113 || (func_47_rv >= &g_1219[0] && func_47_rv <= &g_1219[8]));
@@ -1652,7 +1560,6 @@ static int32_t * func_47(uint8_t  p_48, uint8_t  p_49, int32_t * p_50, int32_t  
  */
 static int16_t  func_61(int32_t * p_62, uint64_t ** p_63, uint32_t  p_64, uint8_t  p_65)
 { /* block id: 19 */
-    trc("g_124=%i", g_124);
     uint32_t *l_74 = &g_59;
     union U0 *l_76 = &g_75;
     uint8_t *l_126 = &g_127;
@@ -1680,7 +1587,6 @@ static int16_t  func_61(int32_t * p_62, uint64_t ** p_63, uint32_t  p_64, uint8_
     //assert (l_136[0] == 0 || l_136[0] == &g_100);
     (*g_120) = (*g_120);
     g_33 &= g_125;
-    trc("g_124=%i", g_124);
     return g_119;
 }
 
@@ -1692,7 +1598,6 @@ static int16_t  func_61(int32_t * p_62, uint64_t ** p_63, uint32_t  p_64, uint8_
  */
 static uint32_t  func_72(union U0  p_73)
 { /* block id: 21 */
-    trc("g_124=%i", g_124);
     union U0 *l_78[4];
     union U0 **l_77 = &l_78[2];
     uint32_t *l_79[7][6] = {{(void*)0,&g_59,(void*)0,&g_59,&g_59,(void*)0},{&g_59,&g_59,(void*)0,&g_59,(void*)0,(void*)0},{&g_59,&g_59,&g_59,&g_59,(void*)0,(void*)0},{(void*)0,&g_59,&g_59,&g_59,&g_59,(void*)0},{(void*)0,&g_59,(void*)0,&g_59,&g_59,(void*)0},{&g_59,&g_59,(void*)0,&g_59,(void*)0,(void*)0},{&g_59,&g_59,&g_59,&g_59,(void*)0,(void*)0}};
@@ -1726,7 +1631,6 @@ static uint32_t  func_72(union U0  p_73)
     assert (l_88 == &g_33 || l_88 == &l_84);
     g_125 &= (safe_lshift_func_int8_t_s_s((g_124 = ((safe_lshift_func_int16_t_s_u((&l_91[0] != ((*l_122) = (((g_75.f0 ^= (0xB2L && ((&l_88 != (l_97 = l_97)) , ((*l_118) = ((g_26 <= ((*l_99)--)) <= ((safe_rshift_func_int16_t_s_u((safe_rshift_func_uint8_t_u_u((((((safe_mod_func_int16_t_s_s(((*l_116) = (+((safe_sub_func_int32_t_s_s(0xB07E043BL, p_73.f0)) , ((safe_rshift_func_uint8_t_u_s((((((*l_114) = &g_90) == &g_17) != l_115) != p_73.f0), (*l_88))) ^ 0L)))), 0xF06EL)) || p_73.f0) > p_73.f0) ^ 0xEA102817ACDDED4ELL) <= (*l_88)), 7)), p_73.f0)) , 1L)))))) != p_73.f0) , g_120))), 13)) > 0L)), 7));
     (*g_120) = ((g_75 , 18446744073709551614UL) , (*g_120));
-    trc("g_124=%i", g_124);
     return g_100;
 }
 
@@ -1738,10 +1642,9 @@ int main (int argc, char* argv[])
 {
     int i, j, k;
     int print_hash_value = 0;
-    /* if (argc == 2 && strcmp(argv[1], "1") == 0) */ print_hash_value = 1;
+    if (argc == 2 && strcmp(argv[1], "1") == 0) print_hash_value = 1;
     platform_main_begin();
     crc32_gentab();
-    trc("g_124=%i", g_124);
     func_1();
     transparent_crc(g_17, "g_17", print_hash_value);
     transparent_crc(g_26, "g_26", print_hash_value);
