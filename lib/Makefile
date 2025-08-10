@@ -4,12 +4,15 @@
 
 .PHONY:	all asm clean edit editor work test todo review shorttest csmith bgsmith rsync
 
+GOOS := $(shell go env GOOS)
+GOARCH := $(shell go env GOARCH)
+
 all: editor
 	golint
 	staticcheck
 
 asm:
-	echo "//go:build ignore" > atomic_linux_amd64.s
+	echo "//go:build ignore" > atomic_${GOOS}_${GOARCH}.s
 	gcc atomic.c -S
 	cat atomic.s >> atomic_linux_amd64.s
 	rm atomic.s
