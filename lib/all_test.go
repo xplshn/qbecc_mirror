@@ -496,11 +496,110 @@ var csmithFixedBugs = []string{
 
 	// qbecc
 	"--max-nested-struct-level 10 --no-const-pointers --no-consts --no-packed-struct --no-volatile-pointers --no-volatiles --paranoid -s 16158483724416576105",
-
+	"--max-nested-struct-level 10 --no-const-pointers --no-consts --no-packed-struct --no-volatile-pointers --no-volatiles --paranoid -s 92087308333874441",
 	"--max-nested-struct-level 10 --no-const-pointers --no-consts --no-packed-struct --no-volatile-pointers --no-volatiles --paranoid -s 15024275419590464623",
 	"--max-nested-struct-level 10 --no-const-pointers --no-consts --no-packed-struct --no-volatile-pointers --no-volatiles --paranoid -s 5230333844509866022",
-	"--max-nested-struct-level 10 --no-const-pointers --no-consts --no-packed-struct --no-volatile-pointers --no-volatiles --paranoid -s 92087308333874441", 
 }
+
+/*
+
+Issue draft:
+
+The C file in `testdata/issue1/main.c` was initially produced like this:
+```
+jnml@rpi5:~/tmp/qbecc $ csmith --version
+csmith 2.3.0
+Git version: 30dccd7
+jnml@rpi5:~/tmp/qbecc $ csmith --max-nested-struct-level 10 --no-const-pointers --no-consts --no-packed-struct --no-volatile-pointers --no-volatiles --paranoid -s 15024275419590464623 > main.c
+jnml@rpi5:~/tmp/qbecc $
+```
+
+Some manual editing in attempt to find the exact bug was made into testdata/issue1/main1.c
+
+To produce the gcc binary and run it:
+
+```
+$ gcc -w main.c -I/usr/include/csmith/ -lm && ./a.out
+```
+
+To install qbecc, provided one has Go installed:
+
+```
+$ go install modernc.org/qbecc@latest
+```
+
+To produce the qbecc binary and run it:
+
+```
+qbecc main.c -I/usr/include/csmith/ -lm && ./a.out
+```
+
+To produce the SSA:
+
+```
+qbecc --dump-ssa main.c -I/usr/include/csmith/ -lm 2> main.ssa
+```
+
+
+The current hypothesis is that it is an qbe bug. We are using:
+
+```
+commit 120f316162879b6165deba77815cd4193fb2fb59
+Author: Quentin Carbonneaux <quentin@c9x.me>
+Date:   Fri May 30 17:40:17 2025 +0200
+
+    skip deleted phis in use width scan
+```
+
+via modernc.org/libqbe v0.3.20.
+
+Disabling the arm64 target for now.
+
+Minimizing the big, csmith-generated program is not easily feasible. However, a place was found which is hoped to be helful for QBE's author to investigate. This lines
+
+```c
+   475      int64_t xx = l_1487;
+   476      trc("xx=%lli", xx);
+```
+
+output
+
+```
+[TRACE] main.c:464: xx=1
+```
+
+when main1.c is compiled by gcc
+
+and
+
+```
+[TRACE] main.c:464: xx=-317511592
+```
+
+The relevant SSA is this:
+
+```
+  9157  @.987
+  9158          %.2355 =w copy %l_1487.34
+  9159          %.2356 =l extsw %.2355
+  9160          %xx.63 =l copy %.2356
+  9161  @.990
+  9162          %.2357 =l copy %xx.63
+  9163          %.2358 =w call $"printf"(l $".ts.919",...,l $".ts.695",w 464,l %.2357,)
+```
+
+looks IMO fine. `l_1487` is `int32_t`, the `extsw` at line 9159 should make it correctly into an `int64_t` value of 1, but it does not.
+
+----
+
+
+Possible futher steps:
+
+  - [ ] Generate the .SSA files from issue1.c on linux/amd64, where it passes and on linux/arm64 where it fails.
+  - [ ] Try the ssa files on the other target if that changes something
+  - [ ] Looking at the .s file on arm64 would be nice, but I do not know the arm64 assembler instructions at all.
+
+*/
 
 func TestCSmith(t *testing.T) {
 	if testing.Short() {
@@ -602,7 +701,7 @@ func execCSmith(t *testing.T, p *parallelTest, dir, csmithBin, csmithArgs string
 		x := bytes.Index(csOut, seed)
 		b := csOut[x+len(seed):]
 		x = bytes.IndexByte(b, '\n')
-		csmithArgs += " -s " + strings.TrimSpace(string(b[:x])) + " # new"
+		csmithArgs += " -s " + strings.TrimSpace(string(b[:x])) + " #"
 	}
 
 	// trc("write main.c")

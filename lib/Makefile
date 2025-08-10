@@ -2,7 +2,7 @@
 # Use of this source code is governed by a BSD-style
 # license that can be found in the LICENSE file.
 
-.PHONY:	all asm clean edit editor work test todo review shorttest csmith bgsmith
+.PHONY:	all asm clean edit editor work test todo review shorttest csmith bgsmith rsync
 
 all: editor
 	golint
@@ -70,7 +70,10 @@ review:
 	ls -l log-review
 
 shorttest:
-	go test -v -timeout 24h -short
+	go test -v -timeout 24h -csmithn 100
 
 bgsmith:
 	GOMAXPROCS=1 go test -v -timeout 2400h -run TestCSmith -trc -csmithn 1000000 -csmith 2399h
+
+rsync:
+	rsync -avz --delete ../../qbecc/ rpi5:src/modernc.org/qbecc/
