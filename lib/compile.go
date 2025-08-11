@@ -490,7 +490,7 @@ func (t *Task) compileOne(in *compilerFile) bool {
 
 	r.emitComplits()
 	if t.dumpSSA {
-		fmt.Fprintf(os.Stderr, "==== SSA\n%s", r.buf.b.Bytes())
+		fmt.Fprintf(os.Stderr, "# ==== SSA\n%s", r.buf.b.Bytes())
 	}
 	if err = t.asmFile(in.name, r); err != nil {
 		t.err(fileNode(in.name), "%v", err)

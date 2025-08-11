@@ -9,6 +9,8 @@ package qbecc // import "modernc.org/qbecc/lib"
 
 //TODO use blit for small copies only
 //TODO zero small values without memset
+//TODO do not zero and then set value when the size is equal
+//TODO like .isConst add and use .isZero
 
 import (
 	_ "embed"

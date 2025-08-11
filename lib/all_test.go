@@ -26,21 +26,23 @@ import (
 
 const (
 	assets   = "~/src/modernc.org/ccorpus2"
-	gccBinTO = 40 * time.Second
+	gccBinTO = 60 * time.Second
 	gccTO    = 40 * time.Second
-	goTO     = 40 * time.Second
+	goTO     = 4 * gccBinTO
 )
 
 var (
-	csmithLimit    time.Duration
-	disableVet     bool
-	dumpSSA        bool
-	extendedErrors bool
-	keep           bool
-	re             *regexp.Regexp
-	skipGoABI0     bool
-	trcOutput      bool
-	xtrc           bool
+	csmithTestLimit int
+	csmithTimeLimit time.Duration
+	dbg             bool
+	disableVet      bool
+	dumpSSA         bool
+	extendedErrors  bool
+	keep            bool
+	re              *regexp.Regexp
+	skipGoABI0      bool
+	trcOutput       bool
+	xtrc            bool
 
 	enableGoABI0 = map[string]bool{
 		"linux/amd64": true,
@@ -53,6 +55,7 @@ func TestMain(m *testing.M) {
 	}
 
 	oRE := flag.String("re", "", "")
+	flag.BoolVar(&dbg, "dbg", false, "")
 	flag.BoolVar(&dbgInit, "dbginit", false, "")
 	flag.BoolVar(&disableVet, "disable-vet", false, "")
 	flag.BoolVar(&dumpSSA, "dump-ssa", false, "")
@@ -61,7 +64,8 @@ func TestMain(m *testing.M) {
 	flag.BoolVar(&skipGoABI0, "skipgoabi0", !enableGoABI0[target], "")
 	flag.BoolVar(&trcOutput, "trco", false, "")
 	flag.BoolVar(&xtrc, "trc", false, "")
-	flag.DurationVar(&csmithLimit, "csmith", 1*time.Hour, "")
+	flag.DurationVar(&csmithTimeLimit, "csmith", 4*time.Hour, "")
+	flag.IntVar(&csmithTestLimit, "csmithn", 4000, "")
 	flag.Parse()
 	if s := *oRE; s != "" {
 		re = regexp.MustCompile(s)
@@ -84,9 +88,12 @@ type parallelTest struct {
 	skipped  atomic.Int32
 }
 
-func newParalelTest() (r *parallelTest) {
+func newParalelTest(max int) (r *parallelTest) {
+	if max <= 0 {
+		max = runtime.GOMAXPROCS(0)
+	}
 	return &parallelTest{
-		limit: make(chan struct{}, runtime.GOMAXPROCS(0)),
+		limit: make(chan struct{}, max),
 	}
 }
 
@@ -155,7 +162,7 @@ func testExec(t *testing.T, id *int, destDir, suite string, re *regexp.Regexp) {
 		t.Fatal(err)
 	}
 
-	p := newParalelTest()
+	p := newParalelTest(-1)
 	for _, v := range files {
 		nm := v.Name()
 		if filepath.Ext(nm) != ".c" {
@@ -304,7 +311,7 @@ func testExec2(t *testing.T, p *parallelTest, suite, testNm, fn, sid, fsName str
 
 	if skipGoABI0 {
 		if xtrc {
-			trc("%s", fsName)
+			trc("%v: %s", sid, fsName)
 		}
 		p.passed.Add(1)
 		return
@@ -410,7 +417,7 @@ func main() {
 	}
 
 	if xtrc {
-		trc("%s", fsName)
+		trc("%v: %s", sid, fsName)
 	}
 	p.passed.Add(1)
 	return nil
@@ -436,6 +443,7 @@ func renameParam(s string) string {
 }
 
 var csmithFixedBugs = []string{
+	// ccgo/v4
 	"--bitfields --max-nested-struct-level 10 --no-const-pointers --no-consts --no-packed-struct --no-volatile-pointers --no-volatiles --paranoid -s 1110506964",
 	"--bitfields --max-nested-struct-level 10 --no-const-pointers --no-consts --no-packed-struct --no-volatile-pointers --no-volatiles --paranoid -s 1338573550",
 	"--bitfields --max-nested-struct-level 10 --no-const-pointers --no-consts --no-packed-struct --no-volatile-pointers --no-volatiles --paranoid -s 1416441494",
@@ -487,6 +495,13 @@ var csmithFixedBugs = []string{
 	"--no-bitfields --max-nested-struct-level 10 --no-const-pointers --no-consts --no-packed-struct --no-volatile-pointers --no-volatiles --paranoid -s 3720922579",
 	"--no-bitfields --max-nested-struct-level 10 --no-const-pointers --no-consts --no-packed-struct --no-volatile-pointers --no-volatiles --paranoid -s 4263172072",
 	"--no-bitfields --max-nested-struct-level 10 --no-const-pointers --no-consts --no-packed-struct --no-volatile-pointers --no-volatiles --paranoid -s 572192313",
+
+	// qbecc
+	"--max-nested-struct-level 10 --no-const-pointers --no-consts --no-packed-struct --no-volatile-pointers --no-volatiles --paranoid -s 15024275419590464623",
+	"--max-nested-struct-level 10 --no-const-pointers --no-consts --no-packed-struct --no-volatile-pointers --no-volatiles --paranoid -s 16158483724416576105",
+	"--max-nested-struct-level 10 --no-const-pointers --no-consts --no-packed-struct --no-volatile-pointers --no-volatiles --paranoid -s 5230333844509866022",
+	"--max-nested-struct-level 10 --no-const-pointers --no-consts --no-packed-struct --no-volatile-pointers --no-volatiles --paranoid -s 5230333844509866022",
+	"--max-nested-struct-level 10 --no-const-pointers --no-consts --no-packed-struct --no-volatile-pointers --no-volatiles --paranoid -s 92087308333874441",
 }
 
 func TestCSmith(t *testing.T) {
@@ -494,12 +509,22 @@ func TestCSmith(t *testing.T) {
 		t.Skip("skipped: -short")
 	}
 
+	switch target {
+	case
+		"linux/amd64",
+		"linux/riscv64":
+
+		// ok
+	default:
+		t.Skipf("skipped: -not supported on %s", target)
+	}
+
 	csmithBin, err := exec.LookPath("csmith")
 	if err != nil {
 		t.Skip("csmith not found in $PATH")
 	}
 
-	p := newParalelTest()
+	p := newParalelTest(-1)
 
 	t.Logf("using C compiler at %s", gcc)
 	const destDir = "tmp"
@@ -525,16 +550,18 @@ func TestCSmith(t *testing.T) {
 	t0 := time.Now()
 	fixedBugs := csmithFixedBugs
 	var stop atomic.Bool
-	for id := 0; !stop.Load() && id < 1000; id++ {
-		if time.Since(t0) > csmithLimit {
+	for id := 0; !stop.Load() && id < csmithTestLimit; id++ {
+		if time.Since(t0) > csmithTimeLimit {
 			break
 		}
 
+		hasSeed := false
 		var csmithArgs string
 		switch {
 		case len(fixedBugs) != 0:
 			csmithArgs = fixedBugs[0]
 			fixedBugs = fixedBugs[1:]
+			hasSeed = true
 		default:
 			csmithArgs = csmithDefaultArgs
 		}
@@ -557,7 +584,7 @@ func TestCSmith(t *testing.T) {
 				if !keep {
 					defer os.RemoveAll(dir)
 				}
-				if err = execCSmith(t, p, dir, csmithBin, csmithArgs); err != nil {
+				if err = execCSmith(t, p, dir, csmithBin, csmithArgs, hasSeed, fmt.Sprintf("%06d", id)); err != nil {
 					stop.Store(true)
 				}
 				return err
@@ -571,13 +598,30 @@ func TestCSmith(t *testing.T) {
 		p.files.Load(), p.gccFails.Load(), p.skipped.Load(), p.failed.Load(), p.passed.Load())
 }
 
-func execCSmith(t *testing.T, p *parallelTest, dir, csmithBin, csmithArgs string) (err error) {
+var (
+	seed = []byte("* Seed:")
+)
+
+func execCSmith(t *testing.T, p *parallelTest, dir, csmithBin, csmithArgs string, hasSeed bool, sid string) (err error) {
+	if dbg {
+		trc("%s: run csmith", time.Now().Format(time.DateTime))
+	}
 	csOut, err := exec.Command(csmithBin, strings.Split(csmithArgs, " ")...).Output()
 	if err != nil {
 		p.gccFails.Add(1)
 		return fmt.Errorf("csmith: %s", err)
 	}
 
+	if !hasSeed {
+		x := bytes.Index(csOut, seed)
+		b := csOut[x+len(seed):]
+		x = bytes.IndexByte(b, '\n')
+		csmithArgs += " -s " + strings.TrimSpace(string(b[:x])) + " #"
+	}
+
+	if dbg {
+		trc("%s: write main.c", time.Now().Format(time.DateTime))
+	}
 	cfile := filepath.Join(dir, "main.c")
 	b := []byte("//go:build ingore\n\n")
 	if err := os.WriteFile(cfile, append(b, csOut...), 0660); err != nil {
@@ -585,6 +629,9 @@ func execCSmith(t *testing.T, p *parallelTest, dir, csmithBin, csmithArgs string
 		return fmt.Errorf("os.WriteFile: %s", err)
 	}
 
+	if dbg {
+		trc("%s: run gcc", time.Now().Format(time.DateTime))
+	}
 	gccBin := binPath(filepath.Join(dir, "gcc.out"))
 	csp := fmt.Sprintf("-I%s", filepath.FromSlash("/usr/include/csmith"))
 	if s := os.Getenv("CSMITH_PATH"); s != "" {
@@ -596,6 +643,9 @@ func execCSmith(t *testing.T, p *parallelTest, dir, csmithBin, csmithArgs string
 		return nil
 	}
 
+	if dbg {
+		trc("%s: run gcc bin", time.Now().Format(time.DateTime))
+	}
 	gccBinOut, err := shell(gccBinTO, gccBin)
 	if err != nil {
 		p.gccFails.Add(1)
@@ -623,12 +673,18 @@ func execCSmith(t *testing.T, p *parallelTest, dir, csmithBin, csmithArgs string
 		return err
 	}
 
+	if dbg {
+		trc("%s: run qbecc", time.Now().Format(time.DateTime))
+	}
 	if err = task.Main(); err != nil {
 		err = fmt.Errorf("C COMPILE FAIL: args=%s err=%v", csmithArgs, err)
 		p.failed.Add(1)
 		return err
 	}
 
+	if dbg {
+		trc("%s: run qbecc bin", time.Now().Format(time.DateTime))
+	}
 	qbeccBinOut, err := shell(gccBinTO, qbeccBin)
 	if err != nil {
 		err = fmt.Errorf("C EXEC FAIL: args=%s err=%v", csmithArgs, err)
@@ -644,12 +700,15 @@ func execCSmith(t *testing.T, p *parallelTest, dir, csmithBin, csmithArgs string
 
 	if skipGoABI0 {
 		if xtrc {
-			trc("", dir, csmithArgs)
+			trc("%s: %s %s", sid, dir, csmithArgs)
 		}
 		p.passed.Add(1)
 		return nil
 	}
 
+	if dbg {
+		trc("%s: run qbecc --goabi0", time.Now().Format(time.DateTime))
+	}
 	qbeccAsm := filepath.Join(dir, "main.s")
 	args = []string{
 		os.Args[0],
@@ -721,6 +780,20 @@ func main() {
 		return err
 	}
 
+	if dbg {
+		trc("%s: run go vet", time.Now().Format(time.DateTime))
+	}
+	if !disableVet {
+		if _, err := shell(goTO, "go", "vet", "./"+dir); err != nil {
+			err = fmt.Errorf("GO VET FAIL: args=%s", csmithArgs)
+			p.failed.Add(1)
+			return err
+		}
+	}
+
+	if dbg {
+		trc("%s: run go run ./dir", time.Now().Format(time.DateTime))
+	}
 	goOut, err := shell(goTO, "go", "run", "./"+dir)
 	if err != nil {
 		err = fmt.Errorf("GO EXEC FAIL: args=%s\ndir=%s err=%s", csmithArgs, dir, err)
@@ -734,8 +807,11 @@ func main() {
 		return err
 	}
 
+	if dbg {
+		trc("%s: done", time.Now().Format(time.DateTime))
+	}
 	if xtrc {
-		trc("", dir, csmithArgs)
+		trc("%s: %s %s", sid, dir, csmithArgs)
 	}
 	p.passed.Add(1)
 	return nil

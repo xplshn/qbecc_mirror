@@ -74,7 +74,7 @@ func (n *localVar) String() string {
 
 // Declared in function scope, storage duration automatic, escaped to TLSAlloc.
 // Also used for the non-declared storage required for "return structFunc();"
-// or "func(structFunc());" etc. (d == nil)
+// or "func(structFunc());" or "(struct s)42;" etc. (d == nil)
 type escapedVar struct {
 	varinfo
 	d      *cc.Declarator
@@ -287,6 +287,7 @@ type inlineStackItem struct {
 type fnCtx struct {
 	allocs           int64
 	breakCtx         *breakContinueCtx
+	post             []func()
 	continueCtx      *breakContinueCtx
 	ctx              *ctx
 	exprStatementCtx *exprStatementCtx
@@ -363,6 +364,10 @@ func (fn *fnCtx) fill(c *ctx, n *cc.FunctionDefinition, inlineLevel int) {
 				*cc.UnaryExpression:
 
 				if c.isComplexType(x.(cc.ExpressionNode).Type()) {
+					fn.variables.register(x, fn, c, inlineLevel)
+				}
+			case *cc.CastExpression: // '(' TypeName ')' CastExpression
+				if c.isAggType(x.TypeName.Type()) && !c.isAggType(x.CastExpression.Type()) {
 					fn.variables.register(x, fn, c, inlineLevel)
 				}
 			}
@@ -517,6 +522,9 @@ func (c *ctx) externalDeclarationFuncDef(n *cc.FunctionDefinition) {
 	c.fn = f
 
 	defer func() {
+		for _, v := range f.post {
+			v()
+		}
 		c.fn = nil
 	}()
 
@@ -691,6 +699,7 @@ func (c *ctx) externalDeclarationDeclFull(n *cc.Declaration) {
 
 // Declaration
 func (c *ctx) externalDeclarationDecl(n *cc.Declaration) {
+	// c.w("\n# %v: %s\n", n.Position(), cc.NodeSource(n))
 	switch n.Case {
 	case cc.DeclarationDecl: // DeclarationSpecifiers InitDeclaratorList AttributeSpecifierList ';'
 		c.externalDeclarationDeclFull(n)

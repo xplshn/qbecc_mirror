@@ -94,6 +94,40 @@ func (n *initMapItem) String() string {
 // initializer renderer
 type initMap map[int64][]*initMapItem // offset: item
 
+func isConstExpr(n cc.ExpressionNode) bool {
+	switch x := n.Value().(type) {
+	case *cc.UnknownValue, cc.VoidValue:
+		return false
+	case
+		*cc.ComplexLongDoubleValue,
+		*cc.LongDoubleValue,
+		*cc.ZeroValue,
+		cc.Complex128Value,
+		cc.Complex64Value,
+		cc.Float64Value,
+		cc.Int64Value,
+		cc.StringValue,
+		cc.UInt64Value,
+		cc.UTF16StringValue,
+		cc.UTF32StringValue:
+
+		return true
+	default:
+		panic(todo("%v: %s %T", n.Position(), cc.NodeSource(n), x))
+	}
+}
+
+func (m initMap) isConst() bool {
+	for _, v := range m {
+		for _, w := range v {
+			if !isConstExpr(w.n) {
+				return false
+			}
+		}
+	}
+	return true
+}
+
 func (c *ctx) initLocalVar(n cc.Node, v *localVar, t cc.Type, m initMap, offs []int64) {
 	switch t.Kind() {
 	case cc.Struct, cc.Union, cc.Array:
@@ -124,7 +158,34 @@ func (c *ctx) littleEndianUTF32string(s cc.UTF32StringValue) (r string) {
 	return b.String()
 }
 
+func (c *ctx) initEscapedVarConst(n cc.Node, v *escapedVar, t cc.Type, m initMap, offs []int64) {
+	nm := fmt.Sprintf("$.ci%v", c.id())
+	p := c.temp("%s add %%.bp., %v\n", c.wordTag, v.offset)
+	c.w("\tcall $memcpy(%s %s, %[1]s %[3]s, %[1]s %[4]v)\n", c.wordTag, p, nm, c.sizeof(n, t))
+	c.fn.post = append(c.fn.post, func() {
+		c.w("data %s = align %d {\n", nm, t.Align())
+		c.initStaticVar(n, v, t, m, offs)
+		c.w("}\n")
+	})
+}
+
 func (c *ctx) initEscapedVar(n cc.Node, v *escapedVar, t cc.Type, m initMap, offs []int64) {
+	if len(offs) != 0 && m.isConst() {
+		switch item := m[offs[0]][0]; {
+		case len(m) == 1 && c.isScalarType(t):
+			// ok
+		case c.isAggType(t) && c.sizeof(n, t) <= 16:
+			//
+		case len(m) == 1 && item.t.Kind() == cc.Array && isConstExpr(item.n):
+			// ok
+		case len(m) == 1 && (c.isIntegerType(item.t) || c.isFloatingPointType(item.t)):
+			// ok
+		default:
+			c.initEscapedVarConst(n, v, t, m, offs)
+			return
+		}
+	}
+
 	if dbgInit {
 		trc("==== t=%s(%v)", t, t.Size())
 		for _, off := range offs {
@@ -271,7 +332,8 @@ outer:
 				}
 				nb := noff - off
 				size = off + nb
-				bits := uint64(0)
+				var bits, mask uint64
+				bitLen := 0
 				if dbgInit {
 					trc("off=%v noff=%v size=%v nb=%v", off, noff, size, nb)
 				}
@@ -282,7 +344,9 @@ outer:
 					}
 
 					bf := item.bf()
-					switch x := c.expr(item.n, constRvalue, item.t).(type) {
+					mask |= bf.Mask()
+					v := c.expr(item.n, constRvalue, item.t)
+					switch x := v.(type) {
 					case int64Value:
 						bits |= (uint64(x) << bo) & bf.Mask()
 					case uint64Value:
@@ -290,18 +354,27 @@ outer:
 					default:
 						panic(todo("%v: %s f=%s t=%s %T", item.n.Position(), cc.NodeSource(item.n), bf.Name(), item.t, x))
 					}
+					bitLen = max(bitLen, bf.OffsetBits()+int(bf.ValueBits()))
 				}
-				switch nb {
-				case 1:
+				var nbytes int64
+				switch {
+				case bitLen <= 8:
+					nbytes = 1
 					c.w("\tb %v,\n", bits)
-				case 2:
+				case bitLen <= 16:
+					nbytes = 2
 					c.w("\th %v,\n", bits)
-				case 4:
+				case bitLen <= 32:
+					nbytes = 4
 					c.w("\tw %v,\n", bits)
-				case 8:
+				case bitLen <= 64:
+					nbytes = 8
 					c.w("\tl %v,\n", bits)
 				default:
 					panic(todo("%v: %s f=%s t=%s nb=%v", item.n.Position(), cc.NodeSource(item.n), bf.Name(), item.t, nb))
+				}
+				if nn := nb - nbytes; nn > 0 {
+					c.w("\tz %v,\n", nn)
 				}
 				continue outer
 			}
@@ -403,7 +476,34 @@ outer:
 	}
 }
 
+func (c *ctx) initComplitConst(n cc.Node, v *complitVar, t cc.Type, m initMap, offs []int64) {
+	nm := fmt.Sprintf("$.ci%v", c.id())
+	p := c.temp("%s add %%.bp., %v\n", c.wordTag, v.offset)
+	c.w("\tcall $memcpy(%s %s, %[1]s %[3]s, %[1]s %[4]v)\n", c.wordTag, p, nm, c.sizeof(n, t))
+	c.fn.post = append(c.fn.post, func() {
+		c.w("data %s = align %d {\n", nm, t.Align())
+		c.initStaticVar(n, v, t, m, offs)
+		c.w("}\n")
+	})
+}
+
 func (c *ctx) initComplit(n cc.Node, v *complitVar, t cc.Type, m initMap, offs []int64) {
+	if len(offs) != 0 && m.isConst() {
+		switch item := m[offs[0]][0]; {
+		case len(m) == 1 && c.isScalarType(t):
+			// ok
+		case c.isAggType(t) && c.sizeof(n, t) <= 16:
+			//
+		case len(m) == 1 && item.t.Kind() == cc.Array && isConstExpr(item.n):
+			// ok
+		case len(m) == 1 && (c.isIntegerType(item.t) || c.isFloatingPointType(item.t)):
+			// ok
+		default:
+			c.initComplitConst(n, v, t, m, offs)
+			return
+		}
+	}
+
 	zeroed := false
 	switch t.Kind() {
 	case cc.Struct, cc.Union, cc.Array:

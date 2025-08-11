@@ -99,6 +99,7 @@ func (c *ctx) statement(n *cc.Statement) {
 	case cc.StatementCompound: // CompoundStatement
 		c.compoundStatement(n.CompoundStatement)
 	case cc.StatementExpr: // ExpressionStatement
+		// c.w("\n# %v: %s\n", n.Position(), cc.NodeSource(n))
 		c.expressionStatement(n.ExpressionStatement)
 	case cc.StatementSelection: // SelectionStatement
 		c.selectionStatement(n.SelectionStatement)
@@ -362,16 +363,6 @@ func (c *ctx) isNonzero(n cc.ExpressionNode) (r bool) {
 	}
 }
 
-func (c *ctx) bool(n cc.ExpressionNode) (r any) {
-	switch r = c.expr(n, rvalue, n.Type()); n.Type().Kind() {
-	case cc.Float:
-		r = c.temp("w cnes %s, s_0\n", r)
-	case cc.Double:
-		r = c.temp("w cned %s, d_0\n", r)
-	}
-	return r
-}
-
 // "if" '(' ExpressionList ')' Statement
 func (c *ctx) selectionStatementIf(n *cc.SelectionStatement) {
 	a := c.label()
@@ -621,6 +612,7 @@ func (c *ctx) blockItemDeclAutomatic(n *cc.InitDeclarator) {
 
 // Declaration
 func (c *ctx) blockItemDecl(n *cc.Declaration) {
+	// c.w("\n# %v: %s\n", n.Position(), cc.NodeSource(n))
 	switch n.Case {
 	case cc.DeclarationDecl: // DeclarationSpecifiers InitDeclaratorList AttributeSpecifierList ';'
 		for l := n.InitDeclaratorList; l != nil; l = l.InitDeclaratorList {

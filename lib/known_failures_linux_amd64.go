@@ -184,6 +184,11 @@ package qbecc // import "modernc.org/qbecc/lib"
 //	all_test.go:200: gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute: files=1506 gcc fails=24 skipped=257 failed=0 passed=1237
 //	all_test.go:200: tcc-0.9.27/tests/tests2: files=88 gcc fails=8 skipped=9 failed=0 passed=71
 
+// 2025-08-06
+//	all_test.go:203: CompCert-3.6/test/c: files=24 gcc fails=1 skipped=1 failed=0 passed=22
+//	all_test.go:203: gcc-9.1.0/gcc/testsuite/gcc.c-torture/execute: files=1506 gcc fails=24 skipped=244 failed=0 passed=1238
+//	all_test.go:203: tcc-0.9.27/tests/tests2: files=88 gcc fails=8 skipped=9 failed=0 passed=71
+
 var blacklist = map[string]struct{}{
 	// ---------------------------------------------- "CompCert-3.6/test/c"
 
@@ -471,7 +476,6 @@ var blacklist = map[string]struct{}{
 
 	// Won't fix: other
 	"76_dollars_in_identifiers.c": {}, // '$' in identifiers
-	"960416-1.c":                  {}, // cast integer to union
 	"pr34154.c":                   {}, // case ranges not supported
 
 	// C EXEC FAIL

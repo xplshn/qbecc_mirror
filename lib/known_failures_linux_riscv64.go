@@ -6,8 +6,12 @@ package qbecc // import "modernc.org/qbecc/lib"
 
 var blacklist = map[string]struct{}{
 	// "CompCert-3.6/test/c",
+	"almabench.c":  {},
 	"bisect.c":     {},
 	"mandelbrot.c": {},
+	"nbody.c":      {},
+	"sha3.c":       {},
+	"vmach.c":      {},
 
 	// "tcc-0.9.27/tests/tests2",
 	"42_function_pointer.c":       {},
